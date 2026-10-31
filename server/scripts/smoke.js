@@ -2,6 +2,11 @@
 // Внимание: делает /reset — сбрасывает прогресс всех игроков на этом сервере.
 // SERVER=http://localhost:3000 по умолчанию.
 import WebSocket from 'ws';
+import { readFileSync } from 'node:fs';
+
+// Координаты объектов корабля — из раскладки Фронта 1, чтобы тест не ломался при перестановке
+const LAYOUT = JSON.parse(readFileSync(new URL('../../content/ship_layout.json', import.meta.url), 'utf8'));
+const at = (id) => { const o = LAYOUT.interact.find((x) => x.id === id); return [o.p[0], o.p[2]]; };
 
 const BASE = process.env.SERVER || 'http://localhost:3000';
 const WS_URL = BASE.replace(/^http/, 'ws') + '/ws';
@@ -201,13 +206,14 @@ await sleep(1600);
 check(!!g2.quest('q_hourglass') && !!p.quest('q_latitude') && !!l.quest('q_ask_columbus'), 'каждому пришло задание его роли');
 check(!!g2.quest('q_items')?.optional, 'общее необязательное задание «Осмотреться»');
 
-await g2.walkTo(1.2, -9);
+await g2.walkTo(...at('hourglass'));
 g2.send('interact', { id: 'hourglass' });
 check(!!(await g2.wait('notice', (m) => m.text.includes('Песок'))), 'часы ещё не пусты → notice');
 
 p.send('pickup', { id: 'astrolabe' });
 check(!!(await p.wait('inventory', (m) => m.items.includes('astrolabe'))), 'штурман взял астролябию');
 check(!!(await g2.wait('entity', (m) => m.id === 'astrolabe' && m.state.holder === p.id)), 'остальные видят entity: астролябия взята');
+await g2.walkTo(...at('astrolabe'));
 g2.send('pickup', { id: 'astrolabe' });
 check(!!(await g2.wait('notice', (m) => m.text.includes('уже взял'))), 'второй раз взять нельзя');
 p.send('minigame', { game: 'astrolabe', result: { answer: 17 } });
@@ -306,9 +312,9 @@ for (const b of [g3, p, l]) b.clear();
 g3.send('chat', { text: '/scene ship_evening' });
 for (const b of [g3, p, l]) b.pos = (await b.wait('scene', (m) => m.id === 'ship_evening')).spawn;
 await sleep(1600);
-await g3.walkTo(-1.4, 7.3);
+await g3.walkTo(...at('wine_barrel'));
 g3.send('interact', { id: 'wine_barrel' });
-await g3.walkTo(0, 2.5);
+await g3.walkTo(...at('dance'));
 g3.send('interact', { id: 'dance' });
 g3.send('minigame', { game: 'cards', result: { success: true } });
 check(!!(await g3.wait('quest', (m) => m.id === 'q_feast' && m.status === 'done')), 'праздник: 3 из 4 → выполнено');
