@@ -69,7 +69,7 @@ function resolve(layout, h0) {
       if (!base) throw new Error(`[terrain] ${o.id}: нет объекта ${o.rel}`);
       const [dx, dz] = rot(base.r ?? 0, o.off[0], o.off[1]);
       const x = base.p[0] + dx, z = base.p[2] + dz;
-      return [r1(x), o.y ?? (o.dy !== undefined ? r1(base.p[1] + o.dy) : null), r1(z)];
+      return [r1(x), o.y ?? (o.dy !== undefined ? r2(base.p[1] + o.dy) : null), r1(z)];
     }
     if (o.shore) {
       // идём от суши к морю, пока берег не опустится ниже настила; пристань начинается на метр раньше

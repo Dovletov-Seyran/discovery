@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Collider } from './collision.js';
 import { bake } from './geom.js';
 import { ISLAND_MODELS, VEGETATION } from './islandModels.js';
-import { place, colliderFor, buildInteract, buildNpc } from './props.js';
+import { MODELS, place, colliderFor, buildInteract, buildNpc } from './props.js';
 import { fbm } from './texgen.js';
 
 // The island zone (F1.5): every chunk from the server becomes terrain + buildings + interactables + NPCs
@@ -120,7 +120,7 @@ export class Island {
         if (this.veg[o.m].col) col.push(...colliderFor(this.veg[o.m].col, o));
         continue;
       }
-      const make = ISLAND_MODELS[o.m];
+      const make = ISLAND_MODELS[o.m] ?? MODELS[o.m]; // ящики, бочки, бухты каната — как на корабле
       if (!make) { console.warn('[world] unknown island model', o.m); continue; }
       const { obj, col: cc } = make(this.M);
       decor.add(place(obj, o));
@@ -138,6 +138,9 @@ export class Island {
       c.npcs.push(obj); c.root.add(obj); col.push(...cc);
     }
     c.collider = new Collider(col);
+    // the real extent of everything in the chunk: a church in a corner reaches 10 m into the neighbours
+    c.collider.geometry.computeBoundingBox();
+    c.bounds = c.collider.geometry.boundingBox;
     this.chunks.set(key, c);
     this.group.add(c.root);
     this.shade(c);
@@ -201,10 +204,14 @@ export class Island {
       return { onGround: true, delta };
     }
     this.hold = null;
+    // every chunk whose colliders reach the capsule — not only the one under it: a building near a chunk
+    // edge sticks out into the next chunk, and from there you used to walk through its walls
+    const m = radius + 0.5;
     for (const c of this.chunks.values()) {
       if (!c.visible) continue;
-      const x0 = c.cx * CS - 3, z0 = c.cz * CS - 3;
-      if (start.x < x0 || start.x > x0 + CS + 6 || start.z < z0 || start.z > z0 + CS + 6) continue;
+      const b = c.bounds;
+      if (start.x < b.min.x - m || start.x > b.max.x + m || start.z < b.min.z - m || start.z > b.max.z + m) continue;
+      if (Math.min(start.y, end.y) > b.max.y + m || Math.max(start.y, end.y) < b.min.y - m) continue;
       const r = c.collider.collide(capsule);
       onGround ||= r.onGround;
       delta.add(r.delta);

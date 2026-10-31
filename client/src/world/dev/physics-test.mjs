@@ -10,6 +10,7 @@ import { buildShip } from '../ship.js';
 import { buildLayout } from '../props.js';
 import { Collider } from '../collision.js';
 import { Island } from '../island.js';
+import { ISLAND_MODELS } from '../islandModels.js';
 import { xAtY, topY, L0, L1 } from '../hullShape.js';
 import { generateCanary } from '../../../../server/world/terrain.js';
 
@@ -18,7 +19,7 @@ const json = (p) => JSON.parse(readFileSync(new URL(p, ROOT), 'utf8'));
 const only = process.argv[2];
 
 // Materials are irrelevant for collisions: one plain material for every kind
-const plain = new THREE.MeshStandardMaterial();
+const plain = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide }); // as hull and sails in the game: rays hit both faces
 const M = { get: () => plain, canvas: () => plain, person: new THREE.MeshStandardMaterial({ vertexColors: true }) };
 
 // --- the player, as in controller.js ---------------------------------------------------------
@@ -28,7 +29,7 @@ class Player {
   step(dir, { run = true, jump = false } = {}) {
     const offset = new THREE.Vector3(dir[0], 0, dir[1]);
     if (offset.lengthSq()) offset.normalize().multiplyScalar(run ? 6 : 3);
-    const wasGrounded = this.onGround;
+    const wasGrounded = this.onGround, from = this.pos.clone();
     let jumped = false;
     if (jump && this.onGround) { this.vy = 5.5; this.onGround = false; jumped = true; }
     this.vy -= 20 * DT;
@@ -44,13 +45,21 @@ class Player {
       this.pos.set(c.start.x, c.start.y - RADIUS, c.start.z);
       if (r?.onGround) { grounded = true; this.vy = Math.max(0, this.vy); } else if (r?.delta && r.delta.y < -1e-3 && -r.delta.y > Math.hypot(r.delta.x, r.delta.z)) this.vy = Math.min(0, this.vy);
     }
-    // stick to the ground going down a slope or a step, as in the controller
-    if (!grounded && wasGrounded && !jumped && this.vy <= 0) {
+    // stick to the ground every frame unless jumping, as in the controller
+    if ((grounded || wasGrounded) && !jumped && this.vy <= 0) {
       const c = this.cap, snap = 0.1 + offset.length() * DT * 1.5;
-      c.start.set(this.pos.x, this.pos.y - snap + RADIUS, this.pos.z);
-      c.end.set(this.pos.x, this.pos.y - snap + 1.7 - RADIUS, this.pos.z);
-      if (this.collide(c)?.onGround && c.start.y - RADIUS <= this.pos.y + 0.02) { this.pos.y = c.start.y - RADIUS; grounded = true; this.vy = 0; }
+      let y = this.pos.y - snap, standing = false;
+      for (let pass = 0; pass < 3; pass++) {
+        c.start.set(this.pos.x, y + RADIUS, this.pos.z);
+        c.end.set(this.pos.x, y + 1.7 - RADIUS, this.pos.z);
+        const r = this.collide(c);
+        if (pass === 0 && !r?.onGround) break;
+        standing = true; y = c.start.y - RADIUS;
+      }
+      if (standing && y <= this.pos.y + 0.02) { this.pos.y = y; grounded = true; this.vy = 0; }
     }
+    // friction: standing still on a slope the player does not slide
+    if (grounded && wasGrounded && !jumped && offset.lengthSq() === 0 && this.pos.distanceTo(from) < 0.05) this.pos.copy(from);
     this.onGround = grounded;
   }
   settle() { for (let i = 0; i < 30; i++) this.step([0, 0]); return this; }
@@ -170,7 +179,7 @@ if (!only || only === 'island') {
     let apex = y0;
     pl.step([0, 0], { jump: true });
     for (let f = 0; f < 90; f++) { pl.step([0, 0]); apex = Math.max(apex, pl.pos.y); }
-    if (apex - y0 < 0.6 || Math.abs(pl.pos.y - y0) > 0.1 || !pl.onGround) badJump.push([x, z, +(apex - y0).toFixed(2)]);
+    if (apex - y0 < 0.6 || Math.abs(pl.pos.y - y0) > 0.1 || !pl.onGround) badJump.push([x, z, +(apex - y0).toFixed(2), +(pl.pos.y - y0).toFixed(2), +Math.hypot(pl.pos.x - x, pl.pos.z - z).toFixed(2), pl.onGround, +slope(x, z).toFixed(0)]);
   }
   report(badJump.length === 0, `остров: прыжок с места в ${jumps} точках${badJump.length ? ` — не вышло ${badJump.length}: ${JSON.stringify(badJump.slice(0, 5))}` : ''}`);
   let frames = 0, air = 0;
@@ -187,6 +196,25 @@ if (!only || only === 'island') {
     }
   }
   report(air / frames < 0.02, `остров: на бегу по склонам до 40° игрок на земле ${(100 - 100 * air / frames).toFixed(1)}% кадров (нужно 98%+)`);
+
+  // 1c. running downhill the height changes smoothly (it used to go in steps, and the camera shook):
+  // jolts — frames where the vertical speed changes by more than 1.5 m/s
+  let down = 0, jolts = 0;
+  for (let x = 160; x <= 350; x += 10) for (let z = 160; z <= 260; z += 10) {
+    if (heightAt(x, z) < 3) continue;
+    for (let d = 0; d < 16; d += 2) {
+      const pl = new Player(collide, [x, heightAt(x, z) + 0.05, z]).settle();
+      let y1 = pl.pos.y, v1 = null;
+      for (let f = 0; f < 60; f++) {
+        pl.step(DIRS[d]);
+        const v = (pl.pos.y - y1) * 60, s = slope(pl.pos.x, pl.pos.z);
+        y1 = pl.pos.y;
+        if (v1 !== null && s > 8 && s < 45 && (v < 0 || v1 < 0)) { down++; if (Math.abs(v - v1) > 1.5) jolts++; }
+        v1 = v;
+      }
+    }
+  }
+  report(jolts / down < 0.02, `остров: спуск без тряски — резких скачков высоты ${(100 * jolts / down).toFixed(1)}% кадров (нужно меньше 2%)`);
 
   // 2. stuck spots: around every building and prop with a collider, and on a grid in town
   const probes = [];
@@ -224,6 +252,23 @@ if (!only || only === 'island') {
   report(w.ok && w.pl.pos.y > pier.p[1] - 0.1, `пристань: с берега до конца пешком, высота ${w.pl.pos.y.toFixed(2)} (настил ${pier.p[1]})`);
   const back = walk([lane, pier.p[2] + 20], [lane, pier.p[2] - 10], 20);
   report(back.ok, 'пристань: обратно на берег пешком');
+  // the boat is moored alongside: standing at the pier's edge next to it, the player looks down at it
+  // and gets "E — Шлюпка" (the client ray reaches 3.5 m from the eyes, the server allows 3 + 1 m)
+  const boat = layout.interact.find((o) => o.id === 'boat');
+  island.group.updateMatrixWorld(true);
+  const ray = new THREE.Raycaster();
+  ray.far = 3.5;
+  let reach = 0, spots = 0;
+  for (let dz = -2; dz <= 2; dz += 1) {
+    const st = new Player(collide, [pier.p[0] + 1.1, pier.p[1] + 0.2, boat.p[2] + dz]).settle();
+    const eye = st.pos.clone().add(new THREE.Vector3(0, 1.6, 0));
+    ray.set(eye, new THREE.Vector3(boat.p[0], boat.p[1] + 0.3, boat.p[2] + dz).sub(eye).normalize());
+    let hit = null;
+    for (const h of ray.intersectObjects(island.interactables, true)) { let o = h.object; while (o && !o.userData?.id) o = o.parent; if (o) { hit = o.userData.id; break; } }
+    spots++;
+    if (hit === 'boat' && Math.hypot(st.pos.x - boat.p[0], st.pos.z - boat.p[2]) <= 4) reach++;
+  }
+  report(reach === spots, `пристань: шлюпка у борта — взаимодействие с настила в ${reach} из ${spots} точек вдоль неё`);
   const plaza = [256, 296];
   const doors = layout.objects.filter((o) => ['house', 'house_governor', 'church', 'warehouse'].includes(o.m) && Math.hypot(o.p[0] - plaza[0], o.p[2] - plaza[1]) < 60);
   const blocked = [];
@@ -243,6 +288,24 @@ if (!only || only === 'island') {
     }
   }
   report(noJump.length === 0, `город: прыжок, упёршись в стену дома, лоток, бочку или жителя${noJump.length ? ` — не прыгнул у ${[...new Set(noJump)].join(', ')}` : ''}`);
+  // 4. buildings are solid from every side, also those that stick out of their chunk into the next one
+  const inside = [];
+  for (const o of layout.objects) {
+    if (!['house', 'house_governor', 'church', 'warehouse'].includes(o.m)) continue;
+    const boxes = ISLAND_MODELS[o.m](M).col.map((g) => { g.computeBoundingBox(); return g.boundingBox; });
+    for (let a = 0; a < 16; a++) {
+      const sx = o.p[0] + Math.sin(a * Math.PI / 8) * 16, sz = o.p[2] + Math.cos(a * Math.PI / 8) * 16, h = heightAt(sx, sz);
+      if (h < 0.3) continue;
+      const pl = new Player(collide, [sx, h + 0.05, sz]).settle();
+      for (let f = 0; f < 300; f++) {
+        const dx = pl.pos.x - o.p[0], dz = pl.pos.z - o.p[2];
+        pl.step([-dx, -dz], { jump: f % 25 === 0 });
+        const lx = dx * Math.cos(o.r) - dz * Math.sin(o.r), lz = dx * Math.sin(o.r) + dz * Math.cos(o.r); // into the model's axes
+        if (boxes.some((b) => lx > b.min.x + 0.3 && lx < b.max.x - 0.3 && lz > b.min.z + 0.3 && lz < b.max.z - 0.3)) { inside.push(`${o.id}@${a}`); break; }
+      }
+    }
+  }
+  report(inside.length === 0, `город: сквозь стены построек не пройти${inside.length ? ` — прошёл: ${inside.slice(0, 8).join(', ')}` : ''}`);
   report(blocked.length === 0, `город: от площади до дверей ${doors.length} построек${blocked.length ? ` — не дойти: ${blocked.join(', ')}` : ''}`);
   console.log(`  (${((Date.now() - t0) / 1000).toFixed(1)} с)`);
 }
