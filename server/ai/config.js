@@ -4,7 +4,8 @@ const root = (p) => fileURLToPath(new URL(`../../${p}`, import.meta.url));
 
 export const AI = {
   OLLAMA_URL: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',
-  MODEL: process.env.AI_MODEL || 'qwen3:4b',
+  // Только instruct-версия: в Ollama тег qwen3:4b — «думающая» модель, рассуждения у неё не отключаются
+  MODEL: process.env.AI_MODEL || 'qwen3:4b-instruct',
   TIMEOUT_MS: 10_000,
   WARMUP_TIMEOUT_MS: 90_000,
   NUM_CTX: 2048,
@@ -24,4 +25,4 @@ export const AI = {
 };
 
 // Модели с режимом рассуждений: отключаем его, иначе ответ идёт в разы дольше
-export const isThinkingModel = (model) => /qwen3|deepseek-r1|gpt-oss/i.test(model);
+export const isThinkingModel = (model) => /qwen3|deepseek-r1|gpt-oss/i.test(model) && !/instruct/i.test(model);

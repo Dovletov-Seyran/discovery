@@ -77,7 +77,7 @@
 |---|---|
 | Клиент | three.js (последняя стабильная), Vite, чистый JavaScript (ES-модули), `three-mesh-bvh` для коллизий |
 | Сервер | Node.js 24, `ws`, `node:sqlite` (встроенный; если будут проблемы — `better-sqlite3`), `node:crypto` (scrypt) |
-| ИИ | Ollama + Qwen класса 4B (`qwen3:4b` или новее; запасной вариант `qwen2.5:3b`) |
+| ИИ | Ollama + Qwen3-4B-Instruct (`qwen3:4b-instruct`; **не** `qwen3:4b` — это «думающая» версия) |
 | Голос | `kokoro-js` (Kokoro-82M ONNX, `dtype: "q8"`) |
 | Ассеты | Kenney Pirate Kit (CC0), Quaternius (CC0, анимированные персонажи), CC0-звуки; оптимизация через `@gltf-transform/cli` |
 
@@ -249,7 +249,7 @@ CREATE TABLE chunks (
 ## 11. Скачать заранее (пока есть интернет)
 
 - [ ] `npm install` в корне (client + server), проверить `npm run build`
-- [ ] Ollama, `ollama pull qwen3:4b` и запасной `qwen2.5:3b`
+- [ ] Ollama, `ollama pull qwen3:4b-instruct`
 - [ ] Модель Kokoro: один раз запустить `scripts/gen-voices.js`, чтобы она легла в кеш, потом проверить с выключенным Wi-Fi
 - [ ] Kenney Pirate Kit, персонажи Quaternius, корабль (если отдельный), текстуры воды (`waternormals.jpg` из примеров three.js)
 - [ ] CC0-звуки: волны, скрип дерева, паруса/ветер, чайки, колокол, таверна/гитара, гул, шёпот, крик, удар в борт

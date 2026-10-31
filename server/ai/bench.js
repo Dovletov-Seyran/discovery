@@ -1,12 +1,12 @@
 // Замер моделей: скорость ответа NPC и перевода на одинаковых вопросах.
-// npm run bench -- qwen3:4b qwen2.5:3b
+// npm run bench -- qwen3:4b-instruct
 import { chat, warmup } from './llm.js';
 import { getAgent } from './agents.js';
 import { findCards } from './retrieval.js';
 import { buildMessages, cleanAnswer, isEnglish } from './prompt.js';
 
 const models = process.argv.slice(2);
-if (!models.length) models.push('qwen3:4b', 'qwen2.5:3b');
+if (!models.length) models.push('qwen3:4b-instruct');
 
 const QUESTIONS = [
   'Адмирал, куда мы вообще плывём и зачем?',

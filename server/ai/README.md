@@ -57,11 +57,11 @@ ai.setStore({
 | `npm run playground` | **Песочница ИИ** в браузере: `http://<ip>:3100` — чат с любым агентом, голос, субтитры, подсказки, «что игрок сделал», «забыть игрока». Открывается и с других ноутбуков в сети |
 | `npm run test:ai` | Автотесты поиска фактов и чистки ответов |
 | `npm run agent-cli -- columbus` | Разговор с агентом в терминале. `/log latitude_correct` — действие игрока, `/hint why_west`, `/reset`, `/quit`. `--no-tts` — без голоса |
-| `npm run bench -- qwen3:4b qwen2.5:3b` | Замер скорости и качества моделей |
+| `npm run bench -- qwen3:4b-instruct` | Замер скорости и качества моделей |
 | `npm run tts-test` | Список голосов Kokoro и пробные фразы в `data/audio/test/` |
 | `npm run voices` | Озвучить готовые реплики `content/lines.json` → `client/public/audio/vo/` + `manifest.json` |
 
-Переменные: `AI_MODEL` (по умолчанию `qwen3:4b`), `OLLAMA_URL`, `TTS=0` — выключить голос.
+Переменные: `AI_MODEL` (по умолчанию `qwen3:4b-instruct`), `OLLAMA_URL`, `TTS=0` — выключить голос.
 
 ## Файлы
 
