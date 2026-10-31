@@ -188,8 +188,8 @@ export class Environment {
     this.light.position.copy(this.light.target.position).addScaledVector(this.lightDir, 50);
     this.light.color.copy(p.light); this.light.intensity = p.li;
     this.renderer.toneMappingExposure = p.exp;
-    // on the island the haze hides the edge of the loaded chunks (~64 m)
-    this.scene.fog.color.copy(p.fog); this.scene.fog.density = this.zone === 'canary' ? Math.max(p.fogD, 0.012) : p.fogD;
+    // on the island a light coastal haze; the far side is the coarse island (islandLod.js), not an edge to hide
+    this.scene.fog.color.copy(p.fog); this.scene.fog.density = this.zone === 'canary' ? Math.max(p.fogD, 0.0035) : p.fogD;
     const du = this.dome.material.uniforms;
     du.color.value.copy(p.fog); du.aH.value = p.domeH; du.aT.value = p.domeT;
     this.dome.visible = p.domeH > 0.001;

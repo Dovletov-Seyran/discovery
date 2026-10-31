@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import islandLod from './src/world/islandLodPlugin.js';
 
 const SERVER = `http://localhost:${process.env.PORT || 3000}`;
 
@@ -8,6 +9,7 @@ const SERVER = `http://localhost:${process.env.PORT || 3000}`;
 const pages = ['index.html', 'world-dev.html', 'intro-dev.html'].filter((p) => existsSync(new URL(p, import.meta.url)));
 
 export default defineConfig({
+  plugins: [islandLod()], // far view of La Gomera (src/world/islandLod.js)
   server: {
     host: true, // доступно по LAN
     port: 5173,
