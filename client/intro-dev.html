@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1492 — intro dev</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0806; color: #f3ead6; font: 14px system-ui, sans-serif; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #info { position: fixed; left: 10px; top: 10px; z-index: 60; font: 12px ui-monospace, monospace; background: rgba(0,0,0,0.45); padding: 6px 8px; border-radius: 6px; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; font-size: 18px; background: #0b0806; z-index: 70; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="info"></div>
+<div id="loading">Генерация текстур…</div>
+<script type="module" src="/src/intro/dev.js"></script>
+</body>
+</html>

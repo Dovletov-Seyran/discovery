@@ -1,7 +1,10 @@
 // Integration only: graphics and all model construction remain in Front 1's world.
 const modules=import.meta.glob('../world/index.js');
+const introModules=import.meta.glob('../intro/index.js');
 
 import {layoutForWorld,entityPatch} from './contracts.js';
+import {buildTimeline} from '../ui/timeline.js';
+import {narrativeContent} from '../ui/narrative.js';
 
 export class WorldConnection {
   constructor({events,send,attach,canvas,onStatus=()=>{}}){
@@ -14,7 +17,13 @@ export class WorldConnection {
       this.world?.chunks?.setWorldMeta?.(this.meta);
       this.requestShip();
     });
-    events.on('scene',scene=>{this.scene=scene;this.active=true;if(scene.id!=='lobby')this.ensure();if(this.world)this.applyScene();});
+    events.on('scene',scene=>{
+      this.scene=scene;this.active=true;
+      if(scene.id==='intro')this.playIntro(scene);
+      else if(this.introPlaying)this.intro?.stop();  // пропуск или конец интро на сервере: затемнение и обратно в мир
+      if(scene.id!=='lobby')this.ensure();
+      if(this.world)this.applyScene();
+    });
     events.on('chunk',message=>{
       if(!this.world)return;
       // Остров и другие зоны — через менеджер чанков мира (кеш ≤ 10%); корабль — раскладкой ниже
@@ -58,6 +67,24 @@ export class WorldConnection {
     })().catch(error=>{console.error('[front2] world initialization',error);this.onStatus('error');return null;}).finally(()=>this.loading=null);
     return this.loading;
   }
+  // 3D-интро Фронта 1 («Книга Марко Поло»). Панели длятся столько же, сколько их озвучка в NarrativePlayer
+  // (та же buildTimeline по манифесту), поэтому картинка, голос и субтитры меняются вместе.
+  async playIntro(scene){
+    const load=introModules['../intro/index.js'];
+    if(!load||!narrativeContent.intro)return;
+    const world=await this.ensure();
+    if(!world||this.scene!==scene)return;
+    let durations=null;
+    try{
+      const manifest=await (await fetch('/audio/vo/manifest.json')).json();
+      durations=buildTimeline(narrativeContent.intro,manifest,scene.duration).map(segment=>segment.end-segment.start);
+    }catch{}  // без манифеста — равные доли duration
+    if(this.scene!==scene)return;
+    if(!this.intro)this.intro=(await load()).createIntro(world);
+    this.introPlaying=true;document.body.classList.add('cinematic');
+    try{await this.intro.play({startAt:scene.startAt,duration:scene.duration??90,durations});}
+    finally{this.introPlaying=false;document.body.classList.remove('cinematic');this.previous=null;}
+  }
   requestShip(){if(this.active&&this.world&&this.scene?.zone==='ship'&&!this.shipRequested)this.shipRequested=this.send('chunk_req',{zone:'ship',keys:['0,0']});}
   applyScene(){
     if(!this.scene)return;
@@ -77,6 +104,8 @@ export class WorldConnection {
     if(this.frameId||!this.active)return;
     const loop=ms=>{
       if(!this.active)return;
+      // Пока идёт интро, канвас рисует оно само (world.frame вызывать нельзя)
+      if(this.introPlaying){this.previous=null;this.frameId=requestAnimationFrame(loop);return;}
       const dt=this.previous===null||this.previous===undefined?0:Math.min((ms-this.previous)/1000,0.05);
       this.previous=ms;this.gameplay.update(dt,ms/1000);
       if(this.scene?.zone&&this.scene.zone!=='ship')this.world.chunks?.update?.(this.world.camera.position,dt);
