@@ -10,6 +10,8 @@ import { players } from './game/players.js';
 import { chunkStats } from './game/stats.js';
 
 const CLIENT_DIST = fileURLToPath(new URL('../client/dist/', import.meta.url));
+const DEV_PAGE = fileURLToPath(new URL('./dev/', import.meta.url));
+const SHARED = fileURLToPath(new URL('../shared/', import.meta.url));
 const AUDIO_RT = join(DATA_DIR, 'audio', 'rt');
 const MAX_BODY = 4096;
 
@@ -34,7 +36,13 @@ function readJson(req) {
     const chunks = [];
     req.on('data', (c) => {
       size += c.length;
-      if (size > MAX_BODY) { reject(new Error('too_large')); req.destroy(); return; }
+      if (size > MAX_BODY) {
+        // Дальше не копим, остаток дочитываем вхолостую, чтобы клиент получил ответ 413
+        req.removeAllListeners('data');
+        req.resume();
+        reject(new Error('too_large'));
+        return;
+      }
       chunks.push(c);
     });
     req.on('end', () => {
@@ -68,7 +76,7 @@ function sendFile(res, file, cache) {
 
 async function handleApi(req, res, path) {
   if (req.method === 'GET' && path === '/api/health') {
-    const s = ai.status();
+    const s = await ai.status();
     return sendJson(res, 200, {
       ok: true, ollama: !!s.ollama, tts: !!s.tts, model: s.model ?? null,
       players: players.connectedCount(), chunksServed: chunkStats.total(),
@@ -78,7 +86,8 @@ async function handleApi(req, res, path) {
   }
   if (req.method === 'POST' && (path === '/api/register' || path === '/api/login')) {
     let body;
-    try { body = await readJson(req); } catch {
+    try { body = await readJson(req); } catch (e) {
+      if (e.message === 'too_large') return sendJson(res, 413, { error: 'too_large', message: 'Слишком большой запрос' });
       return sendJson(res, 400, { error: 'bad_request', message: 'Некорректный запрос' });
     }
     const result = path === '/api/register' ? await auth.register(body) : await auth.login(body);
@@ -95,6 +104,15 @@ export async function handleHttp(req, res) {
 
     if (path.startsWith('/audio/rt/')) {
       const file = resolveFile(AUDIO_RT, path.slice('/audio/rt/'.length));
+      return file ? sendFile(res, file, 'no-cache') : sendJson(res, 404, { error: 'not_found' });
+    }
+
+    // Dev-страница для проверки сервера без клиента: /dev/ (только DEV=1)
+    if (CONFIG.DEV && (path === '/dev' || path.startsWith('/dev/') || path.startsWith('/shared/'))) {
+      if (path === '/dev') { res.writeHead(302, { Location: '/dev/' }); return res.end(); }
+      const file = path.startsWith('/shared/')
+        ? resolveFile(SHARED, path.slice('/shared/'.length))
+        : resolveFile(DEV_PAGE, path === '/dev/' ? 'index.html' : path.slice('/dev/'.length));
       return file ? sendFile(res, file, 'no-cache') : sendJson(res, 404, { error: 'not_found' });
     }
 

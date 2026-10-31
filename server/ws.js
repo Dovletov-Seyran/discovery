@@ -31,6 +31,9 @@ function onConnection(ws) {
   ws.on('pong', () => { ws.isAlive = true; });
 
   let player = null;
+  // Защита от флуда: не больше MAX_MSG_PER_SEC сообщений в секунду, лишние игнорируем
+  let windowStart = Date.now();
+  let windowCount = 0;
   const fail = (reason) => {
     ws.send(JSON.stringify({ t: S2C.AUTH_FAIL, reason }));
     ws.close(CLOSE.AUTH_FAIL, reason);
@@ -38,6 +41,9 @@ function onConnection(ws) {
   const authTimer = setTimeout(() => fail('timeout'), CONFIG.AUTH_TIMEOUT_MS);
 
   ws.on('message', (data, isBinary) => {
+    const now = Date.now();
+    if (now - windowStart >= 1000) { windowStart = now; windowCount = 0; }
+    if (++windowCount > CONFIG.MAX_MSG_PER_SEC) return;
     if (isBinary || data.length > CONFIG.MAX_MSG_BYTES) return player ? undefined : fail('bad_message');
     let msg;
     try { msg = JSON.parse(data.toString('utf8')); } catch { msg = null; }

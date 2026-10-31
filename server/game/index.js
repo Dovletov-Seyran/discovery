@@ -4,8 +4,17 @@ import { C2S, S2C, ANIMS, CLOSE } from '../../shared/protocol.js';
 import { worldMeta, resetProgress } from '../db.js';
 import { players } from './players.js';
 import * as director from './director.js';
-import * as ai from './ai-bridge.js';
+import * as entities from './entities.js';
+import * as quests from './quests.js';
+import * as rules from './rules.js';
 import { onChunkReq, onChunkDrop } from '../world/chunks.js';
+
+director.setHooks({
+  onSceneStart: rules.onSceneStart,
+  isSceneComplete: quests.isSceneComplete,
+  forceComplete: quests.forceComplete,
+  playerDone: quests.playerDone,
+});
 
 const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
 
@@ -38,7 +47,7 @@ export function join(session, ws) {
     you: players.publicInfo(p),
     state: {
       role: p.role, scene: scene.id, zone: p.zone, p: p.p, r: p.r,
-      inventory: p.inventory, quests: p.quests, log: p.log,
+      inventory: p.inventory, money: p.money, quests: p.quests, log: p.log,
     },
     world: worldMeta(),
     scene: director.sceneMessage(p),
@@ -49,6 +58,7 @@ export function join(session, ws) {
   }
   if (!wasConnected) players.broadcast({ t: S2C.PLAYER_JOIN, ...players.publicInfo(p) }, (x) => x !== p);
   players.send(p, director.lobbyMessage());
+  quests.sendAll(p, scene.id);
   director.onPartyChanged();
   players.save(p, { now: true });
   console.log(`[game] ${p.name} вошёл (${players.connectedCount()} онлайн)`);
@@ -59,8 +69,7 @@ export function leave(p, ws) {
   if (p.ws !== ws) return; // это старая вкладка, игрок уже переподключился
   p.ws = null;
   p.connected = false;
-  p.disconnectedAt = Date.now();
-  p.ready = false;
+  p.disconnectedAt = Date.now(); // готовность сохраняем: 60 с игрок остаётся в партии
   players.save(p, { now: true });
   players.broadcast({ t: S2C.PLAYER_LEAVE, ...players.publicInfo(p) });
   director.onPartyChanged();
@@ -95,8 +104,7 @@ function onMove(p, msg) {
 function onInteract(p, msg) {
   const id = typeof msg.id === 'string' ? msg.id : '';
   if (id.startsWith('role:')) return director.pickRole(p, id.slice(5));
-  if (director.onReadyAt(p, id)) return;
-  // Остальные объекты — B1.9 (entities)
+  rules.interact(p, msg);
 }
 
 function onChat(p, msg) {
@@ -107,48 +115,22 @@ function onChat(p, msg) {
   players.broadcast({ t: S2C.CHAT, from: p.id, name: p.name, text });
 }
 
-async function npcRequest(p, msg, { text, hintId }) {
-  const npc = typeof msg.npc === 'string' ? msg.npc : '';
-  if (!npc) return;
-  const now = Date.now();
-  if (now - p.lastNpcTalkAt < CONFIG.NPC_TALK_COOLDOWN_MS) return;
-  p.lastNpcTalkAt = now;
-
-  players.send(p, { t: S2C.NPC_THINKING, npc });
-  const context = {
-    role: p.role, name: p.name, scene: director.scene().id, inventory: p.inventory,
-    questsDone: Object.keys(p.quests).filter((id) => p.quests[id]?.status === 'done'), log: p.log,
-  };
-  try {
-    const res = await ai.talk({ userId: p.id, npc, text, hintId, context });
-    players.send(p, { t: S2C.NPC_SAY, npc, en: res.en, ru: res.ru, audio: res.audio ?? null, hints: res.hints ?? [] });
-    // res.topicsTold → движок заданий (B1.10)
-  } catch (e) {
-    console.error('[ai] talk', e);
-    players.send(p, { t: S2C.NPC_SAY, npc, en: '...', ru: '…', audio: null, hints: [] });
-  }
-}
-
-function onNpcTalk(p, msg) {
-  const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, CONFIG.CHAT_MAX_LEN) : '';
-  if (text) return npcRequest(p, msg, { text });
-}
-
-function onNpcHint(p, msg) {
-  if (typeof msg.hint === 'string' && msg.hint) return npcRequest(p, msg, { hintId: msg.hint });
-}
-
 const handlers = {
   [C2S.MOVE]: onMove,
   [C2S.INTERACT]: onInteract,
   [C2S.CHAT]: onChat,
-  [C2S.NPC_TALK]: onNpcTalk,
-  [C2S.NPC_HINT]: onNpcHint,
+  [C2S.NPC_TALK]: rules.npcTalk,
+  [C2S.NPC_HINT]: rules.npcHint,
+  [C2S.PICKUP]: rules.pickup,
+  [C2S.USE]: rules.use,
+  [C2S.MINIGAME]: rules.minigame,
+  [C2S.TRADE]: rules.trade,
+  [C2S.SCARE]: rules.scare,
   [C2S.READY]: (p, msg) => director.onReadyMessage(p, msg.value !== false),
   [C2S.SKIP_VOTE]: (p) => director.onSkipVote(p),
   [C2S.CHUNK_REQ]: (p, msg) => onChunkReq(p, msg, {
     send: (m) => players.send(p, m),
-    entityState: (id) => director.entities()[id],
+    entityState: entities.stateOf,
   }),
   [C2S.CHUNK_DROP]: onChunkDrop,
 };
@@ -171,18 +153,20 @@ function devCommand(p, text) {
       resetProgress();
       for (const x of players.all()) {
         if (!x.connected) { players.remove(x.id); continue; } // без ожидания grace
-        x.inventory = []; x.quests = {}; x.log = []; x.ready = false; x.seat = null;
+        x.inventory = []; x.money = 0; x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
+        players.sendInventory(x);
       }
       director.resetToStart();
       break;
     case '/give':
       if (!arg) return notice(p, '/give <item>');
       p.inventory.push(arg);
-      players.send(p, { t: S2C.INVENTORY, items: p.inventory });
+      players.sendInventory(p);
       players.save(p);
       break;
     case '/done':
-      notice(p, 'Задания ещё не подключены'); // B1.10
+      quests.completeFor(p, director.scene().id);
+      director.onPartyChanged();
       break;
     default:
       notice(p, 'Команды: /scene <id>, /reset, /give <item>, /done');
