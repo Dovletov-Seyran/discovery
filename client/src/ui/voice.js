@@ -1,6 +1,7 @@
 // Reads Back 2's existing manifest and MP3 files. No speech synthesis.
 export class VoiceLibrary {
-  constructor({fetchImpl=globalThis.fetch, createAudio=url=>new Audio(url), onVoice=()=>{}}={}) {
+  // fetch нельзя вызывать как метод чужого объекта (this.fetch) — Chrome кидает «Illegal invocation»
+  constructor({fetchImpl=(...args)=>globalThis.fetch(...args), createAudio=url=>new Audio(url), onVoice=()=>{}}={}) {
     this.fetch=fetchImpl;
     this.createAudio=createAudio;
     this.onVoice=onVoice;
