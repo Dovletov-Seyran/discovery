@@ -19,6 +19,8 @@ export class Collider {
     this._tri = new THREE.Vector3();
     this._cap = new THREE.Vector3();
     this._ray = new THREE.Ray();
+    this._n = new THREE.Vector3();
+    this._p = new THREE.Vector3();
   }
 
   // capsule = { start, end, radius }: world-space centres of the bottom and top spheres.
@@ -28,16 +30,26 @@ export class Collider {
     seg.start.copy(start); seg.end.copy(end);
     box.makeEmpty().expandByPoint(seg.start).expandByPoint(seg.end);
     box.min.addScalar(-radius); box.max.addScalar(radius);
-    for (let pass = 0; pass < 2; pass++) {
+    for (let pass = 0; pass < 3; pass++) {
       this.bvh.shapecast({
         intersectsBounds: (b) => b.intersectsBox(box),
         intersectsTriangle: (tri) => {
           const d = tri.closestPointToSegment(seg, this._tri, this._cap);
-          if (d < radius) {
+          if (d >= radius) return;
+          if (d > 1e-5) {
             const dir = this._cap.sub(this._tri).normalize();
             seg.start.addScaledVector(dir, radius - d);
             seg.end.addScaledVector(dir, radius - d);
+            return;
           }
+          // The capsule's axis goes right through the triangle (a big step, a spawn under the ground):
+          // the direction above is zero and the capsule used to fall through. Push it out along the face
+          // normal, the upward side for floors, by the depth of the lower end plus the radius.
+          const n = tri.getNormal(this._n);
+          if (n.y < 0) n.negate();
+          const a = tri.a, below = Math.max(0, -n.dot(this._p.subVectors(seg.start, a)), -n.dot(this._p.subVectors(seg.end, a)));
+          seg.start.addScaledVector(n, below + radius);
+          seg.end.addScaledVector(n, below + radius);
         },
       });
     }
