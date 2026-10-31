@@ -104,6 +104,12 @@ function onMove(p, msg) {
   if (locked || !isVec3(msg.p)) return; // в night_story можно только крутить головой
 
   const now = Date.now();
+  if (director.restoreGround(p)) {
+    p.lastMoveAt=now;
+    players.save(p,{now:true});
+    players.send(p,{t:S2C.POS_CORRECT,p:p.p,r:p.r});
+    return;
+  }
   const dt = Math.min(Math.max((now - p.lastMoveAt) / 1000, 0), 1);
   const maxStep = CONFIG.MAX_SPEED * dt * 1.5 + 0.5;
   if (!p.p) p.p = msg.p;

@@ -57,13 +57,13 @@ class Bot {
     return null;
   }
   clear() { this.msgs = []; }
-  // Идти к точке шагами, которые сервер принимает (≈13 м/с с запасом на джиттер)
+  // Идти с реальной скоростью клиента (≈6 м/с), применяя pos_correct.
   async walkTo(x, z) {
     for (;;) {
       const dx = x - this.pos[0], dz = z - this.pos[2];
       const d = Math.hypot(dx, dz);
       if (d < 0.5) return;
-      const k = Math.min(0.9, d) / d;
+      const k = Math.min(0.4, d) / d;
       this.pos = [this.pos[0] + dx * k, this.pos[1], this.pos[2] + dz * k];
       this.send('move', { p: this.pos, r: 0, a: 'run' });
       await sleep(67);
@@ -282,7 +282,8 @@ async function pilotFlow() {
   p.send('pickup', { id: 'planks' });
   await p.walkTo(...isle('tar'));
   p.send('pickup', { id: 'tar' });
-  await p.wait('inventory', (m) => m.items.includes('tar') && m.items.includes('planks'));
+  const supplies=await p.wait('inventory', (m) => m.items.includes('tar') && m.items.includes('planks'));
+  check(!!supplies,`доски и смола подобраны${supplies?'':': '+JSON.stringify({pos:p.pos,inventory:p.last('inventory'),notices:p.msgs.filter(m=>m.t==='notice')})}`);
   await p.walkTo(...isle('carpenter'));
   p.send('interact', { id: 'boat' }); // далеко — ничего
   p.send('interact', { id: 'carpenter' });

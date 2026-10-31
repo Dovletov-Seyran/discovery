@@ -87,3 +87,14 @@ test('navigation task advances through owned compass and map use, once per step'
   rules.use(p,{item:'compass'});assert.equal(p.quests.q_navigation.step,1);
   rules.use(p,{item:'map'});assert.equal(p.quests.q_navigation.status,'done');
 });
+test('server repairs an old underground save before movement validation can return it underground',()=>{
+  director.setScene('canary');
+  const spawn=director.spawnFor(director.scene(),p.role);
+  p.p=[256,-6,280];p.zone='canary';
+  assert.equal(director.restoreGround(p),true);
+  assert.ok(p.p[1]>0);
+  assert.equal(director.restoreGround(p),false);
+  // Scene rejoin applies the same repair even when the scene key already matches.
+  p.p[1]=-6;director.placeOnJoin(p);assert.ok(p.p[1]>0);
+  p.p=spawn.p;
+});

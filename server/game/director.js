@@ -29,11 +29,21 @@ for (const s of scenes.values()) {
   if (Array.isArray(shipLayout.seats) && shipLayout.seats.length && s.seats) s.seats = shipLayout.seats;
 }
 // На Канарах — из content/canary_layout.json (spawns, обычно рядом с пристанью), уже с высотой рельефа
-const canarySpawns = (() => {
+const canaryWorld = (() => {
   const layout = loadContent('canary_layout.json', null);
-  return layout?.spawns ? resolveLayout(layout).layout.spawns : null;
+  return layout?.spawns ? resolveLayout(layout) : null;
 })();
-for (const s of scenes.values()) if (s.zone === 'canary' && s.spawns && canarySpawns) s.spawns = canarySpawns;
+for (const s of scenes.values()) if (s.zone === 'canary' && s.spawns && canaryWorld) s.spawns = canaryWorld.layout.spawns;
+
+// Исправление старого сохранения делается и на сервере: иначе защита от телепорта
+// постоянно возвращает клиент, выбравшийся из-под земли, в его старую яму.
+export function restoreGround(p) {
+  if (p.zone !== 'canary' || !p.p || !canaryWorld) return false;
+  const floor = canaryWorld.heightAt(p.p[0],p.p[2]);
+  if (!Number.isFinite(floor) || floor < 0 || p.p[1] >= floor - 0.5) return false;
+  p.p = [p.p[0],floor + 0.05,p.p[2]];
+  return true;
+}
 
 const state = {
   id: FIRST,
@@ -304,6 +314,7 @@ export function pickRole(p, role) {
 
 // Позиция при входе: сцена сменилась, пока игрока не было, — ставим в spawn текущей сцены
 export function placeOnJoin(p) {
+  restoreGround(p);
   if (p.scene === sceneKey() && p.zone === state.zone && p.p) return;
   const spawn = spawnFor(scene(), p.role);
   p.r = spawn?.r ?? 0;

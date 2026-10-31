@@ -373,8 +373,8 @@ function receiveDialogue(message){
   if(!message.error)$('#hints').innerHTML=(message.hints||[]).map(hint=>`<button class="quiet-button" data-hint="${escape(hint.id)}">${escape(hint.ru)}</button>`).join('');
   $('#hints').querySelectorAll('button').forEach(button=>button.onclick=()=>{if(sendNpc('npc_hint',{npc:activeNpc,hint:button.dataset.hint})){beginDialogueWait();}});
   stopNpcAudio();
-  if(message.audio){
-    const url=new URL(message.audio,location.href);
+  if(typeof message.audio==='string'&&message.audio){
+    let url;try{url=new URL(message.audio,location.href);}catch{return;}
     if(url.origin!==location.origin)return;
     npcAudio=new Audio(url.href);npcAudio.volume=settings.voices;
     gameEvents.emit('voice',{playing:true});
