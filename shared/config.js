@@ -26,6 +26,7 @@ export const CONFIG = {
   MAX_CHUNK_KEYS: 30,          // ключей в одном chunk_req
 
   // Игроки и сохранение
+  MAX_PLAYERS: 3,              // по числу ролей; четвёртый получает «экипаж собран»
   DISCONNECT_GRACE_MS: 60000,  // отключённый игрок столько остаётся в партии
   SAVE_DELAY_MS: 2000,         // отложенная запись player_state
   SAVE_INTERVAL_MS: 10000,     // периодическое сохранение всех

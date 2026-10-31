@@ -16,7 +16,8 @@
     "start:demo": "npm run build && cross-env DEMO=1 node server/index.js",
     "seed": "node server/scripts/seed-world.js",
     "reset": "node server/scripts/reset.js",
-    "smoke": "node server/scripts/smoke.js"
+    "smoke": "node server/scripts/smoke.js",
+    "start:dev": "npm run build && cross-env DEV=1 DEMO=1 node server/index.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

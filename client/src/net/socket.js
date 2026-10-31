@@ -25,6 +25,7 @@ export class SocketClient extends Events {
       this.authorized = false;
       if (e.code === 4001) { this.stopped = true; this.emit('auth_fail',{reason:'session_expired'}); return; }
       if (e.code === 4002) { this.stopped = true; this.emit('connection',{status:'replaced'}); return; }
+      if (e.code === 4003) { this.stopped = true; this.emit('connection',{status:'full'}); return; }
       if (this.stopped) return;
       this.emit('connection',{status:'reconnecting'});
       this.timer = setTimeout(() => this.open(), [1000,2000,5000][Math.min(this.attempt++,2)]);

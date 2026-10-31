@@ -17,7 +17,13 @@ const sceneId = () => director.scene().id;
 const playable = () => director.acceptsMove();
 
 function event(p, ev) {
+  const boatScene = !!director.scene().readyAt;
+  const wasDone = boatScene && quests.playerDone(p, sceneId());
   if (quests.onEvent(p, ev, sceneId())) director.onPartyChanged();
+  // Канары: своё задание выполнено — подсказать, как вернуться на корабль
+  if (boatScene && !wasDone && !p.ready && quests.playerDone(p, sceneId())) {
+    notice(p, 'Готово! Иди к шлюпке у причала и нажми E — вернёмся на корабль');
+  }
 }
 
 // Объект изменился: сразу в БД (вместе с инвентарём игрока) и всем клиентам
