@@ -6,7 +6,7 @@ export function loginView(preview) {
     <form id="login-form" class="login-form">
       <h2>${preview?'Проверка интерфейса':'Вход'}</h2>
       <label for="login-name">Имя</label><input id="login-name" name="login" autocomplete="username" minlength="3" maxlength="20" required>
-      ${preview?'':'<label for="login-password">Пароль</label><input id="login-password" type="password" name="password" autocomplete="current-password" minlength="4" required>'}
+      <label for="login-password">Пароль</label><input id="login-password" type="password" name="password" autocomplete="current-password" minlength="4" required>
       <p id="login-error" class="error" role="alert"></p>
       <button class="primary" id="login-submit">${preview?'Продолжить':'Войти'}</button>
       ${preview?'':'<button type="button" id="register" class="quiet-button">Создать аккаунт</button>'}

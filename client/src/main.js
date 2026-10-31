@@ -109,8 +109,8 @@ async function authenticate(register){
   gameEvents.emit('audio_unlock',{});
   const name=$('#login-name').value.trim(), password=$('#login-password')?.value;
   if(name.length<3){$('#login-error').textContent='Имя — от 3 символов.';return;}
-  if(preview){connect(name);return;}
   if(!password||password.length<4){$('#login-error').textContent='Пароль — от 4 символов.';return;}
+  if(preview){connect(name);return;}
   const submit=$('#login-submit'),create=$('#register');submit.disabled=true;create.disabled=true;$('#login-error').textContent='';
   try{
     const response=await fetch(`/api/${register?'register':'login'}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({login:name,password})});
