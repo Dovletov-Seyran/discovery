@@ -6,7 +6,8 @@
 //   ?bots=2      fake remote players walking in circles (tests interpolation)
 //   ?cam=x,y,z,yaw,pitch   fixed camera, no controls (for screenshots)
 //   ?bench       measure every preset on this machine (see bench.js)
-// Keys: C plays the cut_canary cutscene (from the ship to the pier of La Gomera).
+// Keys: C plays cut_canary (from the ship to the pier of La Gomera), V plays cut_evening (back to sea at sunset),
+//   N plays cut_night (dusk, calm and fog, down to the lantern).
 import * as THREE from 'three';
 import { world } from '../index.js';
 import layout from '../../../../content/ship_layout.json';
@@ -77,6 +78,18 @@ addEventListener('keydown', (e) => {
     world.setZone('canary');
     feet.set(256, 1.55, 328); yaw = 0; pitch = 0; vel.set(0, 0, 0);
     world.cutscene.play('cut_canary');
+  }
+  // the farewell to La Gomera: the server moves everyone onto the deck at the start of cut_evening
+  if (e.code === 'KeyV' && !world.cutscene.active) {
+    world.setZone('ship');
+    const { p, r } = layout.spawns.piloto; feet.set(p[0], p[1] + 0.05, p[2]); yaw = r; pitch = 0; vel.set(0, 0, 0);
+    world.cutscene.play('cut_evening');
+  }
+  // the calm before the story: the server seats everyone at the lantern when cut_night starts
+  if (e.code === 'KeyN' && !world.cutscene.active) {
+    world.setZone('ship');
+    const { p, r } = layout.seats[1]; feet.set(p[0], p[1] + 0.05, p[2]); yaw = r; pitch = 0; vel.set(0, 0, 0);
+    world.cutscene.play('cut_night');
   }
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
