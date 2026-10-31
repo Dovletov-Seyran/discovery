@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1492 · Песочница ИИ</title>
+<style>
+  :root {
+    --bg: #f4ecdd; --card: #fbf7ef; --ink: #1e2630; --muted: #5f646b; --line: #d8cbb3;
+    --navy: #13202e; --navy-2: #1f3247; --amber: #d69a4a; --rust: #8a4f1c; --teal: #2e6e6a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; height: 100vh; display: grid; grid-template-columns: 300px 1fr; }
+  aside { background: var(--navy); color: #e8dfcf; padding: 24px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; }
+  h1 { font: 600 34px/1 Georgia, serif; margin: 0; color: #f4ecdd; }
+  h1 small { display: block; font: 500 13px/1.4 -apple-system, sans-serif; letter-spacing: 2px; text-transform: uppercase; color: var(--amber); margin-top: 8px; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #b9ae9c; text-transform: uppercase; letter-spacing: 1px; }
+  select, input[type=text] { font: inherit; padding: 9px 12px; border-radius: 8px; border: 1px solid #3a4e63; background: var(--navy-2); color: #f4ecdd; text-transform: none; letter-spacing: 0; }
+  .log { display: flex; flex-direction: column; gap: 6px; }
+  .log label { flex-direction: row; align-items: center; text-transform: none; letter-spacing: 0; font-size: 14px; color: #e8dfcf; gap: 8px; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid transparent; padding: 9px 14px; }
+  .reset { background: transparent; color: var(--amber); border-color: #3a4e63; }
+  .status { font-size: 13px; color: #b9ae9c; margin-top: auto; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: #8a8a8a; }
+  .dot.on { background: #5bbf87; } .dot.off { background: #d9534f; }
+  main { display: flex; flex-direction: column; min-height: 0; }
+  header { padding: 20px 32px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 14px; }
+  header h2 { font: 600 26px Georgia, serif; margin: 0; color: var(--navy); }
+  header span { color: var(--muted); font-size: 14px; }
+  #chat { flex: 1; overflow-y: auto; padding: 24px 32px; display: flex; flex-direction: column; gap: 16px; }
+  .msg { max-width: 760px; padding: 14px 18px; border-radius: 14px; }
+  .me { align-self: flex-end; background: var(--navy); color: #f4ecdd; border-bottom-right-radius: 4px; }
+  .npc { align-self: flex-start; background: var(--card); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .npc .ru { font-size: 18px; }
+  .npc .en { margin-top: 8px; font-size: 14px; color: var(--muted); font-style: italic; }
+  .npc .meta { margin-top: 8px; font-size: 12px; color: #8b8f94; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .tag { background: #eadfcb; color: var(--rust); padding: 1px 8px; border-radius: 999px; }
+  .tag.new { background: #d7e8e5; color: var(--teal); }
+  .play { background: transparent; border: 1px solid var(--line); padding: 2px 10px; font-size: 12px; }
+  .thinking { align-self: flex-start; color: var(--muted); font-style: italic; }
+  .thinking::after { content: '…'; animation: dots 1.2s steps(3) infinite; display: inline-block; width: 1.2em; overflow: hidden; vertical-align: bottom; }
+  @keyframes dots { from { width: 0; } to { width: 1.2em; } }
+  footer { padding: 16px 32px 24px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; }
+  #hints { display: flex; gap: 8px; flex-wrap: wrap; }
+  #hints button { background: var(--card); border-color: var(--line); color: var(--rust); }
+  #hints button:hover { border-color: var(--rust); }
+  form { display: flex; gap: 10px; }
+  form input { flex: 1; font: inherit; font-size: 17px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--line); background: #fffdf8; color: var(--ink); }
+  form button { background: var(--rust); color: #fbf7ef; font-weight: 600; padding: 12px 22px; }
+  button:disabled, input:disabled { opacity: .5; cursor: default; }
+  @media (max-width: 760px) { body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100vh; } }
+</style>
+</head>
+<body>
+<aside>
+  <h1>1492<small>Песочница ИИ-агентов</small></h1>
+  <label>Персонаж <select id="npc"></select></label>
+  <label>Имя игрока <input type="text" id="name" value="Луис"></label>
+  <label>Роль
+    <select id="role">
+      <option value="lengua">Переводчик</option>
+      <option value="piloto">Штурман</option>
+      <option value="grumete">Юнга</option>
+    </select>
+  </label>
+  <div>
+    <label style="margin-bottom:8px">Что игрок уже сделал</label>
+    <div class="log" id="log"></div>
+  </div>
+  <button class="reset" id="reset">Забыть этого игрока</button>
+  <div class="status" id="status"><span class="dot"></span>проверяю…</div>
+</aside>
+<main>
+  <header><h2 id="title">—</h2><span id="subtitle"></span></header>
+  <div id="chat"></div>
+  <footer>
+    <div id="hints"></div>
+    <form id="form"><input id="text" placeholder="Спросите что-нибудь по-русски…" autocomplete="off"><button>Сказать</button></form>
+  </footer>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const LOG_NAMES = {
+  latitude_correct: 'Верно посчитал широту', latitude_wrong: 'Ошибся с широтой', turned_hourglass: 'Переворачивал часы',
+  rudder_fixed: 'Помог починить руль', traded_hard: 'Жёстко торговался', found_wine: 'Нашёл вино',
+};
+let agents = [];
+let busy = false;
+
+const userId = () => `pg_${$('name').value.trim().toLowerCase() || 'guest'}`;
+const context = () => ({
+  name: $('name').value.trim() || 'Луис',
+  role: $('role').value,
+  log: [...document.querySelectorAll('#log input:checked')].map((i) => i.value),
+});
+
+function renderLog() {
+  const agent = agents.find((a) => a.id === $('npc').value);
+  $('log').innerHTML = '';
+  for (const code of agent?.reactions || []) {
+    const l = document.createElement('label');
+    l.innerHTML = `<input type="checkbox" value="${code}"> ${LOG_NAMES[code] || code}`;
+    $('log').append(l);
+  }
+  $('title').textContent = agent?.name.split(',')[0] || '—';
+  $('subtitle').textContent = agent?.name.split(',').slice(1).join(',').trim() || '';
+}
+
+function add(cls, html) {
+  const div = document.createElement('div');
+  div.className = cls;
+  div.innerHTML = html;
+  $('chat').append(div);
+  $('chat').scrollTop = $('chat').scrollHeight;
+  return div;
+}
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function play(url) {
+  if (!url) return;
+  new Audio(url).play().catch(() => {});
+}
+
+async function say(text, hintId) {
+  if (busy) return;
+  busy = true;
+  setEnabled(false);
+  if (text) add('msg me', esc(text));
+  const thinking = add('thinking', `${esc($('title').textContent)} задумался`);
+  try {
+    const res = await fetch('/talk', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: userId(), npc: $('npc').value, text, hintId, context: context() }),
+    });
+    const r = await res.json();
+    thinking.remove();
+    if (r.error) throw new Error(r.error);
+    const t = r.timings || {};
+    const cards = (t.cards || []).map((c) => `<span class="tag ${r.topicsTold.includes(c) ? 'new' : ''}">${c}${r.topicsTold.includes(c) ? ' · новое' : ' · уже говорил'}</span>`).join('');
+    const msg = add('msg npc', `<div class="ru">${esc(r.ru || '…')}</div><div class="en">${esc(r.en)}</div>
+      <div class="meta">${cards}${t.total ? `<span>ответ ${t.llm ?? 0} мс · перевод ${t.translate ?? 0} мс · голос ${t.tts ?? 0} мс · всего ${t.total} мс</span>` : ''}
+      ${r.audio ? '<button class="play">▶ ещё раз</button>' : ''}</div>`);
+    msg.querySelector('.play')?.addEventListener('click', () => play(r.audio));
+    play(r.audio);
+    renderHints(r.hints || []);
+  } catch (err) {
+    thinking.remove();
+    add('msg npc', `<div class="ru">Ошибка: ${esc(err.message)}</div>`);
+  } finally {
+    busy = false;
+    setEnabled(true);
+    $('text').focus();
+  }
+}
+
+function renderHints(hints) {
+  $('hints').innerHTML = '';
+  for (const h of hints) {
+    const b = document.createElement('button');
+    b.textContent = h.ru;
+    b.onclick = () => { add('msg me', esc(h.ru)); say('', h.id); };
+    $('hints').append(b);
+  }
+}
+
+function setEnabled(on) {
+  for (const el of document.querySelectorAll('footer button, footer input')) el.disabled = !on;
+}
+
+async function start() {
+  $('chat').innerHTML = '';
+  $('hints').innerHTML = '';
+  renderLog();
+  await say('');
+}
+
+$('form').onsubmit = (e) => {
+  e.preventDefault();
+  const text = $('text').value.trim();
+  if (!text) return;
+  $('text').value = '';
+  say(text);
+};
+$('npc').onchange = start;
+$('reset').onclick = async () => {
+  await fetch('/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: userId(), npc: $('npc').value }) });
+  start();
+};
+
+async function checkStatus() {
+  try {
+    const s = await (await fetch('/status')).json();
+    $('status').innerHTML = `<div><span class="dot ${s.ollama ? 'on' : 'off'}"></span>Ollama · ${esc(s.model)}</div><div><span class="dot ${s.tts ? 'on' : 'off'}"></span>Голос Kokoro</div>`;
+  } catch { $('status').textContent = 'Сервер недоступен'; }
+}
+
+(async () => {
+  agents = await (await fetch('/agents')).json();
+  $('npc').innerHTML = agents.map((a) => `<option value="${a.id}">${esc(a.name.split(',')[0])}</option>`).join('');
+  checkStatus();
+  setInterval(checkStatus, 5000);
+  start();
+})();
+</script>
+</body>
+</html>

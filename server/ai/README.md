@@ -12,7 +12,10 @@
   "agent-cli": "node ai/cli.js",
   "bench": "node ai/bench.js",
   "tts-test": "node ai/tts-test.js",
-  "voices": "node ai/gen-voices.js"
+  "voices": "node ai/gen-voices.js",
+  "playground": "node ai/playground.js",
+  "ollama": "sh ai/start-ollama.sh",
+  "test:ai": "node --test ai/test/*.test.js"
 }
 ```
 
@@ -50,6 +53,9 @@ ai.setStore({
 
 | Команда | Что делает |
 |---|---|
+| `npm run ollama` | Запустить Ollama с настройками для Mac 8 ГБ (если не запущена как сервис) |
+| `npm run playground` | **Песочница ИИ** в браузере: `http://<ip>:3100` — чат с любым агентом, голос, субтитры, подсказки, «что игрок сделал», «забыть игрока». Открывается и с других ноутбуков в сети |
+| `npm run test:ai` | Автотесты поиска фактов и чистки ответов |
 | `npm run agent-cli -- columbus` | Разговор с агентом в терминале. `/log latitude_correct` — действие игрока, `/hint why_west`, `/reset`, `/quit`. `--no-tts` — без голоса |
 | `npm run bench -- qwen3:4b qwen2.5:3b` | Замер скорости и качества моделей |
 | `npm run tts-test` | Список голосов Kokoro и пробные фразы в `data/audio/test/` |

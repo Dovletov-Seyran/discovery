@@ -26,7 +26,7 @@ export function wordsMatch(a, b) {
   if (a === b) return true;
   const cp = commonPrefix(a, b);
   if (cp >= 4) return true;
-  return cp >= 3 && Math.min(a.length, b.length) <= 4;
+  return cp >= 3 && Math.min(a.length, b.length) <= 4 && Math.abs(a.length - b.length) <= 2;
 }
 
 export function scoreCard(card, words) {

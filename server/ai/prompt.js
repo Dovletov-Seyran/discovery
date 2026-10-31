@@ -52,7 +52,7 @@ export function cleanAnswer(text) {
     .replace(/\s+/g, ' ')
     .trim();
   const sentences = t.match(/[^.!?]+[.!?]+["']?|[^.!?]+$/g) || [t];
-  return sentences.slice(0, AI.MAX_SENTENCES).join(' ').trim();
+  return sentences.slice(0, AI.MAX_SENTENCES).map((s) => s.trim()).join(' ');
 }
 
 export const isEnglish = (text) => !!text && !/[Ѐ-ӿ一-鿿]/.test(text);
