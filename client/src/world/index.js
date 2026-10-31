@@ -53,6 +53,7 @@ export const world = {
     const ship = buildShip(this.M);
     this.ship = ship.group;
     this.shipCollider = ship.collider;
+    this.env.addSails(ship.sails);
     this.scene.add(this.ship);
     this.zoneRoot = new THREE.Group();
     this.scene.add(this.zoneRoot);
@@ -152,7 +153,7 @@ export const world = {
     this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
     this.island.refresh();
     this.players.update(dt);
-    for (const n of this.npcs) if (n.userData.rig) strum(n.userData.rig, this.env.time);
+    for (const n of this.npcs) if (n.userData.rig) strum(n.userData.rig, this.env.time, this.env.t < 0.82); // silent at night
     for (const o of this.interactables) {
       const u = o.userData;
       if (u.emptyAt) u.setFill(THREE.MathUtils.clamp((u.emptyAt - Date.now()) / u.turnSpan, 0, 1));

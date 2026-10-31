@@ -54,6 +54,8 @@ export class Cutscenes {
     const switches = def.switch ?? [{ at: def.switchAt ?? 0, zone: def.zone, tod: def.tod, focus: def.focus }];
     return new Promise((done) => {
       this.cur = { id, def, shots, switches, next: 0, startAt: startAt ?? Date.now(), done, switched: false, fov: this.w.camera.fov };
+      this.keepLamp = undefined;
+      this.w.env.lampScale = null;
       this.setTitle(def);
       this.overlay().root.style.display = 'block';
       document.body.classList.add('cinematic');
@@ -139,11 +141,22 @@ export class Cutscenes {
     }
   }
 
-  // lanterns lit one after another: { from, step } — lamp i comes up at from + i·step
+  // Lanterns one after another, lamp i at from + i·step: { from, step } lights them up; with out: true they go
+  // out instead, all but the one nearest `keep` [x, z]. persist: the result outlives the cutscene (the night).
   lamps(def, t) {
     const l = def.lamps, env = this.w.env;
     if (!l) return;
-    env.lampScale = env.lamps.map((_, i) => clamp01((t - l.from - i * l.step) / 0.35));
+    if (l.out && this.keepLamp === undefined) {
+      const at = new THREE.Vector3(l.keep[0], 0, l.keep[1]);
+      let best = Infinity;
+      env.lamps.forEach((lamp, i) => { const p = lamp.getWorldPosition(this.v); const d = (p.x - at.x) ** 2 + (p.z - at.z) ** 2; if (d < best) { best = d; this.keepLamp = i; } });
+    }
+    let n = 0;
+    env.lampScale = env.lamps.map((_, i) => {
+      if (l.out && i === this.keepLamp) return 1;
+      const k = clamp01((t - l.from - n++ * l.step) / 0.35);
+      return l.out ? 1 - k : k;
+    });
   }
 
   // The rowboat: one oarsman on the middle thwart facing aft, a passenger in the stern. The oars swing on
@@ -248,7 +261,7 @@ export class Cutscenes {
     this.shadowFocus = null;
     if (this.boat) this.boat.group.visible = false;
     if (c.def.boat?.entity) w.setEntityState(c.def.boat.entity, { visible: true });
-    w.env.lampScale = null;
+    if (!c.def.lamps?.persist) w.env.lampScale = null;
     if (w.camera.fov !== c.fov) { w.camera.fov = c.fov; w.camera.updateProjectionMatrix(); }
     w.players.group.visible = true;
     this.splash.visible = false;

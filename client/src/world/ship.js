@@ -121,26 +121,33 @@ function rampGeo({ x, w, z0, z1, y0, y1 }) {
 }
 
 // Ship model. `far` skips interior details for the two ships in the distance.
-// Returns { group, collider: BufferGeometry[], sails } — the collider only for the player's ship, sails only for `far`.
+// Returns { group, collider: BufferGeometry[], sails } — the collider only for the player's ship.
 export function buildShip(M, { far = false, lateen = false } = {}) {
   const ship = new THREE.Group(), col = [];
   const add = (o) => (ship.add(o), o);
-  // On the distant ships the sails stay separate meshes (not baked), so a cutscene can furl them (furlSails).
-  // yard: the lateen yard [A, B] the sail gathers along; square sails bunch up under their yard (local y = 0).
+  // Sails stay separate meshes (not baked) so they can change shape: furled to the yards (a cutscene, furlSails)
+  // and slack when the wind dies (slackSails, driven by the time of day). yard: the lateen yard [A, B] and its
+  // clew C; square sails hang under their yard (local y = 0) and belly along local z.
   const sails = [];
   const sail = (m, yard) => {
     add(m);
-    if (!far) return m;
     m.userData.noBake = true;
-    const set = m.geometry.attributes.position.array.slice(), furled = new Float32Array(set.length), v = new V3();
+    const set = m.geometry.attributes.position.array.slice(), n = set.length / 3, v = new V3();
+    const furled = new Float32Array(set.length), slack = new Float32Array(set.length);
     const ab = yard && new V3().subVectors(yard[1], yard[0]).normalize();
-    for (let i = 0; i < set.length / 3; i++) {
+    const nrm = yard && new V3().crossVectors(new V3().subVectors(yard[1], yard[0]), new V3().subVectors(yard[2], yard[0])).normalize();
+    for (let i = 0; i < n; i++) {
       v.fromArray(set, i * 3);
       if (yard) v.sub(yard[0]).projectOnVector(ab).add(yard[0]).y -= 0.25;
       else v.set(v.x * 0.96, v.y * 0.06 - 0.15, v.z * 0.25);
       v.toArray(furled, i * 3);
+      // no wind: the belly falls out, the cloth hangs nearly flat with a few soft folds
+      v.fromArray(set, i * 3);
+      if (yard) v.addScaledVector(nrm, -v.clone().sub(yard[0]).dot(nrm) * 0.85 - 0.06 * Math.sin(v.y * 2.3 + v.z));
+      else v.set(v.x * 0.97, v.y * 1.015, v.z * 0.12 + 0.07 * Math.sin(v.x * 1.7) * Math.min(1, -v.y / 2));
+      v.toArray(slack, i * 3);
     }
-    sails.push({ m, set, furled, k: 0 });
+    sails.push({ m, set, furled, slack, k: 0, sk: 0 });
     return m;
   };
   const hull = hullGeometry(far ? 40 : 80, far ? 12 : 24);
@@ -202,7 +209,7 @@ export function buildShip(M, { far = false, lateen = false } = {}) {
     {
       const A = new V3(0.35, 4.5, MIZZENZ - 3.6), B = new V3(0.35, 14.2, MIZZENZ + 3.4), C = new V3(0.45, 4.6, MIZZENZ + 3.9);
       add(mesh(between(A, B, 0.11, 0.07, 10), M.get('wood')));
-      sail(mesh(lateenGeo(A, B, C, 0.8), M.get('sail')), [A, B]);
+      sail(mesh(lateenGeo(A, B, C, 0.8), M.get('sail')), [A, B, C]);
       R(C, new V3(2.0, 3.0, L1 - 0.2), 0.025);
     }
     for (const s of [-1, 1]) {
@@ -237,7 +244,7 @@ export function buildShip(M, { far = false, lateen = false } = {}) {
       mast(0.26, 0.15, 0, h, z);
       const A = new V3(0.35, 2.6, z - yl * 0.55), B = new V3(0.35, h + 2.2, z + yl * 0.45), C = new V3(0.35, 2.4, z + yl * 0.45);
       add(mesh(between(A, B, 0.12, 0.07, 10), M.get('wood')));
-      sail(mesh(lateenGeo(A, B, C, 1.0), M.get('sail')), [A, B]);
+      sail(mesh(lateenGeo(A, B, C, 1.0), M.get('sail')), [A, B, C]);
       R(new V3(0, h, z), new V3(3.2, 1, z), 0.03); R(new V3(0, h, z), new V3(-3.2, 1, z), 0.03);
     }
   }
@@ -287,11 +294,17 @@ export function buildShip(M, { far = false, lateen = false } = {}) {
 
 // k: 0 — sails set, 1 — furled to the yards
 export function furlSails(sails, k) {
-  for (const s of sails) {
-    if (s.k === k) continue;
-    s.k = k;
-    const a = s.m.geometry.attributes.position;
-    for (let i = 0; i < a.array.length; i++) a.array[i] = s.set[i] + (s.furled[i] - s.set[i]) * k;
-    a.needsUpdate = true;
-  }
+  for (const s of sails) if (s.k !== k) { s.k = k; shapeSail(s); }
+}
+
+// k: 0 — full of wind, 1 — slack in a dead calm (a furled sail stays furled)
+export function slackSails(sails, k) {
+  for (const s of sails) if (Math.abs(s.sk - k) > 0.005) { s.sk = k; shapeSail(s); }
+}
+
+function shapeSail(s) {
+  const a = s.m.geometry.attributes.position, open = (1 - s.k) * s.sk;
+  for (let i = 0; i < a.array.length; i++) a.array[i] = s.set[i] + (s.furled[i] - s.set[i]) * s.k + (s.slack[i] - s.set[i]) * open;
+  a.needsUpdate = true;
+  s.m.geometry.computeVertexNormals();
 }

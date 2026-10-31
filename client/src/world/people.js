@@ -233,14 +233,15 @@ export function reach(rig, arm, target, pole) {
 }
 
 const POLE_R = new THREE.Vector3(-1, -0.6, -0.4), POLE_L = new THREE.Vector3(1, -0.8, -0.3);
-export function strum(rig, t) {
-  const beat = Math.sin(t * Math.PI * 2 * 1.6), lazy = Math.sin(t * 0.9);
-  rig.torso.rotation.set(0.12 + 0.02 * beat, 0, 0);
-  rig.head.rotation.set(0.3, -0.25 + 0.1 * lazy, 0); // looking down at the strings
+// playing: false — night, the guitar rests on the knee, right hand on its top, head up to listen
+export function strum(rig, t, playing = true) {
+  const beat = playing ? Math.sin(t * Math.PI * 2 * 1.6) : 0, lazy = Math.sin(t * 0.9);
+  rig.torso.rotation.set(playing ? 0.12 + 0.02 * beat : 0.04, 0, 0);
+  rig.head.rotation.set(playing ? 0.3 : 0.05, playing ? -0.25 + 0.1 * lazy : 0.35 + 0.05 * lazy, 0);
   rig.root.updateMatrixWorld(true);
   const g = rig.guitar;
   for (const arm of rig.arms) {
-    if (arm.s < 0) reach(rig, arm, g.localToWorld(_T.set(0.05, 0.035 * beat, 0.1)), POLE_R); // right hand over the sound hole
-    else reach(rig, arm, g.localToWorld(_T.set(0.42 + 0.02 * lazy, -0.01, 0.07)), POLE_L); // left hand on the neck
+    if (arm.s < 0) reach(rig, arm, g.localToWorld(playing ? _T.set(0.05, 0.035 * beat, 0.1) : _T.set(-0.06, 0.06, 0.09)), POLE_R); // right hand: sound hole, or resting on the top
+    else reach(rig, arm, g.localToWorld(_T.set(0.42 + (playing ? 0.02 * lazy : 0), -0.01, 0.07)), POLE_L); // left hand on the neck
   }
 }

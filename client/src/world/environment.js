@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { Water } from 'three/addons/objects/Water.js';
-import { buildShip, furlSails } from './ship.js';
+import { buildShip, furlSails, slackSails } from './ship.js';
 import { WATER_Y } from './hullShape.js';
 
 // Time-of-day keys (F1.3). Everything in between is interpolated.
@@ -61,6 +61,7 @@ export class Environment {
     this.sunDir = new THREE.Vector3(); this.lightDir = new THREE.Vector3();
     this.p = sample(0.4);
     this.lamps = [];
+    this.sails = [];
     this.mirrorHide = []; // small things nobody sees reflected from the deck
 
     this.sky = new Sky(); this.sky.scale.setScalar(10000); this.root.add(this.sky);
@@ -183,6 +184,7 @@ export class Environment {
   }
 
   addLamps(lights) { this.lamps.push(...lights); }
+  addSails(sails) { this.sails.push(...sails); } // the player's ship; the fleet's own are in userData.sails
 
   apply(forceEnv = false) {
     const p = (this.p = sample(this.t)), q = this.root.quaternion;
@@ -253,6 +255,10 @@ export class Environment {
     this.sky.material.uniforms.time.value += dt;
     const flick = 0.85 + 0.15 * Math.sin(T * 13.1) * Math.sin(T * 7.3 + 1);
     // switched-off lamps leave the shader entirely (one recompile at dusk instead of three lights every frame)
+    // the wind dies with the evening (flow 2 → 0): sails go slack in the night calm
+    const slack = THREE.MathUtils.clamp(1 - this.p.flow / 2, 0, 1);
+    slackSails(this.sails, slack);
+    for (const f of this.fleet) slackSails(f.userData.sails, slack);
     // a cutscene may light them one by one (lampScale per lamp); they stay in the shader meanwhile, no recompiles
     this.lamps.forEach((l, i) => {
       const k = this.lampScale ? this.lampScale[i] ?? 1 : 1;
