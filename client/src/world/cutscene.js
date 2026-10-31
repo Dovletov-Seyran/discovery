@@ -243,6 +243,16 @@ export class Cutscenes {
       if (f) for (const ship of env.fleet) furlSails(ship.userData.sails, typeof f[0] === 'number' ? 1 : f.at(-1)[1]);
       c.done();
     }
+    // fadeIn: the scene ended on black, open the game's own view out of it (no camera move at all)
+    if (c.def.fadeIn) {
+      const k = (performance.now() - c.ended) / 1000 / c.def.fadeIn;
+      if (k >= 1) { this.stop(); return; }
+      this.shadowFocus = null;
+      const o = this.overlay();
+      o.fade.style.opacity = 1 - EASE.inOut(k);
+      o.top.style.transform = 'translateY(-100%)'; o.bottom.style.transform = 'translateY(100%)';
+      return;
+    }
     const near = c.def.blend ? 10 : 4; // with a blend the game camera only has to be close to the shot's end
     if (cam.position.distanceTo(last.end) < near || performance.now() - c.ended > 2500) { this.stop(); return; }
     if (this.w.chunks.focus) this.w.chunks.update(this.w.chunks.focus, 1 / 60);
