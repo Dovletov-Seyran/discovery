@@ -5,9 +5,10 @@ import { AI, isThinkingModel } from './config.js';
 const queue = [];
 let busy = false;
 
-export function chat(messages, { priority = 0, temperature = 0.7, maxTokens = 140, timeoutMs = AI.TIMEOUT_MS, model = AI.MODEL } = {}) {
+// format — JSON-схема: Ollama ограничивает ответ этой схемой (structured outputs), модель не может выйти за список вариантов
+export function chat(messages, { priority = 0, temperature = 0.7, maxTokens = 140, timeoutMs = AI.TIMEOUT_MS, model = AI.MODEL, format } = {}) {
   return new Promise((resolve, reject) => {
-    queue.push({ messages, opts: { temperature, maxTokens, timeoutMs, model }, priority, resolve, reject });
+    queue.push({ messages, opts: { temperature, maxTokens, timeoutMs, model, format }, priority, resolve, reject });
     queue.sort((a, b) => b.priority - a.priority);
     pump();
   });
@@ -28,7 +29,7 @@ async function pump() {
   }
 }
 
-async function request(messages, { temperature, maxTokens, timeoutMs, model }) {
+async function request(messages, { temperature, maxTokens, timeoutMs, model, format }) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   const started = performance.now();
@@ -43,6 +44,7 @@ async function request(messages, { temperature, maxTokens, timeoutMs, model }) {
         stream: false,
         keep_alive: -1,
         ...(isThinkingModel(model) ? { think: false } : {}),
+        ...(format ? { format } : {}),
         options: { temperature, num_predict: maxTokens, num_ctx: AI.NUM_CTX },
       }),
     });
