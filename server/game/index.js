@@ -1,4 +1,5 @@
 // Игровая логика: вход/выход игрока, обработчики сообщений, циклы.
+import { statSync } from 'node:fs';
 import { CONFIG } from '../../shared/config.js';
 import { C2S, S2C, ANIMS, CLOSE } from '../../shared/protocol.js';
 import { worldMeta, resetProgress } from '../db.js';
@@ -17,6 +18,12 @@ director.setHooks({
 });
 
 const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
+
+// Номер сборки клиента (время сборки client/dist). Вкладка, открытая до перезапуска сервера с новой
+// сборкой, переподключается со старым кодом — по несовпадению build клиент перезагружает страницу.
+const BUILD = (() => {
+  try { return String(Math.round(statSync(new URL('../../client/dist/index.html', import.meta.url)).mtimeMs)); } catch { return 'dev'; }
+})();
 
 const isVec3 = (v) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
@@ -57,6 +64,7 @@ export function join(session, ws) {
     },
     world: worldMeta(),
     scene: director.sceneMessage(p),
+    build: BUILD,
   });
 
   for (const other of players.connected()) {
@@ -104,8 +112,22 @@ function onMove(p, msg) {
   }
   p.p = msg.p;
   p.lastMoveAt = now;
+  // Выпрыгнул за борт или ушёл под воду у острова — обратно на точку появления своей роли
+  if (msg.p[1] < (FALL_Y[p.zone] ?? -Infinity)) {
+    const spawn = director.spawnFor(director.scene(), p.role);
+    if (spawn) {
+      p.p = spawn.p;
+      p.r = spawn.r;
+      p.lastCorrectAt = now;
+      players.send(p, { t: S2C.POS_CORRECT, p: p.p, r: p.r });
+      notice(p, p.zone === 'ship' ? 'Человек за бортом! Матросы вытащили тебя на палубу' : 'Тебя вытащили на берег');
+    }
+  }
   players.save(p);
 }
+
+// Ниже этой высоты игрок «утонул»: море у корабля на -2,25 м (WATER_Y Фронта 1), у острова — на 0
+const FALL_Y = { ship: -3, canary: -2.5 };
 
 function onInteract(p, msg) {
   const id = typeof msg.id === 'string' ? msg.id : '';

@@ -28,7 +28,7 @@ let screen='login', modal='', connected=false, chatOpen=false;
 let you={}, scene={id:'lobby',type:'lobby'}, players=[], inventory=[], quests={};
 let savedPosition, savedYaw=0, currentTarget, activeNpc;
 let noticeTimer, npcAudio, waitingForReply=false, frameCount=0, fpsAt=0, dialogueTimer;
-let scriptIndex=0,scriptLines=[],tradeState=null,partyReady={};
+let scriptIndex=0,scriptLines=[],tradeState=null,partyReady={},serverBuild=null;
 const knownCards=new Set();
 const settings={quality:'high',sensitivity:2,voices:0.8};
 const voices=new VoiceLibrary({onVoice:playing=>gameEvents.emit('voice',{playing})});
@@ -134,6 +134,9 @@ function bindNetwork(client){
   client.on('connection',({status})=>connectionStatus(status));
   client.on('auth_fail',()=>{client.disconnect();localStorage.removeItem('discovery.token');connected=false;closeModal();login();$('#login-error').textContent='Войдите снова.';});
   client.on('auth_ok',message=>{
+    // Сервер перезапустили с новой сборкой, а эта вкладка ещё на старом коде — перезагрузиться
+    if(serverBuild&&message.build&&message.build!=='dev'&&message.build!==serverBuild){location.reload();return;}
+    serverBuild=message.build;
     you=message.you;inventory=message.state?.inventory||[];quests=message.state?.quests||{};
     savedPosition=message.state?.p;savedYaw=message.state?.r??0;
     inventory.forEach(item=>knownCards.add(itemId(item)));
