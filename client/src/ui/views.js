@@ -41,10 +41,10 @@ export function shellView() {
       <div id="crosshair" class="crosshair" hidden></div><div id="prompt" class="interact-prompt" hidden></div>
       <div id="world-status" class="world-status">Мир не подключён</div>
       <div id="preview-controls" class="preview-controls" hidden><span class="overline">ПРОВЕРКА UI</span><button data-preview="pickup">Предмет</button><button data-preview="dialogue">Диалог</button><button data-preview="astrolabe">Астролябия</button><button data-preview="quest">Задание</button></div>
-      <footer class="hud-footer"><button id="inventory-button" class="quiet-button">Снаряжение <span id="item-count">0 / 8</span><kbd>Tab</kbd></button><span><kbd>Enter</kbd> Чат</span></footer>
+      <footer class="hud-footer"><button id="inventory-button" class="quiet-button">Снаряжение <span id="item-count">0</span><kbd>Tab</kbd></button><button id="journal-button" class="quiet-button">Журнал <kbd>J</kbd></button><span><kbd>Enter</kbd> Чат</span></footer>
       <div id="chat-log" class="chat-log" aria-live="polite"></div>
       <form id="chat-form" class="chat-form" hidden><input aria-label="Сообщение команде" maxlength="300" placeholder="Сообщение…"><button class="quiet-button">Отправить</button></form>
-      <pre id="debug" class="debug" hidden></pre>
+      <div id="equipment" class="equipment" hidden></div><pre id="debug" class="debug" hidden></pre>
     </div>
     <div id="modal" class="modal-layer" hidden></div><div id="notice" class="notice" role="status" hidden></div>`;
 }

@@ -27,6 +27,7 @@ function ref(q, p) {
 function matches(step, ev) {
   switch (step.type) {
     case 'pickup':
+    case 'use':
     case 'trade_complete': return ev.type === step.type && ev.item === step.item;
     case 'interact': return ev.type === 'interact' && ev.target === step.target;
     case 'deliver': return ev.type === 'deliver' && ev.item === step.item && ev.target === step.target;

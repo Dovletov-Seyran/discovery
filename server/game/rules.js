@@ -144,7 +144,7 @@ export function minigame(p, msg) {
   let success = msg.result?.success === true;
   if (msg.game === 'astrolabe') {
     if (!p.inventory.includes('astrolabe')) return notice(p, 'Нужна астролябия');
-    success = Number(msg.result?.answer) === ASTROLABE_ANSWER;
+    success = Number(msg.result?.answer) === ASTROLABE_ANSWER && Number.isFinite(msg.result?.angle) && Math.abs(msg.result.angle - 73) <= 2;
     if (!success) notice(p, 'Неверно. Широта = 90° − высота Солнца + склонение');
   }
   event(p, { type: 'minigame', game: msg.game, success });
@@ -159,40 +159,70 @@ export function context(p) {
   };
 }
 
-async function askAi(p, npc, req) {
-  players.send(p, { t: S2C.NPC_THINKING, npc });
-  try {
-    const res = await ai.talk({ userId: p.id, npc, context: context(p), ...req });
-    players.send(p, { t: S2C.NPC_SAY, npc, en: res.en, ru: res.ru, audio: res.audio ?? null, hints: res.hints ?? [] });
-    return res;
-  } catch (e) {
-    console.error('[ai] talk', e);
-    players.send(p, { t: S2C.NPC_SAY, npc, en: '...', ru: '…', audio: null, hints: [] });
-    return null;
+// Разговор живёт, пока окно открыто. Потерянная вкладка не держит всю команду навсегда.
+export function dialogue(p, msg) {
+  if (msg.active === false) {
+    if (p.dialogue?.id === msg.dialogueId) { p.dialogue = null; p.npcRequest = null; }
+    return;
   }
+  if (!playable() || director.isTransitioning() || !NPCS.has(msg.npc) || !entities.isNear(p, msg.npc, 3)) return;
+  if (typeof msg.dialogueId !== 'string' || msg.dialogueId.length > 80) return;
+  p.dialogue = { id: msg.dialogueId, npc: msg.npc, until: Date.now() + 30000 };
 }
 
-// На LLM говорят только Колумб, Старый Хуан и Торговец; остальные NPC — готовые реплики на клиенте
+function replyError(p, npc, req, text) {
+  players.send(p, { t: S2C.NPC_SAY, npc, requestId: req.requestId, dialogueId: req.dialogueId,
+    error: true, ru: text, en: '', hints: [], audio: null });
+}
+
+async function askAi(p, npc, req) {
+  const token = {}, started = director.startAt(), socket = p.ws;
+  p.npcRequest = token;
+  const tags = { npc, requestId: req.requestId, dialogueId: req.dialogueId };
+  const current = () => p.npcRequest === token && p.connected && p.ws === socket && director.startAt() === started
+    && (!req.dialogueId || p.dialogue?.id === req.dialogueId);
+  players.send(p, { t: S2C.NPC_THINKING, ...tags });
+  let timer;
+  try {
+    const {requestId, dialogueId, ...payload} = req;
+    const res = await Promise.race([
+      ai.talk({ userId: p.id, npc, context: context(p), ...payload }),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('NPC timeout')), 45000); }),
+    ]);
+    if (!current()) return null;
+    players.send(p, { t: S2C.NPC_SAY, ...tags, en: res.en, ru: res.ru, audio: res.audio ?? null, hints: res.hints ?? [] });
+    return res;
+  } catch (e) {
+    console.error('[ai] talk', e.message);
+    if (current()) replyError(p, npc, req, 'Не удалось расслышать. Спроси ещё раз.');
+    return null;
+  } finally { clearTimeout(timer); if (p.npcRequest === token) p.npcRequest = null; }
+}
+
 async function npcRequest(p, npc, req) {
   if (typeof npc !== 'string' || NPCS.get(npc)?.type !== 'llm' || !playable()) return;
-  if (entities.def(npc)?.zone !== p.zone) return;
+  if (director.isTransitioning() || !entities.isNear(p, npc, 3)) return replyError(p, npc, req, 'Подойди ближе к собеседнику.');
+  if (req.dialogueId && (p.dialogue?.id !== req.dialogueId || p.dialogue.npc !== npc)) return replyError(p, npc, req, 'Открой разговор заново.');
   const now = Date.now();
-  if (now - p.lastNpcTalkAt < CONFIG.NPC_TALK_COOLDOWN_MS) return;
+  if (p.npcRequest || now - p.lastNpcTalkAt < CONFIG.NPC_TALK_COOLDOWN_MS) return replyError(p, npc, req, 'Подожди немного и повтори вопрос.');
   p.lastNpcTalkAt = now;
+  const started = director.startAt();
   const res = await askAi(p, npc, req);
-  if (!res) return;
+  if (!res || started !== director.startAt()) return;
   event(p, { type: 'talk', npc });
   if (res.topicsTold?.length) event(p, { type: 'topics', npc, topics: res.topicsTold });
 }
 
+const requestTags = (msg) => ({
+  requestId: typeof msg.requestId === 'string' ? msg.requestId.slice(0, 80) : undefined,
+  dialogueId: typeof msg.dialogueId === 'string' ? msg.dialogueId.slice(0, 80) : undefined,
+});
 export function npcTalk(p, msg) {
-  // Пустой текст — игрок подошёл (E): агент здоровается с учётом прошлых разговоров
   const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, CONFIG.CHAT_MAX_LEN) : '';
-  return npcRequest(p, msg.npc, { text });
+  return npcRequest(p, msg.npc, { text, ...requestTags(msg) });
 }
-
 export function npcHint(p, msg) {
-  if (typeof msg.hint === 'string' && msg.hint) return npcRequest(p, msg.npc, { hintId: msg.hint });
+  if (typeof msg.hint === 'string' && msg.hint) return npcRequest(p, msg.npc, { hintId: msg.hint, ...requestTags(msg) });
 }
 
 // --- Торговля ---
@@ -213,15 +243,17 @@ export async function trade(p, msg) {
   const npc = msg.npc;
   const good = NPCS.get(npc)?.goods?.find((g) => g.item === msg.item);
   if (!good || !playable()) return;
+  if (msg.dialogueId && (p.dialogue?.id !== msg.dialogueId || p.dialogue.npc !== npc)) return replyError(p,npc,requestTags(msg),'Открой разговор заново.');
+  if (p.npcRequest) return replyError(p, npc, requestTags(msg), 'Дождись ответа торговца.');
   if (!entities.isNear(p, npc, 2)) return notice(p, 'Подойди к торговцу');
   const now = Date.now();
-  if (now - p.lastTradeAt < CONFIG.TRADE_COOLDOWN_MS) return;
+  if (now - p.lastTradeAt < CONFIG.TRADE_COOLDOWN_MS) return replyError(p,npc,requestTags(msg),'Подожди немного.');
   const offer = Math.round(Number(msg.offer));
-  if (!Number.isFinite(offer) || offer <= 0 || offer > 10000) return;
+  if (!Number.isFinite(offer) || offer <= 0 || offer > 10000) return replyError(p,npc,requestTags(msg),'Укажи цену от 1 до 10000.');
   p.lastTradeAt = now;
 
   const t = (p.trade[`${npc}:${good.item}`] ??= { price: good.basePrice, low: 0, sold: false });
-  if (t.sold) return notice(p, 'Это уже куплено');
+  if (t.sold) return replyError(p,npc,requestTags(msg),'Это уже куплено');
 
   let outcome;
   if (offer > p.money) {
@@ -249,7 +281,7 @@ export async function trade(p, msg) {
     event(p, { type: 'trade_complete', item: good.item });
   }
   p.lastNpcTalkAt = now;
-  await askAi(p, npc, { text: '', tradeResult: { item: good.item, offer, outcome, price: t.price } });
+  await askAi(p, npc, { ...requestTags(msg), text: '', tradeResult: { item: good.item, offer, outcome, price: t.price } });
 }
 
 // --- «Бу!» (только night_story) ---

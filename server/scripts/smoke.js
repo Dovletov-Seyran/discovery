@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 
 // Координаты объектов корабля — из раскладки Фронта 1, чтобы тест не ломался при перестановке
 const LAYOUT = JSON.parse(readFileSync(new URL('../../content/ship_layout.json', import.meta.url), 'utf8'));
-const at = (id) => { const o = LAYOUT.interact.find((x) => x.id === id); return [o.p[0], o.p[2]]; };
+const at = (id) => { const o = [...LAYOUT.interact,...LAYOUT.npcs].find((x) => x.id === id); return [o.p[0], o.p[2]]; };
 
 const BASE = process.env.SERVER || 'http://localhost:3000';
 const WS_URL = BASE.replace(/^http/, 'ws') + '/ws';
@@ -34,6 +34,7 @@ class Bot {
     this.ws.on('message', (d) => {
       const m = JSON.parse(d);
       this.msgs.push(m);
+      if (m.t === 'scene' && (m.spawn || m.seat)) this.pos = m.spawn || m.seat;
       if (m.t === 'pos_correct') { this.pos = m.p; this.corrections = (this.corrections ?? 0) + 1; } // как обязан делать клиент
     });
     this.ws.on('close', (code) => { this.closeCode = code; });
@@ -150,6 +151,7 @@ check(!!(await g.wait('pos_correct')), 'телепорт на 100 м → pos_cor
 g.send('chat', { text: 'Земля!' });
 check(!!(await l.wait('chat', (m) => m.text === 'Земля!' && m.from === g.id)), 'чат доходит до других');
 
+await l.walkTo(...at('columbus'));
 l.send('npc_talk', { npc: 'columbus', text: 'Куда мы плывём?' });
 check(!!(await l.wait('npc_thinking')), 'npc_talk → npc_thinking');
 check(!!(await l.wait('npc_say', () => true, AI_MS)), 'npc_talk → npc_say');
@@ -218,9 +220,10 @@ g2.send('pickup', { id: 'astrolabe' });
 check(!!(await g2.wait('notice', (m) => m.text.includes('уже взял'))), 'второй раз взять нельзя');
 p.send('minigame', { game: 'astrolabe', result: { answer: 17 } });
 check(!!(await p.wait('notice', (m) => m.text.includes('Неверно'))), 'астролябия: неверная широта → подсказка');
-p.send('minigame', { game: 'astrolabe', result: { answer: 33 } });
+p.send('minigame', { game: 'astrolabe', result: { angle: 73, answer: 33 } });
 check(!!(await p.wait('quest', (m) => m.id === 'q_latitude' && m.status === 'done')), 'астролябия: 33° → задание выполнено');
 
+await l.walkTo(...at('columbus'));
 l.send('npc_talk', { npc: 'columbus', text: 'Зачем мы плывём на запад?' });
 check(!!(await l.wait('quest', (m) => m.id === 'q_ask_columbus' && m.count === 1, AI_MS)), 'Колумб: тема 1 из 2');
 await sleep(2100);
@@ -320,8 +323,7 @@ g3.send('minigame', { game: 'cards', result: { success: true } });
 check(!!(await g3.wait('quest', (m) => m.id === 'q_feast' && m.status === 'done')), 'праздник: 3 из 4 → выполнено');
 p.send('chat', { text: '/done' });
 l.send('chat', { text: '/done' });
-for (const b of [g3, p, l]) b.send('ready', { value: true });
-check(!!(await l.wait('scene', (m) => m.id === 'cut_night', 4000)), 'праздник + все готовы → cut_night');
+check(!!(await l.wait('scene', (m) => m.id === 'cut_night', 4000)), 'задания праздника завершены → cut_night без ready');
 
 for (const b of [g3, p, l]) b.clear();
 g3.send('chat', { text: '/scene night_story' });

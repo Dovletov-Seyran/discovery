@@ -51,6 +51,8 @@ export class Controller {
     if (Number.isFinite(yaw)) this.yaw = yaw;
     this.anchorYaw = this.yaw;
     this.velocityY = 0;
+    this.onGround = false;
+    this.awaitingGround = true;
     this.applyCamera(0);
   }
   applyCamera(bob) {
@@ -58,6 +60,9 @@ export class Controller {
     this.world.camera.position.y += this.eyeHeight + bob;
     this.world.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
     this.world.camera.updateMatrixWorld();
+  }
+  terrainHeight(x,z) {
+    return this.world.island?.heightAt ? this.world.island.heightAt(x,z) : this.world.groundHeight(x,z,80);
   }
   update(delta, time) {
     let x=0, z=0;
@@ -69,6 +74,14 @@ export class Controller {
     const running = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
     this.animation = this.lookOnly ? 'sit' : moving ? running ? 'run' : 'walk' : 'idle';
     if (this.enabled && !this.lookOnly) {
+      // Island chunks arrive asynchronously. Never simulate gravity over an absent collider.
+      if (this.world.zone === 'canary') {
+        const floor = this.terrainHeight(this.position.x,this.position.z);
+        if (!Number.isFinite(floor)) { this.velocityY=0; this.animation='idle'; this.applyCamera(0); return; }
+        if (this.awaitingGround || this.position.y < floor - 0.4) {
+          this.position.y=Math.max(this.position.y, floor + 0.02); this.velocityY=0; this.awaitingGround=false;
+        }
+      }
       const dt=Math.min(Math.max(delta,0),0.05);
       const offset=new Vector3(x,0,z);
       if(moving)offset.normalize().applyAxisAngle(UP,this.yaw).multiplyScalar(running?6:3);
@@ -78,6 +91,13 @@ export class Controller {
       const step=dt/4;
       let grounded=false;
       for(let index=0;index<4;index++){
+        if (this.world.zone === 'canary') {
+          const nx=this.position.x+offset.x*step, nz=this.position.z+offset.z*step;
+          const radius=this.capsule.radius;
+          const ready=[[nx,nz],[nx-radius,nz],[nx+radius,nz],[nx,nz-radius],[nx,nz+radius]]
+            .every(([px,pz])=>Number.isFinite(this.terrainHeight(px,pz)));
+          if (!ready) { this.velocityY=0; break; }
+        }
         this.position.addScaledVector(offset,step);
         this.position.y+=this.velocityY*step;
         const capsule=this.capsule;

@@ -12,8 +12,9 @@ export const C2S = {
   USE: 'use',               // { item, target? }
   MINIGAME: 'minigame',     // { game, result }
   CHAT: 'chat',             // { text }
-  NPC_TALK: 'npc_talk',     // { npc, text }
-  NPC_HINT: 'npc_hint',     // { npc, hint }
+  DIALOGUE: 'dialogue',       // { npc, dialogueId, active } — открытие/heartbeat/закрытие, lease 30 с
+  NPC_TALK: 'npc_talk',     // { npc, text, dialogueId?, requestId? }
+  NPC_HINT: 'npc_hint',     // { npc, hint, dialogueId?, requestId? }
   TRADE: 'trade',           // { npc, item, offer }
   READY: 'ready',           // { value: true/false }
   SKIP_VOTE: 'skip_vote',   // —

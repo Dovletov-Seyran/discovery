@@ -53,5 +53,7 @@
         { "type": "talk", "npc": "storyteller", "text": "Поговорить со Старым Хуаном" },
         { "type": "minigame", "game": "cards", "text": "Сыграть в карты" },
         { "type": "interact", "target": "dance", "text": "Потанцевать" } ] }
-    ], "log": "feast" }
+    ], "log": "feast" },
+
+  {"id": "q_navigation", "scene": "ship_day", "role": "all", "optional": true, "title": "Проверить курс", "steps": [{"type": "use", "item": "compass", "text": "Возьми компас в руку и проверь курс (ЛКМ)"}, {"type": "use", "item": "map", "text": "Сверь направление с морской картой (ЛКМ)"}], "log": "navigation_checked"}
 ]

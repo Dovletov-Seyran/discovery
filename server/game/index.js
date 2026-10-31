@@ -44,6 +44,8 @@ export function join(session, ws) {
     players.send(p, { t: S2C.NOTICE, text: 'Вы вошли с другой вкладки' });
     old.close(CLOSE.REPLACED, 'replaced');
   }
+  p.dialogue = null;
+  p.npcRequest = null;
   p.ws = ws;
   p.connected = true;
   p.disconnectedAt = null;
@@ -81,6 +83,8 @@ export function join(session, ws) {
 
 export function leave(p, ws) {
   if (p.ws !== ws) return; // это старая вкладка, игрок уже переподключился
+  p.dialogue = null;
+  p.npcRequest = null;
   p.ws = null;
   p.connected = false;
   p.disconnectedAt = Date.now(); // готовность сохраняем: 60 с игрок остаётся в партии
@@ -147,6 +151,7 @@ const handlers = {
   [C2S.MOVE]: onMove,
   [C2S.INTERACT]: onInteract,
   [C2S.CHAT]: onChat,
+  [C2S.DIALOGUE]: rules.dialogue,
   [C2S.NPC_TALK]: rules.npcTalk,
   [C2S.NPC_HINT]: rules.npcHint,
   [C2S.PICKUP]: rules.pickup,

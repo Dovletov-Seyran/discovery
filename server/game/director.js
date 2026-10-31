@@ -52,6 +52,7 @@ export const zone = () => state.zone;
 // Конкретный запуск сцены: та же сцена, запущенная заново, — уже другая
 const sceneKey = () => `${state.id}@${state.startAt}`;
 export const startAt = () => state.startAt;
+export const isTransitioning = () => state.transitioning;
 
 const sceneType = () => scene().type;
 export const acceptsMove = () => sceneType() === 'play';
@@ -134,6 +135,8 @@ export function setScene(id) {
   // Места у фонаря — по порядку ролей, чтобы не зависеть от порядка входа
   const party = players.party().sort((a, b) => ROLES.indexOf(a.role) - ROLES.indexOf(b.role));
   party.forEach((p, i) => {
+    p.dialogue = null;
+    p.npcRequest = null;
     p.ready = false;
     p.scene = sceneKey();
     if (p.zone !== state.zone) p.chunks?.clear();
@@ -191,11 +194,14 @@ export function tick(now = Date.now()) {
   switch (s.advance ?? 'timer') {
     case 'all_ready': done = allReady(party, s); break;
     case 'quests': done = hooks.isSceneComplete(s, party); break;
-    case 'quests_and_ready': done = hooks.isSceneComplete(s, party) && allReady(party, s); break;
+    case 'quests_and_ready': done = hooks.isSceneComplete(s, party); break;
     case 'timer': done = timeUp; break;
     case 'timer_or_skip': done = timeUp || party.every((p) => state.skip.has(p.id)); break;
   }
-  if (done || timeUp) complete(s, { forced: !done }).catch((e) => console.error('[director]', e));
+  // В игровых сценах таймер меняет освещение, но не засчитывает задания.
+  // Шлюпка остаётся контрольной точкой; катсцены сохраняют собственный таймлайн.
+  const talking = s.type === 'play' && party.some((p) => p.connected && p.dialogue?.until > now);
+  if (done && !talking) complete(s, { forced: false }).catch((e) => console.error('[director]', e));
 }
 
 export function broadcastTod() {
