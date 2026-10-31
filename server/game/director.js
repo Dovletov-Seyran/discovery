@@ -6,6 +6,7 @@ import { loadGameState, saveGameState } from '../db.js';
 import { players } from './players.js';
 import * as ai from './ai-bridge.js';
 import * as entities from './entities.js';
+import { resolveLayout } from '../world/terrain.js';
 
 const scenes = new Map(loadContent('scenes.json', []).map((s) => [s.id, s]));
 const FIRST = 'lobby';
@@ -27,6 +28,12 @@ for (const s of scenes.values()) {
   if (sp && s.spawns) s.spawns = sp;
   if (Array.isArray(shipLayout.seats) && shipLayout.seats.length && s.seats) s.seats = shipLayout.seats;
 }
+// На Канарах — из content/canary_layout.json (spawns, обычно рядом с пристанью), уже с высотой рельефа
+const canarySpawns = (() => {
+  const layout = loadContent('canary_layout.json', null);
+  return layout?.spawns ? resolveLayout(layout).layout.spawns : null;
+})();
+for (const s of scenes.values()) if (s.zone === 'canary' && s.spawns && canarySpawns) s.spawns = canarySpawns;
 
 const state = {
   id: FIRST,
