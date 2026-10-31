@@ -55,7 +55,7 @@ function baseHeight(layout) {
     }
     // город почти ровный: 2.7–3.3 м
     const d = Math.max(Math.abs(x - tx), Math.abs(z - tz));
-    const w = (1 - smoothstep(half, half + 18, d)) * (1 - smoothstep(southEdge, tz + half, z));
+    const w = (1 - smoothstep(half, half + 32, d)) * (1 - smoothstep(southEdge, tz + half, z));
     return lerp(h, townH + 0.3 * shapeNoise(x / 25, z / 25), w);
   };
 }
@@ -143,6 +143,9 @@ const onPad = (pads, x, z, margin) => pads.some((pd) => {
   return lx > x0 - margin && lx < x1 + margin && lz > z0 - margin && lz < z1 + margin;
 });
 
+// Радиус основания моделей разброса (при масштабе 1), м
+const SINK = { rock: 1.0, palm_canary: 0.45, dragon_tree: 0.8, bush: 0.7 };
+
 // Растительность и камни: случайные точки с минимальным расстоянием, не в городе, не на дорожках и площадках
 function scatter(layout, heightAt, pads, warn) {
   const rand = mulberry32(layout.seed + 7);
@@ -165,7 +168,12 @@ function scatter(layout, heightAt, pads, warn) {
       if (h < type.h[0] || h > type.h[1]) continue;
       if (Math.max(Math.abs(x - tx), Math.abs(z - tz)) < half + 4) continue;
       if (onPath(layout, x, z, 2) || onPad(pads, x, z, 3) || tooClose(x, z, type.m, type.minDist)) continue;
-      const obj = { id: `${type.m}_${n}`, m: type.m, p: [r1(x), r1(h), r1(z)], r: r2(rand() * Math.PI * 2), s: r2(lerp(type.scale[0], type.scale[1], rand())) };
+      const r = r2(rand() * Math.PI * 2), s = r2(lerp(type.scale[0], type.scale[1], rand()));
+      // на склоне модель утапливается до нижней точки под ней: без щели снизу, в которую упирается игрок
+      const R = (SINK[type.m] ?? 0) * s;
+      let y = h;
+      for (let a = 0; R && a < 8; a++) y = Math.min(y, heightAt(x + R * Math.cos(a * Math.PI / 4), z + R * Math.sin(a * Math.PI / 4)));
+      const obj = { id: `${type.m}_${n}`, m: type.m, p: [r1(x), r1(y), r1(z)], r, s };
       placed.push(obj);
       const k = `${Math.floor(x / CELL)},${Math.floor(z / CELL)}`;
       if (!grid.has(k)) grid.set(k, []);
