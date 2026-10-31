@@ -1,0 +1,284 @@
+{
+  "comment": "Люди экспедиции и мира части 1. Агенты знают тех, у кого есть их мнение (opinions.<agent>). about — общеизвестное, opinions — что думает конкретный агент. aliases — как игрок может назвать человека (для поиска).",
+  "people": [
+    {
+      "id": "columbus",
+      "name": "Admiral Christopher Columbus",
+      "aliases": [
+        "колумб",
+        "адмирал",
+        "кристобаль",
+        "христофор",
+        "columbus",
+        "admiral"
+      ],
+      "about": "The Genoese commander of the fleet, aboard the Santa Maria. He believes he can reach the Indies by sailing west.",
+      "opinions": {
+        "storyteller": "A stubborn Genoese with a head full of maps. Either a genius or a madman, you have not decided which. He pays on time, that you respect.",
+        "trader": "The foreign admiral who came for supplies. Proud, pays fairly, and the governor's lady seems to like him."
+      },
+      "ru": "Колумб"
+    },
+    {
+      "id": "martin_pinzon",
+      "name": "Martin Alonso Pinzon",
+      "aliases": [
+        "мартин пинсон",
+        "пинсон",
+        "мартин",
+        "мартин алонсо",
+        "капитан пинты",
+        "pinzon",
+        "martin"
+      ],
+      "about": "Captain of the Pinta, the richest and most respected seaman of Palos. Without him half the crew would never have signed on.",
+      "opinions": {
+        "columbus": "An able seaman, but proud and too fond of giving his own orders. You need him, and you watch him.",
+        "storyteller": "The real master of Palos. Men sailed because Pinzon sailed; if he says turn back, they will listen to him, not to the Genoese."
+      },
+      "ru": "Мартин Алонсо Пинсон"
+    },
+    {
+      "id": "vicente_pinzon",
+      "name": "Vicente Yanez Pinzon",
+      "aliases": [
+        "висенте",
+        "яньес",
+        "капитан ниньи",
+        "брат пинсона",
+        "vicente"
+      ],
+      "about": "Younger brother of Martin Alonso, captain of the little caravel Nina.",
+      "opinions": {
+        "columbus": "Quieter than his brother and a good captain. The Nina sails well under him.",
+        "storyteller": "A good lad, calmer than his brother. Sails that Nina like a gull."
+      },
+      "ru": "Висенте Яньес Пинсон"
+    },
+    {
+      "id": "juan_de_la_cosa",
+      "name": "Juan de la Cosa",
+      "aliases": [
+        "хуан де ла коса",
+        "коса",
+        "де ла коса",
+        "хозяин корабля",
+        "хозяин санта-марии",
+        "cosa"
+      ],
+      "about": "A Cantabrian seaman, owner and master of the Santa Maria itself.",
+      "opinions": {
+        "columbus": "The owner of this ship and her master. He knows her every plank, though she is slow and heavy.",
+        "storyteller": "The man who owns the very boards under your feet. Careful with his ship, careful with his money."
+      },
+      "ru": "Хуан де ла Коса"
+    },
+    {
+      "id": "pero_nino",
+      "name": "Pero Alonso Nino",
+      "aliases": [
+        "ниньо",
+        "перо",
+        "перо алонсо",
+        "лоцман",
+        "штурман",
+        "главный штурман",
+        "кормчий",
+        "nino",
+        "pilot"
+      ],
+      "about": "Chief pilot of the Santa Maria, from Moguer, who has sailed to Guinea.",
+      "opinions": {
+        "columbus": "A sound pilot who keeps an honest course. You check his reckoning yourself, as every admiral should.",
+        "storyteller": "Knows the stars better than most priests know their prayers."
+      },
+      "ru": "Перо Алонсо Ниньо"
+    },
+    {
+      "id": "luis_de_torres",
+      "name": "Luis de Torres",
+      "aliases": [
+        "торрес",
+        "луис де торрес",
+        "толмач",
+        "torres"
+      ],
+      "about": "The fleet's interpreter, who speaks Hebrew, Arabic and some Chaldean, brought to speak with the Great Khan.",
+      "opinions": {
+        "columbus": "A learned man. When we reach the Khan's court, his tongue will be worth more than ten soldiers.",
+        "storyteller": "A man of books among sailors. Polite. Gets seasick."
+      },
+      "ru": "Луис де Торрес"
+    },
+    {
+      "id": "diego_de_arana",
+      "name": "Diego de Arana",
+      "aliases": [
+        "арана",
+        "диего де арана",
+        "альгвасил",
+        "arana"
+      ],
+      "about": "Chief marshal of the fleet who keeps order among the men; a cousin of Beatriz, the mother of the admiral's younger son.",
+      "opinions": {
+        "columbus": "A man of Cordoba you trust, family through Beatriz. He keeps order among the men.",
+        "storyteller": "The marshal. Kin to the Admiral's woman in Cordoba, so mind your tongue near him."
+      },
+      "ru": "Диего де Арана"
+    },
+    {
+      "id": "rodrigo_de_triana",
+      "name": "Rodrigo de Triana",
+      "aliases": [
+        "триана",
+        "родриго",
+        "дозорный",
+        "triana"
+      ],
+      "about": "A young Andalusian sailor on the Pinta, known for sharp eyes.",
+      "opinions": {
+        "columbus": "One of Pinzon's men on the Pinta. You hardly know him.",
+        "storyteller": "Lad with the eyes of a hawk. If anybody sees land first, it will be him."
+      },
+      "ru": "Родриго де Триана"
+    },
+    {
+      "id": "boatswain",
+      "name": "the boatswain",
+      "aliases": [
+        "боцман",
+        "boatswain"
+      ],
+      "about": "The loud boatswain of the Santa Maria who drives the crew at their work.",
+      "opinions": {
+        "columbus": "Loud and rough, but the men work when he shouts.",
+        "storyteller": "Barks like a dog, but he pulled me out of the sea once. Good man."
+      },
+      "ru": "боцман"
+    },
+    {
+      "id": "cook",
+      "name": "the cook",
+      "aliases": [
+        "кок",
+        "повар",
+        "cook"
+      ],
+      "about": "The cook of the Santa Maria who keeps the fire box on deck and makes beans, biscuit and salted sardines.",
+      "opinions": {
+        "columbus": "His cooking is poor, but his fire is safe, and on a wooden ship that matters more.",
+        "storyteller": "Burns the beans every day and swears they were meant that way."
+      },
+      "ru": "кок"
+    },
+    {
+      "id": "sailor_diego",
+      "name": "Diego, a sailor",
+      "aliases": [
+        "диего",
+        "матрос диего"
+      ],
+      "about": "A married sailor from Palos who signed on hoping to bring back gold for his family.",
+      "opinions": {
+        "columbus": "A married man from Palos. Steady, if afraid.",
+        "storyteller": "Talks about his wife every evening. Misses her already."
+      },
+      "ru": "Диего"
+    },
+    {
+      "id": "sailor_pedro",
+      "name": "Pedro, a sailor",
+      "aliases": [
+        "педро",
+        "матрос педро"
+      ],
+      "about": "A cheerful young sailor who admires the swift Nina and complains about the slow Santa Maria.",
+      "opinions": {
+        "columbus": "Cheerful and quick on the ropes.",
+        "storyteller": "Young and loud. Laughs at my stories, which is the main thing."
+      },
+      "ru": "Педро"
+    },
+    {
+      "id": "sailor_sancho",
+      "name": "Sancho, a sailor",
+      "aliases": [
+        "санчо",
+        "матрос санчо"
+      ],
+      "about": "A gambling sailor who warns everyone to watch their purse.",
+      "opinions": {
+        "columbus": "He gambles. You have told the boatswain to watch him.",
+        "storyteller": "Cheats at cards, badly. I win from him every night."
+      },
+      "ru": "Санчо"
+    },
+    {
+      "id": "old_juan",
+      "name": "Old Juan",
+      "aliases": [
+        "хуан",
+        "старый хуан",
+        "старик",
+        "old juan",
+        "juan"
+      ],
+      "about": "A grey-bearded old sailor of the Santa Maria who once sailed for the Portuguese and tells tales at night.",
+      "opinions": {
+        "columbus": "The oldest sailor aboard. Superstitious, but he has seen more sea than most.",
+        "trader": "An old sailor from your ships came to buy wine. Told me three lies before he paid."
+      },
+      "ru": "Старый Хуан"
+    },
+    {
+      "id": "beatriz",
+      "name": "Dona Beatriz de Bobadilla",
+      "aliases": [
+        "беатрис",
+        "бобадилья",
+        "правительница",
+        "губернатор",
+        "beatriz"
+      ],
+      "about": "The governor of the island of La Gomera, a widow known for her beauty and her hard hand.",
+      "opinions": {
+        "columbus": "The lady of La Gomera, much talked about at court. We will take on water and stores on her island.",
+        "storyteller": "The lady of La Gomera. Beautiful and dangerous, they say. The islanders fear her.",
+        "trader": "Our lady and governor. Her husband was killed by islanders in a revolt and she punished them without mercy. Speak well of her here."
+      },
+      "ru": "донья Беатрис де Бобадилья"
+    },
+    {
+      "id": "gonzalo",
+      "name": "Gonzalo, a merchant",
+      "aliases": [
+        "гонсало",
+        "торговец",
+        "купец",
+        "gonzalo",
+        "merchant",
+        "trader"
+      ],
+      "about": "A cunning merchant at the market of San Sebastian on La Gomera.",
+      "opinions": {
+        "columbus": "The merchant on La Gomera. He swears every price ruins him.",
+        "storyteller": "Sells goat cheese at the price of silver. A thief, but a friendly thief."
+      },
+      "ru": "Гонсало"
+    },
+    {
+      "id": "carpenter",
+      "name": "the carpenter of La Gomera",
+      "aliases": [
+        "плотник",
+        "carpenter"
+      ],
+      "about": "The shipwright at the yard of La Gomera who repairs the Pinta's rudder.",
+      "opinions": {
+        "columbus": "The Gomeran carpenter who mends the Pinta's rudder. Good hands.",
+        "trader": "Best shipwright on the island. Drinks too much, works too slowly, but his work holds."
+      },
+      "ru": "плотник"
+    }
+  ]
+}

@@ -32,7 +32,8 @@ for (const model of models) {
   let english = 0;
   for (const q of QUESTIONS) {
     const cards = findCards(agent, q);
-    const messages = buildMessages({ agent, context, newCards: cards, toldCards: [], history: [], text: q });
+    const intent = cards.length ? { kind: 'topic', card: cards[0], agentId: 'columbus' } : { kind: 'small_talk', agentId: 'columbus' };
+    const messages = buildMessages({ agent, context, intent, mem: { told: [], turns: [], summary: '' }, text: q });
     const a = await chat(messages, { model, timeoutMs: 60_000 });
     const en = cleanAnswer(a.text);
     if (isEnglish(en)) english++;

@@ -9,7 +9,11 @@ export const AI = {
   TIMEOUT_MS: 10_000,
   WARMUP_TIMEOUT_MS: 90_000,
   NUM_CTX: 2048,
-  HISTORY: 6,            // последних реплик в промпте
+  HISTORY: 10,           // последних реплик (5 обменов) дословно в промпте
+  MEMORY_RECENT_TURNS: 8,  // после сжатия дословно остаются последние 4 обмена
+  MEMORY_COMPRESS_AT: 16,  // когда реплик больше — старые сжимаются в резюме (в фоне, после ответа)
+  MEMORY_KEEP_TURNS: 40,   // страховка: больше не храним, даже если сжатие не успело (под нагрузкой оно ждёт в очереди)
+  RETURN_AFTER_MS: 2 * 60_000, // пауза больше — игрок «ушёл и вернулся»
   MAX_CARDS: 2,          // фактов на один ответ
   MAX_SENTENCES: 3,
   MAX_WORDS: 32,         // длиннее — перевод и голос растягиваются до 8–9 с
@@ -20,6 +24,8 @@ export const AI = {
   AUDIO_TTL_MS: 10 * 60_000,
 
   AGENTS_DIR: root('content/agents'),
+  CREW_FILE: root('content/crew.json'),
+  QUESTS_FILE: root('content/quests.json'),
   LINES_FILE: root('content/lines.json'),
   VO_MANIFEST: root('client/public/audio/vo/manifest.json'),
   MODELS_DIR: root('data/models'),       // кеш модели Kokoro: не зависит от node_modules

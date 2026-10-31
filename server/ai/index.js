@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { AI } from './config.js';
-import { getAgent, loadAgents } from './agents.js';
+import { getAgent, loadAgents, currentTask, crewNames } from './agents.js';
+import { understand } from './understand.js';
 import { chat, warmup, ollamaUp } from './llm.js';
-import { findCards } from './retrieval.js';
-import { loadMemory, saveMemory, setStore } from './memory.js';
-import { buildMessages, cleanAnswer, isEnglish, ensureRepeatOpening } from './prompt.js';
+import { loadMemory, saveMemory, setStore, turnsToCompress } from './memory.js';
+import { buildMessages, cleanAnswer, isEnglish, ensureRepeatOpening, latin, TEMPERATURE } from './prompt.js';
 import { toRussian } from './translate.js';
 import { speak, loadTTS, ttsReady } from './tts.js';
 
@@ -33,9 +33,11 @@ export function playLine(lineId) {
 }
 
 const GENERIC_HINTS = { more: 'Расскажи ещё что-нибудь.', bye: 'Прощай!' };
+const OPENER = '(The player comes up to you.)';
 
 /**
- * Ответ NPC игроку.
+ * Ответ NPC игроку. Три шага: понять реплику (understand) → выбрать, что сказать (код + prompt) → сказать (LLM).
+ * Память об игроке хранится между встречами: последние реплики, резюме прошлых разговоров, когда виделись.
  * @param {{userId, npc, text?, hintId?, context?, tradeResult?}} req
  * @returns {Promise<{en, ru, audio, hints, topicsTold, timings}>}
  */
@@ -43,34 +45,49 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   const t0 = performance.now();
   const agent = getAgent(npc);
   const mem = loadMemory(userId, npc);
+  const now = Date.now();
+  const firstEver = !mem.turns.length && !mem.summary;
+  const returning = mem.lastAt && now - mem.lastAt > AI.RETURN_AFTER_MS ? gap(now - mem.lastAt) : null;
 
-  // Первое обращение без текста — приветствие из файла агента
-  if (!text && !hintId && !tradeResult && !mem.history.length && agent.greeting) {
+  // Самое первое знакомство без текста — готовое приветствие (быстро), но тоже в память
+  if (!text && !hintId && !tradeResult && firstEver && agent.greeting) {
     const { url } = await speak(agent.greeting.en, agent.voice, { name: npc });
-    return { ...agent.greeting, audio: url, hints: hintsFor(agent, mem.told), topicsTold: [], timings: { total: ms(t0) } };
+    remember(mem, { now, context, user: OPENER, en: agent.greeting.en, newVisit: true });
+    saveMemory(userId, npc, mem);
+    return { ...agent.greeting, audio: url, hints: hintsFor(agent, mem.told), topicsTold: [], timings: { total: ms(t0), kind: 'greeting' } };
   }
 
+  const untold = agent.cards.filter((c) => !mem.told.includes(c.id));
   const hintCard = hintId && agent.cards.find((c) => c.id === hintId);
   const userText = text || hintCard?.hint || GENERIC_HINTS[hintId] || '';
-  const cards = findCards(agent, userText, { hintId });
-  const newCards = cards.filter((c) => !mem.told.includes(c.id));
-  const toldCards = cards.filter((c) => mem.told.includes(c.id));
-  const untold = agent.cards.filter((c) => !mem.told.includes(c.id));
-  // Повторный вопрос: всё найденное уже рассказано — добавим новую деталь из нерассказанного
-  const isRepeat = toldCards.length > 0 && newCards.length === 0;
-  const extraCard = isRepeat ? untold[0] : null;
-  const steerCard = cards.length ? null : untold[0];
 
-  const messages = buildMessages({ agent, context, newCards, toldCards, extraCard, steerCard, tradeResult, history: mem.history, text: userText });
+  // Шаг 1: к какому варианту из базы относится реплика
+  let intent;
+  if (tradeResult || !userText) intent = { kind: 'none', agentId: npc, ms: 0 };
+  else if (hintCard) intent = { kind: 'topic', card: hintCard, agentId: npc, ms: 0, via: 'hint' };
+  else if (hintId === 'more' && untold[0]) intent = { kind: 'topic', card: untold[0], agentId: npc, ms: 0, via: 'hint' };
+  else if (hintId === 'bye') intent = { kind: 'farewell', agentId: npc, ms: 0, via: 'hint' };
+  else intent = await understand({ agent, text: userText, turns: mem.turns });
 
+  // Шаг 2: что именно сказать — решает код
+  const repeat = intent.kind === 'topic' && mem.told.includes(intent.card.id);
+  const extraCard = repeat ? untold[0] : null;
+  const task = currentTask(context, npc);
+  const messages = buildMessages({
+    agent, context, intent, mem, repeat, extraCard, steerCard: untold[0], task, tradeResult, returning, text: userText,
+  });
+
+  // Шаг 3: сказать в образе
   let en = null;
   let llmMs = 0;
   for (let attempt = 0; attempt < 2 && !en; attempt++) {
     try {
-      const res = await chat(messages, { priority: 1 });
+      const res = await chat(messages, { priority: 1, temperature: TEMPERATURE[intent.kind] ?? 0.7 });
       llmMs += res.ms;
       const answer = cleanAnswer(res.text);
-      if (isEnglish(answer)) en = isRepeat ? ensureRepeatOpening(answer) : answer;
+      if (isEnglish(answer)) en = repeat ? ensureRepeatOpening(answer) : answer;
+      // Подсказка по заданию должна быть про задание: нет ни одного ключевого слова — говорим само задание
+      if (en && intent.kind === 'task_help' && task && !mentionsTask(en, task.step)) en = `${task.step.charAt(0).toUpperCase()}${task.step.slice(1)}.`;
     } catch (err) {
       console.warn(`[ai] ${npc}: ${err.message}`);
       break;
@@ -84,20 +101,21 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   let topicsTold = [];
 
   if (en) {
-    // Перевод (LLM) и озвучка (CPU) идут параллельно
+    // Перевод (LLM) и озвучка (отдельный поток) идут параллельно
     const [tr, voice] = await Promise.all([
-      toRussian(en).catch(() => ({ text: '', ms: 0 })),
+      toRussian(en, { names: nameGlossary(context, userText) }).catch(() => ({ text: '', ms: 0 })),
       speak(en, agent.voice, { name: npc }).catch((err) => (console.warn(`[tts] ${err.message}`), { url: null, ms: 0 })),
     ]);
     ru = tr.text;
     translateMs = tr.ms;
     audio = voice.url;
     ttsMs = voice.ms;
-    // extraCard не помечаем: модель не всегда вставляет новую деталь, а помеченное агент потом пропустит
-    topicsTold = newCards.map((c) => c.id);
+    // Новая тема засчитывается рассказанной; extraCard при повторе — нет (модель не всегда её вставляет)
+    topicsTold = intent.kind === 'topic' && !repeat ? [intent.card.id] : [];
     mem.told.push(...topicsTold);
-    mem.history.push({ role: 'user', content: userText || '(greets you)' }, { role: 'assistant', content: en });
+    remember(mem, { now, context, user: userText || OPENER, en, newVisit: !!returning });
     saveMemory(userId, npc, mem);
+    compactLater(userId, npc, agent, context);
   } else {
     ({ en, ru } = pick(agent.fallbacks));
     audio = (await speak(en, agent.voice, { name: npc }).catch(() => ({ url: null }))).url;
@@ -109,8 +127,70 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
     audio,
     hints: hintsFor(agent, mem.told),
     topicsTold,
-    timings: { llm: llmMs, translate: translateMs, tts: ttsMs, total: ms(t0), cards: cards.map((c) => c.id) },
+    timings: {
+      understand: intent.ms ?? 0, llm: llmMs, translate: translateMs, tts: ttsMs, total: ms(t0),
+      kind: intent.kind, via: intent.via, cards: intent.card ? [intent.card.id] : [], person: intent.person?.id, returning,
+    },
   };
+}
+
+// Имена для перевода субтитров: экипаж + игроки (в ответе модели они латиницей)
+// + латинские слова из вопроса игрока (One Piece, iPhone): в субтитрах оставляем как есть
+function nameGlossary(context, userText = '') {
+  const players = (context.party ?? [{ name: context.name }]).filter((p) => p.name && latin(p.name) !== p.name).map((p) => ({ en: latin(p.name), ru: p.name }));
+  const foreign = (userText.match(/[A-Za-z][A-Za-z0-9'-]*(?:\s+[A-Z][A-Za-z0-9'-]*)*/g) ?? []).map((w) => ({ en: w, ru: w }));
+  return [...players, ...foreign, ...crewNames()];
+}
+
+const STOP = new Set(['about', 'their', 'there', 'which', 'things', 'thing', 'with', 'from', 'each', 'time', 'back']);
+function mentionsTask(answer, step) {
+  const low = answer.toLowerCase();
+  return step.toLowerCase().match(/[a-z]{5,}/g)?.filter((w) => !STOP.has(w)).some((w) => low.includes(w.slice(0, 5))) ?? true;
+}
+
+function remember(mem, { now, context, user, en, newVisit }) {
+  mem.turns.push({ role: 'user', content: user, at: now }, { role: 'assistant', content: en, at: now });
+  mem.lastAt = now;
+  mem.lastScene = context.scene ?? mem.lastScene;
+  if (newVisit) mem.visits++;
+}
+
+// Сжатие старых реплик в резюме — в фоне после ответа, с низким приоритетом в очереди к модели
+const compacting = new Set();
+function compactLater(userId, npc, agent, context) {
+  const key = `${userId}:${npc}`;
+  if (compacting.has(key) || !turnsToCompress(loadMemory(userId, npc)).length) return;
+  compacting.add(key);
+  compact(userId, npc, agent, context).catch((err) => console.warn(`[ai] память ${key}: ${err.message}`)).finally(() => compacting.delete(key));
+}
+
+async function compact(userId, npc, agent, context) {
+  const mem = loadMemory(userId, npc);
+  const old = turnsToCompress(mem);
+  if (!old.length) return;
+  const who = context.name || 'the player';
+  const transcript = old.map((t) => `${t.role === 'user' ? who : 'Me'}: ${t.content}`).join('\n');
+  const res = await chat([
+    { role: 'system', content: `You are ${agent.name}. Update your private memory notes about ${who}. Keep what matters: what they asked you, what you told them, what they told you about themselves (name, home, family, feelings, plans), promises, and how they behaved. Write in English, in the first person ("I told them...", "they said..."), plain sentences, at most 90 words. Output only the notes.` },
+    { role: 'user', content: `My previous notes: ${mem.summary || '(none yet)'}\n\nNew conversation to add:\n${transcript}\n\nMy updated notes:` },
+  ], { priority: -1, temperature: 0.2, maxTokens: 180, timeoutMs: 30_000 });
+  const notes = res.text.trim();
+  if (!notes) return;
+  // За время сжатия игрок мог сказать ещё что-то — убираем ровно сжатые реплики
+  const fresh = loadMemory(userId, npc);
+  const sameStart = old.every((t, i) => fresh.turns[i]?.at === t.at && fresh.turns[i]?.content === t.content);
+  if (!sameStart) return;
+  fresh.turns = fresh.turns.slice(old.length);
+  fresh.summary = notes;
+  saveMemory(userId, npc, fresh);
+}
+
+function gap(msAway) {
+  const min = Math.round(msAway / 60_000);
+  if (min < 60) return `${min} minutes`;
+  const h = Math.round(min / 60);
+  if (h < 24) return h === 1 ? 'an hour' : `${h} hours`;
+  return 'a long while';
 }
 
 function hintsFor(agent, told) {

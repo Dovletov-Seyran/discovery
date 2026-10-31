@@ -156,6 +156,8 @@ export function context(p) {
   return {
     role: p.role, name: p.name, scene: sceneId(), inventory: p.inventory,
     questsDone: Object.keys(p.quests).filter((id) => p.quests[id]?.status === 'done'), log: p.log,
+    // для ИИ: подсказка по текущему шагу задания и кто ещё в экипаже
+    quests: p.quests, party: players.party().map((x) => ({ name: x.name, role: x.role })),
   };
 }
 
