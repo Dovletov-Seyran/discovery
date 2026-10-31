@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1492 · dev</title>
+<style>
+  :root { --bg: #16130f; --panel: #221d17; --line: #4a3f30; --text: #eadfcb; --muted: #a8987d; --gold: #d9b45a; --red: #e06c5a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; display: flex; height: 100vh; }
+  #map-wrap { flex: 1; position: relative; min-width: 0; }
+  canvas { display: block; width: 100%; height: 100%; outline: none; }
+  #hud { position: absolute; left: 8px; top: 8px; background: #000a; padding: 6px 8px; border-radius: 4px; font-family: ui-monospace, monospace; white-space: pre; pointer-events: none; }
+  #help { position: absolute; left: 8px; bottom: 8px; color: var(--muted); background: #0008; padding: 4px 8px; border-radius: 4px; }
+  aside { width: 360px; background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; padding: 10px; gap: 8px; overflow: hidden; }
+  h3 { margin: 4px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--gold); }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  input, select, button { font: inherit; color: var(--text); background: #2e271f; border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; }
+  input { flex: 1; min-width: 0; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--gold); }
+  button.on { background: var(--gold); color: #1b160f; }
+  button:disabled { opacity: .45; cursor: default; }
+  #status { color: var(--muted); }
+  #log { flex: 1; overflow: auto; font-family: ui-monospace, monospace; font-size: 11px; background: #17130e; border: 1px solid var(--line); border-radius: 4px; padding: 6px; }
+  #log div { white-space: pre-wrap; word-break: break-word; border-bottom: 1px solid #2a231b; padding: 2px 0; }
+  #log .out { color: #8fb3d9; } #log .err { color: var(--red); } #log .npc { color: var(--gold); }
+  .hidden { display: none !important; }
+  #quests div { padding: 3px 0; border-bottom: 1px solid #2a231b; }
+  #quests .done { color: var(--muted); text-decoration: line-through; }
+  #quests small { color: var(--muted); display: block; }
+  @media (max-width: 800px) {
+    body { flex-direction: column; height: auto; min-height: 100vh; }
+    #map-wrap { height: 60vh; flex: none; }
+    aside { width: auto; border-left: 0; border-top: 1px solid var(--line); }
+    #log { min-height: 240px; }
+  }
+</style>
+</head>
+<body>
+<div id="map-wrap">
+  <canvas id="map" tabindex="0"></canvas>
+  <div id="hud"></div>
+  <div id="help">Клик по карте → WASD — ходить, Shift — бег, колесо — масштаб</div>
+</div>
+<aside>
+  <div id="login-box">
+    <h3>Вход</h3>
+    <div class="row"><input id="login" placeholder="Имя"><input id="password" type="password" placeholder="Пароль"></div>
+    <div class="row" style="margin-top:6px"><button id="btn-login">Войти</button><button id="btn-register">Создать</button></div>
+  </div>
+  <div id="status">Не подключено</div>
+  <div id="game-box" class="hidden">
+    <h3>Роль и готовность</h3>
+    <div class="row" id="roles"></div>
+    <div class="row" style="margin-top:6px">
+      <button id="btn-ready">Готов</button><button id="btn-skip">Пропустить катсцену</button><button id="btn-interact" title="interact с объектом рядом">E — рядом</button><button id="btn-logout">Выйти</button>
+    </div>
+    <h3>Чат и dev-команды</h3>
+    <div class="row"><input id="chat" placeholder="/scene ship_day, /scene canary, /reset, /give map"><button id="btn-chat">→</button></div>
+    <h3>Разговор с NPC</h3>
+    <div class="row"><select id="npc"><option>columbus</option><option>storyteller</option><option>trader</option></select><input id="npc-text" placeholder="Куда мы плывём?"><button id="btn-npc">→</button></div>
+    <div class="row" id="hints" style="margin-top:6px"></div>
+    <h3>Торговля, мини-игры, «Бу!»</h3>
+    <div class="row" id="trade-row"><select id="trade-item"><option value="cheese">Сыр</option><option value="meat">Солонина</option><option value="biscuit">Сухари</option></select><button data-offer="20">20</button><button data-offer="25">25</button><button data-offer="30">30</button><button data-offer="35">35</button></div>
+    <div class="row" style="margin-top:6px"><button id="btn-astro">Астролябия: 33°</button><button id="btn-cards">Карты</button><button id="btn-scare">Б — Бу!</button></div>
+    <h3>Инвентарь и задания</h3>
+    <div id="inv" class="muted"></div>
+    <div id="quests"></div>
+  </div>
+  <h3>Сообщения</h3>
+  <div id="log"></div>
+</aside>
+<script type="module">
+import { CONFIG } from '/shared/config.js';
+import { C2S, S2C, ROLES, ROLE_NAMES, CLOSE } from '/shared/protocol.js';
+
+const $ = (id) => document.getElementById(id);
+const canvas = $('map'), ctx = canvas.getContext('2d');
+const TOKEN_KEY = 'dev_token'; // sessionStorage: в каждой вкладке свой игрок
+
+const S = {
+  ws: null, me: null, scene: null, zone: null, world: null,
+  pos: [0, 1.6, 0], r: 0, anim: 'idle', role: null,
+  others: new Map(),       // id → {name, role, p, r, a}
+  chunks: new Map(),       // 'zone:cx,cz' → {data, img, usedAt}
+  pending: new Set(),
+  denied: 0, bytes: 0,
+  keys: new Set(), scale: 2, lobby: [], party: null, tod: null,
+  lastSent: '', counters: {},
+  inventory: [], money: 0, quests: new Map(), hints: [], trade: null,
+};
+
+// --- Журнал ---
+const QUIET = new Set([S2C.SNAPSHOT, S2C.TOD, S2C.CHUNK]);
+function log(text, cls = '') {
+  const el = document.createElement('div');
+  el.className = cls;
+  el.textContent = `${new Date().toLocaleTimeString()} ${text}`;
+  $('log').prepend(el);
+  while ($('log').childElementCount > 150) $('log').lastChild.remove();
+}
+
+// --- HTTP ---
+async function auth(path) {
+  const res = await fetch(path, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ login: $('login').value, password: $('password').value }),
+  });
+  const body = await res.json();
+  if (!res.ok) return log(`${path} → ${res.status} ${body.message ?? body.error}`, 'err');
+  sessionStorage.setItem(TOKEN_KEY, body.token);
+  connect();
+}
+$('btn-login').onclick = () => auth('/api/login');
+$('btn-register').onclick = () => auth('/api/register');
+$('btn-logout').onclick = () => { sessionStorage.removeItem(TOKEN_KEY); S.ws?.close(); location.reload(); };
+
+// --- WebSocket ---
+function send(t, payload = {}) {
+  if (S.ws?.readyState !== 1) return;
+  S.ws.send(JSON.stringify({ t, ...payload }));
+  if (t !== C2S.MOVE && t !== C2S.CHUNK_REQ && t !== C2S.CHUNK_DROP) log(`→ ${t} ${JSON.stringify(payload)}`, 'out');
+}
+
+function connect() {
+  const token = sessionStorage.getItem(TOKEN_KEY);
+  if (!token) return;
+  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+  S.ws = ws;
+  $('status').textContent = 'Подключение…';
+  ws.onopen = () => ws.send(JSON.stringify({ t: C2S.AUTH, token }));
+  ws.onmessage = (e) => handle(JSON.parse(e.data));
+  ws.onclose = (e) => {
+    $('status').textContent = `Отключено (код ${e.code})`;
+    log(`соединение закрыто: ${e.code} ${e.reason}`, 'err');
+    if (e.code === CLOSE.AUTH_FAIL) sessionStorage.removeItem(TOKEN_KEY);
+    else if (e.code !== CLOSE.REPLACED) setTimeout(connect, 2000);
+  };
+}
+
+function setScene(sc) {
+  S.scene = sc;
+  if (sc.zone && sc.zone !== S.zone) {
+    for (const k of S.chunks.keys()) if (!k.startsWith(sc.zone + ':')) S.chunks.delete(k);
+    S.pending.clear();
+    for (const o of S.others.values()) delete o.p; // их позиции придут в snapshot новой зоны
+    S.zone = sc.zone;
+    S.scale = sc.zone === 'ship' ? 18 : 2;
+  }
+  if (sc.spawn) S.pos = [...sc.spawn];
+  if (sc.seat) S.pos = [...sc.seat];
+  if (sc.tod != null) S.tod = sc.tod;
+}
+
+function handle(m) {
+  S.counters[m.t] = (S.counters[m.t] ?? 0) + 1;
+  if (!QUIET.has(m.t)) log(`← ${m.t} ${JSON.stringify(m).slice(0, 400)}`, m.t === S2C.NPC_SAY ? 'npc' : m.t.includes('fail') || m.t.includes('denied') ? 'err' : '');
+  switch (m.t) {
+    case S2C.AUTH_OK:
+      S.me = m.you; S.role = m.you.role; S.world = m.world;
+      S.pos = m.state.p ?? S.pos; S.r = m.state.r ?? 0; S.zone = m.state.zone;
+      S.inventory = m.state.inventory ?? []; S.money = m.state.money ?? 0;
+      S.scale = S.zone === 'ship' ? 18 : 2;
+      setScene(m.scene);
+      $('login-box').classList.add('hidden'); $('game-box').classList.remove('hidden');
+      canvas.focus();
+      break;
+    case S2C.AUTH_FAIL: sessionStorage.removeItem(TOKEN_KEY); break;
+    case S2C.SCENE: setScene(m); break;
+    case S2C.TOD: S.tod = m.value; break;
+    case S2C.LOBBY:
+      S.lobby = m.players;
+      S.role = m.players.find((p) => p.id === S.me?.id)?.role ?? S.role;
+      break;
+    case S2C.PARTY: S.party = m; break;
+    case S2C.PLAYER_JOIN: S.others.set(m.id, { ...S.others.get(m.id), name: m.name, role: m.role }); break;
+    case S2C.PLAYER_LEAVE: S.others.delete(m.id); break;
+    case S2C.SNAPSHOT:
+      for (const p of m.players) S.others.set(p.id, { ...S.others.get(p.id), ...p, seenAt: performance.now() });
+      break;
+    case S2C.POS_CORRECT: S.pos = m.p; break;
+    case S2C.INVENTORY: S.inventory = m.items; S.money = m.money ?? 0; break;
+    case S2C.QUEST: S.quests.set(m.id, m); break;
+    case S2C.NPC_SAY: S.hints = (m.hints ?? []).map((h) => ({ ...h, npc: m.npc })); break;
+    case S2C.TRADE_STATE: S.trade = m; break;
+    case S2C.ENTITY:
+      for (const c of S.chunks.values()) for (const o of c.data.interact) if (o.id === m.id) o.state = m.state;
+      break;
+    case S2C.CHUNK: {
+      const k = `${m.zone}:${m.key}`;
+      S.pending.delete(k);
+      S.chunks.set(k, { data: m.data, img: renderChunk(m.data), usedAt: performance.now(), bytes: JSON.stringify(m.data).length });
+      break;
+    }
+    case S2C.CHUNK_DENIED: S.pending.delete(`${m.zone}:${m.key}`); S.denied++; break;
+  }
+  renderPanel();
+}
+
+// --- Панель ---
+function renderPanel() {
+  const taken = new Map(S.lobby.filter((p) => p.role).map((p) => [p.role, p]));
+  $('roles').replaceChildren(...ROLES.map((role) => {
+    const b = document.createElement('button');
+    const owner = taken.get(role);
+    b.textContent = owner ? `${ROLE_NAMES[role]} · ${owner.name}${owner.ready ? ' ✓' : ''}` : ROLE_NAMES[role];
+    b.className = S.role === role ? 'on' : '';
+    b.disabled = S.scene?.type !== 'lobby' || (owner && owner.id !== S.me?.id);
+    b.onclick = () => send(C2S.INTERACT, { id: `role:${role}` });
+    return b;
+  }));
+  const meReady = S.party?.ready?.[S.me?.id];
+  $('btn-ready').textContent = meReady ? 'Не готов' : 'Готов';
+  $('btn-ready').className = meReady ? 'on' : '';
+  $('inv').textContent = `Инвентарь: ${S.inventory.join(', ') || 'пусто'} · ${S.money} мараведи` +
+    (S.trade ? ` · у торговца: ${S.trade.goods.map((g) => `${g.item} ${g.sold ? '✓' : g.price}`).join(', ')}` : '');
+  $('quests').replaceChildren(...[...S.quests.values()].map((q) => {
+    const el = document.createElement('div');
+    el.className = q.status === 'done' ? 'done' : '';
+    const counter = q.need ? ` (${q.count}/${q.need})` : '';
+    el.innerHTML = `${q.title}${q.shared ? ' · общее' : ''}${q.optional ? ' · необяз.' : ''} — ${q.progress}/${q.total}<small></small>`;
+    el.querySelector('small').textContent = q.text ? q.text + counter : 'выполнено';
+    return el;
+  }));
+  $('hints').replaceChildren(...S.hints.map((h) => {
+    const b = document.createElement('button');
+    b.textContent = h.ru;
+    b.onclick = () => send(C2S.NPC_HINT, { npc: h.npc, hint: h.id });
+    return b;
+  }));
+  $('status').textContent = S.me ?`${S.me.name} (${ROLE_NAMES[S.role] ?? 'без роли'}) · сцена ${S.scene?.id} [${S.scene?.type}] · зона ${S.zone}` : $('status').textContent;
+}
+$('btn-ready').onclick = () => send(C2S.READY, { value: !S.party?.ready?.[S.me?.id] });
+$('btn-skip').onclick = () => send(C2S.SKIP_VOTE);
+$('btn-chat').onclick = () => { const v = $('chat').value.trim(); if (v) send(C2S.CHAT, { text: v }); $('chat').value = ''; };
+$('chat').onkeydown = (e) => { if (e.key === 'Enter') $('btn-chat').onclick(); };
+$('btn-npc').onclick = () => { const v = $('npc-text').value.trim(); if (v) send(C2S.NPC_TALK, { npc: $('npc').value, text: v }); $('npc-text').value = ''; };
+$('npc-text').onkeydown = (e) => { if (e.key === 'Enter') $('btn-npc').onclick(); };
+$('btn-interact').onclick = () => {
+  const near = nearestInteract();
+  if (near) send(near.kind === 'item' ? C2S.PICKUP : C2S.INTERACT, { id: near.id });
+  else log('рядом нет объектов', 'err');
+};
+
+for (const b of document.querySelectorAll('#trade-row [data-offer]')) {
+  b.onclick = () => send(C2S.TRADE, { npc: 'trader', item: $('trade-item').value, offer: Number(b.dataset.offer) });
+}
+$('btn-astro').onclick = () => send(C2S.MINIGAME, { game: 'astrolabe', result: { angle: 73, answer: 33 } });
+$('btn-cards').onclick = () => send(C2S.MINIGAME, { game: 'cards', result: { success: true } });
+$('btn-scare').onclick = () => {
+  let best = null, bestD = Infinity;
+  for (const [id, o] of S.others) {
+    if (!o.p) continue;
+    const d = Math.hypot(o.p[0] - S.pos[0], o.p[2] - S.pos[2]);
+    if (d < bestD) { best = id; bestD = d; }
+  }
+  if (best != null) send(C2S.SCARE, { target: best });
+  else log('рядом никого', 'err');
+};
+
+function nearestInteract() {
+  let best = null, bestD = CONFIG.INTERACT_DIST;
+  for (const c of S.chunks.values()) for (const o of [...c.data.interact, ...c.data.npcs]) {
+    const d = Math.hypot(o.p[0] - S.pos[0], o.p[2] - S.pos[2]);
+    if (d < bestD) { best = o; bestD = d; }
+  }
+  return best;
+}
+
+// --- Чанки ---
+const CS = CONFIG.CHUNK_SIZE;
+function heightColor(h) {
+  if (h < 0) { const k = Math.max(0, 1 + h / 8); return [30 + 40 * k, 70 + 70 * k, 120 + 60 * k]; }
+  if (h < 2) return [214, 196, 140];
+  if (h < 16) { const k = (h - 2) / 14; return [90 - 20 * k, 140 - 30 * k, 70 - 10 * k]; }
+  const k = Math.min(1, (h - 16) / 25); return [110 + 60 * k, 95 + 60 * k, 80 + 70 * k];
+}
+function renderChunk(d) {
+  if (!d.h) return null;
+  const c = new OffscreenCanvas(d.res, d.res);
+  const g = c.getContext('2d');
+  const img = g.createImageData(d.res, d.res);
+  d.h.forEach((h, i) => { const [r, gg, b] = heightColor(h); img.data.set([r, gg, b, 255], i * 4); });
+  g.putImageData(img, 0, 0);
+  return c;
+}
+function chunkLoop() {
+  if (!S.zone || S.ws?.readyState !== 1) return;
+  const wanted = new Set();
+  if (S.zone === 'ship') wanted.add('0,0');
+  else {
+    const cx = Math.floor(S.pos[0] / CS), cz = Math.floor(S.pos[2] / CS), R = CONFIG.LOAD_RADIUS;
+    for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) wanted.add(`${cx + dx},${cz + dz}`);
+  }
+  const now = performance.now();
+  const req = [];
+  for (const key of wanted) {
+    const k = `${S.zone}:${key}`;
+    const c = S.chunks.get(k);
+    if (c) c.usedAt = now;
+    else if (!S.pending.has(k)) { S.pending.add(k); req.push(key); }
+  }
+  if (req.length) send(C2S.CHUNK_REQ, { zone: S.zone, keys: req });
+  // LRU с лимитом cacheLimit
+  const limit = Math.max(S.world?.cacheLimit ?? 25, wanted.size);
+  const extra = [...S.chunks.entries()].filter(([k]) => !wanted.has(k.split(':')[1])).sort((a, b) => a[1].usedAt - b[1].usedAt);
+  const drop = [];
+  while (S.chunks.size > limit && extra.length) { const [k] = extra.shift(); S.chunks.delete(k); drop.push(k.split(':')[1]); }
+  if (drop.length) send(C2S.CHUNK_DROP, { zone: S.zone, keys: drop });
+}
+setInterval(chunkLoop, 500);
+
+function groundAt(x, z) {
+  const c = S.chunks.get(`${S.zone}:${Math.floor(x / CS)},${Math.floor(z / CS)}`)?.data;
+  if (!c?.h) return null;
+  const ix = Math.round(x - c.cx * CS), iz = Math.round(z - c.cz * CS);
+  return c.h[iz * c.res + ix];
+}
+
+// --- Движение ---
+addEventListener('keydown', (e) => { if (document.activeElement === canvas) { S.keys.add(e.code); if (e.code === 'KeyE') $('btn-interact').onclick(); } });
+addEventListener('keyup', (e) => S.keys.delete(e.code));
+canvas.addEventListener('blur', () => S.keys.clear());
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); S.scale = Math.min(40, Math.max(0.5, S.scale * (e.deltaY < 0 ? 1.2 : 1 / 1.2))); }, { passive: false });
+
+// Движение — по таймеру, а не в requestAnimationFrame: rAF в фоне и в превью-панелях почти не вызывается
+let last = performance.now();
+function step() {
+  const now = performance.now();
+  const dt = Math.min((now - last) / 1000, 0.1); last = now;
+  const play = S.scene?.type === 'play';
+  let dx = 0, dz = 0;
+  if (S.keys.has('KeyW')) dz -= 1; if (S.keys.has('KeyS')) dz += 1;
+  if (S.keys.has('KeyA')) dx -= 1; if (S.keys.has('KeyD')) dx += 1;
+  if (play && (dx || dz)) {
+    const run = S.keys.has('ShiftLeft') || S.keys.has('ShiftRight');
+    const v = (run ? 6 : 3) / Math.hypot(dx, dz);
+    S.pos = [S.pos[0] + dx * v * dt, S.pos[1], S.pos[2] + dz * v * dt];
+    const g = groundAt(S.pos[0], S.pos[2]);
+    if (g != null) S.pos[1] = Math.max(g, 0) + 1.6;
+    S.r = Math.atan2(dx, dz); S.anim = run ? 'run' : 'walk';
+  } else S.anim = 'idle';
+}
+setInterval(step, 1000 / 60);
+function frame() { draw(); requestAnimationFrame(frame); }
+setInterval(() => {
+  const msg = { p: S.pos.map((v) => Math.round(v * 100) / 100), r: Math.round(S.r * 1000) / 1000, a: S.anim };
+  const key = JSON.stringify(msg);
+  if (key !== S.lastSent && S.me) { S.lastSent = key; send(C2S.MOVE, msg); }
+}, 1000 / CONFIG.TICK_HZ);
+
+// --- Отрисовка ---
+const COLORS = { palm_canary: '#2f6b2a', dragon_tree: '#4f8a3a', rock: '#8a857c', bush: '#5a7d3c' };
+function draw() {
+  const W = canvas.width = canvas.clientWidth * devicePixelRatio;
+  const H = canvas.height = canvas.clientHeight * devicePixelRatio;
+  const k = S.scale * devicePixelRatio;
+  const toScreen = (x, z) => [W / 2 + (x - S.pos[0]) * k, H / 2 + (z - S.pos[2]) * k];
+  ctx.fillStyle = S.zone === 'ship' ? '#1e3550' : '#14263a';
+  ctx.fillRect(0, 0, W, H);
+  ctx.imageSmoothingEnabled = false;
+
+  if (S.zone === 'ship') {
+    const [x0, y0] = toScreen(-3.5, -13), [x1, y1] = toScreen(3.5, 12.5);
+    ctx.fillStyle = '#6b4a2b'; ctx.beginPath(); ctx.roundRect(x0, y0, x1 - x0, y1 - y0, 20 * k / 4); ctx.fill();
+    const [qx0, qy0] = toScreen(-3.5, -13), [, qy1] = toScreen(0, -7);
+    ctx.fillStyle = '#7d5835'; ctx.fillRect(qx0, qy0, x1 - x0, qy1 - qy0);
+  }
+  for (const c of S.chunks.values()) {
+    const d = c.data;
+    if (!c.img) continue;
+    const [sx, sy] = toScreen(d.cx * CS, d.cz * CS);
+    ctx.drawImage(c.img, sx, sy, (CS + 1) * k, (CS + 1) * k);
+    ctx.strokeStyle = '#ffffff22'; ctx.strokeRect(sx, sy, CS * k, CS * k);
+  }
+  ctx.font = `${11 * devicePixelRatio}px system-ui`;
+  for (const c of S.chunks.values()) {
+    for (const o of c.data.objects) {
+      const [x, y] = toScreen(o.p[0], o.p[2]);
+      ctx.fillStyle = COLORS[o.m] ?? '#c9a26b';
+      const big = !COLORS[o.m];
+      ctx.fillRect(x - (big ? 4 : 1.5) * k / 2, y - (big ? 4 : 1.5) * k / 2, (big ? 4 : 1.5) * k, (big ? 4 : 1.5) * k);
+    }
+    for (const o of c.data.interact) {
+      const [x, y] = toScreen(o.p[0], o.p[2]);
+      if (o.state?.holder) continue; // предмет уже у кого-то
+      ctx.fillStyle = '#f0c040'; ctx.fillRect(x - 4, y - 4, 8, 8);
+      ctx.fillStyle = '#f5e7c0'; ctx.fillText(o.label ?? o.id, x + 7, y + 4);
+    }
+    for (const o of c.data.npcs) {
+      const [x, y] = toScreen(o.p[0], o.p[2]);
+      ctx.fillStyle = '#e06c5a'; ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fill();
+      ctx.fillStyle = '#ffd2c8'; ctx.fillText(o.label ?? o.id, x + 7, y + 4);
+    }
+  }
+  const drawPlayer = (p, color, label) => {
+    const [x, y] = toScreen(p.p[0], p.p[2]);
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.sin(p.r) * 12, y + Math.cos(p.r) * 12); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.fillText(label, x + 9, y - 8);
+  };
+  for (const [id, o] of S.others) if (o.p) drawPlayer(o, '#5ab0e0', `${o.name ?? id} ${ROLE_NAMES[o.role] ?? ''} · ${o.a}`);
+  if (S.me) drawPlayer({ p: S.pos, r: S.r }, '#ffffff', `я · ${S.me.name}`);
+
+  const total = S.world?.totalChunks ?? 0;
+  const loaded = S.chunks.size;
+  const bytes = [...S.chunks.values()].reduce((s, c) => s + c.bytes, 0);
+  const left = S.scene?.duration ? Math.max(0, S.scene.startAt + S.scene.duration * 1000 - Date.now()) / 1000 : null;
+  $('hud').textContent = [
+    `Сцена: ${S.scene?.id ?? '—'} (${S.scene?.type ?? ''})${left != null ? ` · осталось ${left.toFixed(0)} с` : ''}`,
+    `Время суток: ${S.tod?.toFixed(3) ?? '—'}   Зона: ${S.zone ?? '—'}`,
+    `Позиция: ${S.pos.map((v) => v.toFixed(1)).join(', ')}   Чанк: ${Math.floor(S.pos[0] / CS)},${Math.floor(S.pos[2] / CS)}`,
+    `Мир: ${loaded}/${total} чанков (${total ? (100 * loaded / total).toFixed(1) : 0}%) · ${(bytes / 1024).toFixed(0)} КБ / ${((S.world?.totalBytes ?? 0) / 1024 / 1024).toFixed(2)} МБ · отказов ${S.denied}`,
+    `Игроков рядом: ${[...S.others.values()].filter((o) => o.p).length}   Ждём: ${S.party?.waitingFor?.map((w) => w.name).join(', ') || '—'}`,
+  ].join('\n');
+}
+
+const saved = sessionStorage.getItem(TOKEN_KEY);
+if (saved) connect();
+requestAnimationFrame(frame);
+setInterval(() => { if (document.visibilityState === 'visible') draw(); }, 250); // HUD живёт, даже если rAF придушен
+</script>
+</body>
+</html>

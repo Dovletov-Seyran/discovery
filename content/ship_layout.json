@@ -1,0 +1,42 @@
+{
+  "_comment": "Черновик Бэка 1 — заменяется раскладкой Фронта 1. Сервер отдаёт файл целиком в чанке ship 0,0. spawns — точки появления по ролям (или по сценам: { ship_day: {...} }), seats — места у фонаря в night_story. Точка: [x, y, z] или { p: [x, y, z], r } (r как у камеры: 0 — лицом к носу). id в interact/npcs должны совпадать с content/quests.json.",
+  "spawns": {
+    "grumete": [0, 1.6, 8],
+    "piloto": { "p": [0, 3.2, -9], "r": 3.14 },
+    "lengua": [1, 1.6, 0]
+  },
+  "seats": [[2, 1.6, 3], [-2, 1.6, 3], [0, 1.6, 5]],
+  "objects": [
+    { "id": "mainmast", "m": "mast", "p": [0, 1.6, 0], "r": 0 },
+    { "id": "hearth", "m": "hearth", "p": [0.8, 1.6, 9.5], "r": 0 },
+    { "id": "anchor", "m": "anchor", "p": [-1.6, 1.6, 11], "r": 0 },
+    { "id": "barrels_bow", "m": "barrels", "p": [-1.5, 1.6, 8.5], "r": 0 },
+    { "id": "hatch", "m": "hatch", "p": [0, 1.6, -2], "r": 0 },
+    { "id": "helm", "m": "helm", "p": [0, 3.2, -11.5], "r": 0 },
+    { "id": "card_table", "m": "crate", "p": [1.8, 1.6, 6], "r": 0 },
+    { "id": "dance_circle", "m": "none", "p": [0, 1.6, 2], "r": 0 }
+  ],
+  "interact": [
+    { "id": "hourglass", "m": "hourglass", "p": [1.2, 3.2, -9], "kind": "hourglass", "label": "Песочные часы", "period": 120, "demoPeriod": 60 },
+    { "id": "compass", "m": "compass", "p": [0.4, 3.2, -11], "kind": "item", "item": "compass", "label": "Компас" },
+    { "id": "astrolabe", "m": "chest", "p": [-1.5, 3.2, -9.5], "kind": "item", "item": "astrolabe", "label": "Сундук штурмана" },
+    { "id": "map", "m": "map_table", "p": [1.5, 3.2, -10.5], "kind": "item", "item": "map", "label": "Морская карта" },
+    { "id": "sword", "m": "sword", "p": [-1.8, 3.2, -11], "kind": "item", "item": "sword", "label": "Меч" },
+    { "id": "espingarda", "m": "espingarda", "p": [2.2, 1.6, 2], "kind": "item", "item": "espingarda", "label": "Эспингарда" },
+    { "id": "wine", "m": "wineskin", "p": [-1.2, 1.6, -3], "kind": "item", "item": "wine", "label": "Бурдюк вина" },
+    { "id": "wine_barrel", "m": "barrel", "p": [-1.6, 1.6, 7.5], "kind": "wine_barrel", "label": "Бочка с вином" },
+    { "id": "cards", "m": "cards", "p": [1.8, 2.3, 6], "kind": "cards", "label": "Карты" },
+    { "id": "dance", "m": "none", "p": [0, 1.6, 2], "kind": "dance", "label": "Круг танцующих" },
+    { "id": "lantern", "m": "lantern", "p": [0, 1.6, 3.6], "kind": "lantern", "label": "Фонарь" }
+  ],
+  "npcs": [
+    { "id": "columbus", "p": [0, 3.2, -10], "r": 3.14, "label": "Адмирал Колумб" },
+    { "id": "boatswain", "p": [1.5, 1.6, 1], "r": 3.14, "label": "Боцман" },
+    { "id": "cook", "p": [0, 1.6, 9], "r": 3.14, "label": "Кок" },
+    { "id": "storyteller", "p": [-1, 1.6, 7], "r": 2.4, "label": "Старый Хуан" },
+    { "id": "sailor_1", "p": [-2, 1.6, -1], "r": 1.57, "label": "Матрос" },
+    { "id": "sailor_2", "p": [2, 1.6, -4], "r": -1.57, "label": "Матрос" },
+    { "id": "sailor_3", "p": [-1.8, 1.6, 4], "r": 1.57, "label": "Матрос" },
+    { "id": "sailor_4", "p": [1.8, 1.6, 9], "r": 3.14, "label": "Матрос" }
+  ]
+}
