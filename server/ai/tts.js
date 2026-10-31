@@ -9,6 +9,9 @@ export function loadTTS() {
   if (!AI.TTS_ENABLED) return Promise.resolve(null);
   ttsPromise ??= (async () => {
     const { KokoroTTS } = await import('kokoro-js');
+    const { env } = await import('@huggingface/transformers');
+    env.cacheDir = AI.MODELS_DIR;
+    if (process.env.OFFLINE === '1') env.allowRemoteModels = false;
     const tts = await KokoroTTS.from_pretrained(AI.TTS_MODEL, { dtype: AI.TTS_DTYPE, device: 'cpu' });
     ready = true;
     return tts;

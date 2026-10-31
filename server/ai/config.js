@@ -20,6 +20,9 @@ export const AI = {
   AUDIO_TTL_MS: 10 * 60_000,
 
   AGENTS_DIR: root('content/agents'),
+  LINES_FILE: root('content/lines.json'),
+  VO_MANIFEST: root('client/public/audio/vo/manifest.json'),
+  MODELS_DIR: root('data/models'),       // кеш модели Kokoro: не зависит от node_modules
   AUDIO_DIR: root('data/audio/rt'),
   AUDIO_URL: '/audio/rt',
   MEMORY_FILE: root('data/agent_memory.json'),

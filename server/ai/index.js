@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { AI } from './config.js';
 import { getAgent, loadAgents } from './agents.js';
 import { chat, warmup, ollamaUp } from './llm.js';
@@ -10,6 +11,26 @@ import { speak, loadTTS, ttsReady } from './tts.js';
 export { setStore };
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+// Готовые реплики (content/lines.json), озвученные заранее (npm run voices → client/public/audio/vo)
+let lines = null;
+let voManifest = null;
+
+/** @returns {{npc, en, ru, audio, duration} | null} */
+export function playLine(lineId) {
+  lines ??= new Map(JSON.parse(readFileSync(AI.LINES_FILE, 'utf8')).map((l) => [l.id, l]));
+  if (!voManifest) {
+    try {
+      voManifest = JSON.parse(readFileSync(AI.VO_MANIFEST, 'utf8'));
+    } catch {
+      voManifest = {};
+    }
+  }
+  const line = lines.get(lineId);
+  if (!line) return null;
+  const vo = voManifest[lineId];
+  return { npc: line.npc, en: line.en, ru: line.ru, audio: vo ? `/audio/vo/${vo.file}` : null, duration: vo?.duration ?? 0 };
+}
 
 const GENERIC_HINTS = { more: 'Расскажи ещё что-нибудь.', bye: 'Прощай!' };
 
