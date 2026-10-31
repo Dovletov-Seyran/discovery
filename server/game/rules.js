@@ -14,7 +14,7 @@ const ASTROLABE_ANSWER = 33; // 90 − 73 + 16
 
 const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
 const sceneId = () => director.scene().id;
-const playable = () => director.acceptsMove();
+const playable = () => director.acceptsMove() && !director.isTransitioning();
 
 function event(p, ev) {
   const boatScene = !!director.scene().readyAt;
@@ -157,7 +157,7 @@ export function context(p) {
     role: p.role, name: p.name, scene: sceneId(), inventory: p.inventory,
     questsDone: Object.keys(p.quests).filter((id) => p.quests[id]?.status === 'done'), log: p.log,
     // для ИИ: подсказка по текущему шагу задания и кто ещё в экипаже
-    quests: p.quests, party: players.party().map((x) => ({ name: x.name, role: x.role })),
+    quests: { ...p.quests, ...Object.fromEntries(Object.entries(entities.shared()).map(([id,state])=>[id,{...state,shared:true}])) }, party: players.party().map((x) => ({ name: x.name, role: x.role })),
   };
 }
 

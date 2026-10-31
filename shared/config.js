@@ -35,4 +35,5 @@ export const CONFIG = {
   // Сцены
   SCENE_START_DELAY_MS: 1500,  // startAt = now + это, чтобы все начали одновременно
   TOD_INTERVAL_MS: 2000,
+  TRANSITION_COUNTDOWN_MS: 5000, // после задач и диалогов — видимый отсчёт перед переходом
 };

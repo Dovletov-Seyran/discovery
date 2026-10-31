@@ -20,6 +20,8 @@ let dirty = false;
 export const def = (id) => defs.get(id);
 export const stateOf = (id) => objects[id];
 export const shared = () => sharedQuests;
+export const ownedItemIds = (holder, items) => [...defs.values()].filter(d=>d.kind==='item'&&objects[d.id]?.holder===holder
+  && (items.includes(d.item)||(d.item==='barrel'&&items.includes('barrel_full')))).map(d=>d.id);
 
 export function setState(id, patch) {
   objects[id] = { ...objects[id], ...patch };

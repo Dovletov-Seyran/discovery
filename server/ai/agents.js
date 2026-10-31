@@ -60,7 +60,7 @@ export const knowsPerson = (agentId, person) => !!person?.opinions?.[agentId];
 export function currentTask(context = {}, agentId = null) {
   if (!quests) loadAgents();
   const state = context.quests ?? {};
-  const mine = quests.filter((q) => q.scene === context.scene && (!q.role || q.role === 'all' || q.role === context.role) && !q.optional);
+  const mine = quests.filter((q) => q.scene === context.scene && (!q.role || q.role === 'all' || q.role === context.role || state[q.id]?.shared) && !q.optional);
   for (const q of mine) {
     const st = state[q.id];
     if (st?.status === 'done') continue;

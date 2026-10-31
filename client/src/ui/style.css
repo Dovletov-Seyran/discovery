@@ -366,3 +366,16 @@ body[data-scene-type="cutscene"] #hud { display:none; }
 .hud-header .quiet-button { color:#fff3d9; font-size:20px; font-weight:600; padding:7px 12px; background:#101511ed; border:1px solid #c4b59150; }
 .hud-header kbd { color:#fff3d9; border-color:#c4b59180; }
 @media(max-width:760px){.quest{padding:11px 13px;}.quest h3{font-size:23px;}.quest p{font-size:18px;}.quest small{font-size:16px;}}
+
+.scene-progress { position:fixed; left:32px; top:88px; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 16px; width:min(280px,calc(100vw - 40px)); padding:10px 14px; background:#101511ed; border:1px solid #c4b59160; color:#fff3d9; pointer-events:none; }
+.scene-progress>span { font-size:18px; font-weight:600; align-self:center; }
+.scene-progress strong { font:600 24px/1.2 'Discovery UI',sans-serif; font-variant-numeric:tabular-nums; }
+.scene-progress small { grid-column:1/-1; color:#d6c7a6; font-size:16px; line-height:1.3; }
+body[data-scene-type="cutscene"] .scene-progress { top:20px; left:20px; }
+@media(max-width:700px){.scene-progress {left:16px;top:82px;width:min(220px,calc(100vw - 32px));}.scene-progress>span{font-size:16px;}.scene-progress small{font-size:15px;}}
+@media(max-width:520px){
+ .scene-progress {width:calc(100vw - 32px);}
+ .quest {top:calc(116px + var(--scene-progress-height,54px));right:16px;max-width:calc(100vw - 32px);width:260px;}
+ .party {top:calc(158px + var(--scene-progress-height,54px) + var(--quest-height,90px));right:16px;}
+}
+.debug {top:calc(112px + var(--scene-progress-height,54px));}

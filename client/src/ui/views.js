@@ -47,5 +47,5 @@ export function shellView() {
       <form id="chat-form" class="chat-form" hidden><input aria-label="Сообщение команде" maxlength="300" placeholder="Сообщение…"><button class="quiet-button">Отправить</button></form>
       <pre id="debug" class="debug" hidden></pre>
     </div>
-    <div id="modal" class="modal-layer" hidden></div><div id="notice" class="notice" role="status" hidden></div>`;
+    <aside id="scene-progress" class="scene-progress" role="status" aria-live="off" hidden></aside><div id="modal" class="modal-layer" hidden></div><div id="notice" class="notice" role="status" hidden></div>`;
 }

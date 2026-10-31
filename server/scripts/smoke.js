@@ -2,6 +2,7 @@
 // Внимание: делает /reset — сбрасывает прогресс всех игроков на этом сервере.
 // SERVER=http://localhost:3000 по умолчанию; SERVER=https://localhost:3000 — сервер с HTTPS=1.
 import WebSocket from 'ws';
+import {CONFIG} from '../../shared/config.js';
 import { resolveLayout } from '../world/terrain.js';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -323,7 +324,9 @@ async function traderFlow() {
 }
 
 const [g3] = await Promise.all([grumeteFlow(), pilotFlow(), traderFlow()]);
-const evening = await l.wait('scene', (m) => m.id === 'cut_evening', 4000);
+const leavingCanary=await l.wait('scene_progress',m=>m.scene==='canary'&&m.phase==='departing');
+check(!!leavingCanary&&leavingCanary.endsAt>leavingCanary.serverNow,'Канары: сервер прислал отсчёт перед сменой локации');
+const evening = await l.wait('scene', (m) => m.id === 'cut_evening', CONFIG.TRANSITION_COUNTDOWN_MS+3000);
 check(!!evening, 'все сели в шлюпку → cut_evening');
 
 // --- Вечер и ночь ---
@@ -339,7 +342,9 @@ g3.send('minigame', { game: 'cards', result: { success: true } });
 check(!!(await g3.wait('quest', (m) => m.id === 'q_feast' && m.status === 'done')), 'праздник: 3 из 4 → выполнено');
 p.send('chat', { text: '/done' });
 l.send('chat', { text: '/done' });
-check(!!(await l.wait('scene', (m) => m.id === 'cut_night', 4000)), 'задания праздника завершены → cut_night без ready');
+const leavingEvening=await l.wait('scene_progress',m=>m.scene==='ship_evening'&&m.phase==='departing');
+check(!!leavingEvening&&leavingEvening.endsAt-leavingEvening.serverNow>=CONFIG.TRANSITION_COUNTDOWN_MS-100,'вечер: серверный отсчёт не меньше 5 с');
+check(!!(await l.wait('scene', (m) => m.id === 'cut_night', CONFIG.TRANSITION_COUNTDOWN_MS+3000)), 'задания праздника завершены → cut_night без ready');
 
 for (const b of [g3, p, l]) b.clear();
 g3.send('chat', { text: '/scene night_story' });

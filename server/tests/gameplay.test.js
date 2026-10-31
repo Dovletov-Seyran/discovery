@@ -22,7 +22,8 @@ test('expired play timer does not complete unfinished quests',()=>{
   assert.equal(director.scene().id,'ship_day');
   assert.equal(received.some(m=>m.t==='scene'),false);
 });
-test('all tasks complete waits for dialogue, then advances without ready votes',()=>{
+test('all tasks complete waits for dialogue, then advances without ready votes',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
   director.setScene('ship_evening');complete=true;p.ready=false;
   const now=director.startAt()+2000;
   p.dialogue={id:'open',until:now+30000};
@@ -30,13 +31,16 @@ test('all tasks complete waits for dialogue, then advances without ready votes',
   rules.dialogue(p,{active:false,dialogueId:'old'});
   assert.ok(p.dialogue);
   rules.dialogue(p,{active:false,dialogueId:'open'});
-  director.tick(now);assert.equal(director.scene().id,'cut_night');
+  director.tick(now);assert.equal(director.progressMessage().phase,'departing');
+  t.mock.timers.tick(5000);await Promise.resolve();assert.equal(director.scene().id,'cut_night');
   complete=false;
 });
-test('lost dialogue lease does not hold the party forever; cutscene keeps timeline',()=>{
+test('lost dialogue lease does not hold the party forever; cutscene keeps timeline',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
   director.setScene('ship_evening');complete=true;
   p.dialogue={until:director.startAt()+1000};
-  director.tick(director.startAt()+2000);assert.equal(director.scene().id,'cut_night');
+  director.tick(director.startAt()+2000);assert.equal(director.progressMessage().phase,'departing');
+  t.mock.timers.tick(5000);await Promise.resolve();assert.equal(director.scene().id,'cut_night');
   director.tick(director.startAt()+1000);assert.equal(director.scene().id,'cut_night');
   director.tick(director.startAt()+26000);assert.equal(director.scene().id,'night_story');
   complete=false;
@@ -111,4 +115,38 @@ test('missing roles after restart get shared tasks; expired roles retain their p
   assert.deepEqual(entities.shared().q_ask_columbus.got,['why_west']);
   quests.onEvent(p,{type:'topics',npc:'columbus',topics:['reward']},'ship_day');
   assert.equal(entities.shared().q_ask_columbus.status,'done');
+});
+test('server publishes timed cutscene deadline and task-gated play phase',()=>{
+  director.setScene('cut_night');const timed=director.progressMessage();
+  assert.equal(timed.phase,'timed');assert.equal(timed.endsAt,director.startAt()+25000);
+  director.setScene('ship_day');complete=false;
+  assert.equal(director.progressMessage().phase,'objectives');assert.equal(director.progressMessage().endsAt,null);
+  assert.equal(director.sceneMessage(p).progress.scene,'ship_day');
+});
+test('final task during a conversation never starts the transition timer',()=>{
+ director.setScene('ship_evening');complete=true;p.dialogue={until:Date.now()+30000};
+ const progress=director.progressMessage();assert.equal(progress.phase,'dialogue');assert.equal(progress.endsAt,null);
+ p.dialogue=null;complete=false;
+});
+test('expired player hands quest supplies to the party without duplicating the saved inventory',()=>{
+  director.setScene('canary');entities.reset();p.inventory=[];p.quests={};p.role='grumete';p.ready=true;
+  const goneId=db.createUser('gone-pilot','fixture');
+  const gone={id:goneId,role:'piloto',zone:'canary',scene:'fixture',inventory:['planks','tar'],money:0,quests:{q_rudder:{status:'active',step:1,count:0,sub:[0],got:[]}},log:[]};
+  entities.setState('planks',{holder:goneId});entities.setState('tar',{holder:goneId});
+  quests.refreshParty(director.scene(),[p],[gone]);
+  assert.deepEqual(p.inventory,['planks','tar']);assert.deepEqual(db.loadPlayer(goneId).inventory,[]);
+  assert.equal(entities.stateOf('tar').holder,p.id);assert.equal(entities.shared().q_rudder.step,2);
+  assert.equal(p.ready,false);
+});
+test('restart recovers an astrolabe held by an account absent from this scene party',()=>{
+  director.setScene('ship_day');entities.reset();p.role='grumete';p.inventory=[];p.quests={};
+  const owner=db.createUser('orphan-astro','fixture');
+  db.savePlayer(owner,{role:'piloto',zone:'ship',scene:p.scene,p:[0,0,0],inventory:['astrolabe'],money:0,quests:{q_latitude:{status:'active',step:1,count:0,sub:[],got:[]}},log:[]},{now:true});
+  entities.setState('astrolabe',{holder:owner});
+  quests.refreshParty(director.scene(),[p]);
+  assert.ok(p.inventory.includes('astrolabe'));assert.equal(entities.stateOf('astrolabe').holder,p.id);
+  assert.deepEqual(db.loadPlayer(owner).inventory,[]);assert.equal(entities.shared().q_latitude.step,1);
+});
+test('two immediate restarts of the same scene have different request/transition keys',()=>{
+ director.setScene('ship_day');const first=director.startAt();director.setScene('ship_day');assert.ok(director.startAt()>first);
 });

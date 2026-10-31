@@ -98,6 +98,10 @@ export function loadPlayer(userId) {
   };
 }
 
+// Only states from this exact scene run: recover abandoned quest supplies after a server restart.
+const qScenePlayers=db.prepare('SELECT user_id FROM player_state WHERE scene = ?');
+export const loadScenePlayers=scene=>qScenePlayers.all(scene).map(row=>({id:row.user_id,...loadPlayer(row.user_id)}));
+
 function writePlayer(userId, s) {
   const p = s.p ?? [null, null, null];
   qSavePlayer.run(userId, s.role ?? null, s.zone ?? null, p[0], p[1], p[2], s.r ?? 0,

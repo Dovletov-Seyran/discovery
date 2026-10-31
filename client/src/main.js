@@ -1,4 +1,5 @@
 import './ui/style.css';
+import {sceneProgressView} from './ui/scene-progress.js';
 import {Equipment,itemPictures} from './game/equipment.js';
 import {itemIcon,ITEM_ACTIONS} from './ui/item-icons.js';
 import {CONFIG} from '../../shared/config.js';
@@ -32,6 +33,7 @@ let screen='login', modal='', connected=false, chatOpen=false;
 let you={}, scene={id:'lobby',type:'lobby'}, players=[], inventory=[], quests={};
 let savedPosition, savedYaw=0, currentTarget, activeNpc;
 let noticeTimer, npcAudio, waitingForReply=false, frameCount=0, fpsAt=0, dialogueTimer;
+let sceneProgress=null,serverOffset=0;
 let scriptIndex=0,scriptLines=[],tradeState=null,partyReady={},serverBuild=null;
 const knownCards=new Set();
 const settings={quality:'high',sensitivity:2,voices:0.8};
@@ -165,6 +167,7 @@ function bindNetwork(client){
   });
   client.on('lobby',message=>{players=message.players;if(screen==='lobby')renderLobby();});
   client.on('scene',applyScene);
+  client.on('scene_progress',message=>{if(message.scene!==scene.id)return;sceneProgress=message;serverOffset=message.serverNow-Date.now();renderSceneProgress();});
   client.on('pos_correct',message=>{savedPosition=message.p;savedYaw=message.r??savedYaw;runtime?.teleport(savedPosition,savedYaw);gameEvents.emit('pos_correct',message);});
   client.on('inventory',message=>{
     const old=new Set(inventory.map(itemId));inventory=message.items||[];
@@ -204,6 +207,9 @@ function renderLobby(){
 function applyScene(message){
   narrative.stop();
   scene=message;
+  sceneProgress=message.progress||null;
+  if(Number.isFinite(sceneProgress?.serverNow))serverOffset=sceneProgress.serverNow-Date.now();
+  renderSceneProgress();
   document.body.dataset.sceneType=message.type||'';
   if(Number.isFinite(message.r))savedYaw=message.r;
   if(message.spawn){savedPosition=message.spawn;runtime?.teleport(savedPosition,savedYaw);}
@@ -224,6 +230,14 @@ function applyScene(message){
     renderQuest();
   }
   renderEquipment();syncInput();gameEvents.emit('scene',message);
+}
+function renderSceneProgress(){
+  const el=$('#scene-progress');if(!el)return;
+  const view=connected?sceneProgressView(sceneProgress,Date.now()+serverOffset):null;
+  el.hidden=!view;
+  if(!view)return;
+  const html=`<span>${escape(view.label)}</span>${view.value?`<strong>${escape(view.value)}</strong>`:''}<small>${escape(view.detail)}</small>`;
+  if(el.innerHTML!==html)el.innerHTML=html;
 }
 function renderSceneOverlay(message){
   if(message.id==='intro'&&narrativeContent.intro){
@@ -401,19 +415,22 @@ function openMenu(){
   $('#leave').onclick=logout;
 }
 function closeChat(){chatOpen=false;$('#chat-form').hidden=true;syncInput();}
-function logout(){closeModal();equipItem(null);narrative.stop();gameEvents.emit('logout',{});knownCards.clear();net?.disconnect();connected=false;scene={id:'lobby'};savedPosition=null;localStorage.removeItem('discovery.token');closeModal();closeChat();$('#chat-log').innerHTML='';$('#party').textContent='';login();}
+function logout(){sceneProgress=null;renderSceneProgress();closeModal();equipItem(null);narrative.stop();gameEvents.emit('logout',{});knownCards.clear();net?.disconnect();connected=false;scene={id:'lobby'};savedPosition=null;localStorage.removeItem('discovery.token');closeModal();closeChat();$('#chat-log').innerHTML='';$('#party').textContent='';login();}
 function interact(){
   if(!currentTarget||modal||!connected)return;
+  if(sceneProgress?.phase==='departing'){notify('Готовимся к переходу.');return;}
   const {id,kind}=currentTarget;
   if(kind==='npc'){openDialogue(id);net.send('interact',{id});return;}
   net.send(kind==='pickup'||kind==='item'?'pickup':'interact',{id});
 }
 
 root.innerHTML=shellView();
+setInterval(renderSceneProgress,250);
 // Layout follows actual wrapped text height instead of guessed fixed offsets.
 if(typeof ResizeObserver!=='undefined'){
   new ResizeObserver(entries=>{document.documentElement.style.setProperty('--hud-dock-height',`${entries[0].contentRect.height}px`);}).observe($('#hud-dock'));
   new ResizeObserver(entries=>{document.documentElement.style.setProperty('--quest-height',`${entries[0].contentRect.height}px`);}).observe($('#quest'));
+  new ResizeObserver(entries=>{document.documentElement.style.setProperty('--scene-progress-height',`${entries[0].contentRect.height}px`);}).observe($('#scene-progress'));
 }
 if(!preview)new WorldAudio(gameEvents);
 if(!preview)new WorldConnection({

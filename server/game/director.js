@@ -51,6 +51,7 @@ const state = {
   zone: 'ship',
   tod: 0.4,
   transitioning: false,
+  departAt: null, progressKey: null,
   skip: new Set(),
 };
 
@@ -104,6 +105,7 @@ export function sceneMessage(p, { withSpawn = false } = {}) {
   const msg = {
     t: S2C.SCENE, id: s.id, type: s.type, startAt: state.startAt,
     tod: currentTod(), zone: state.zone, duration: sceneDuration(s),
+    advance: s.advance, next: s.next, progress: progressMessage(),
   };
   if (withSpawn && p.p && s.spawns) msg.spawn = p.p;
   if (p.seat) msg.seat = p.seat;
@@ -143,8 +145,9 @@ export function setScene(id) {
   const s = scenes.get(id);
   if (!s) return false;
   state.id = id;
-  state.startAt = Date.now() + CONFIG.SCENE_START_DELAY_MS;
+  state.startAt = Math.max(Date.now() + CONFIG.SCENE_START_DELAY_MS,state.startAt+1);
   state.transitioning = false;
+  state.departAt = null;state.progressKey=null;
   state.skip.clear();
   if (s.zone) state.zone = s.zone;
   if (s.tod != null) state.tod = s.tod;
@@ -182,6 +185,9 @@ export function setScene(id) {
 async function complete(s, { forced }) {
   state.transitioning = true;
   const key = sceneKey();
+  const countdown=s.type==='play'?CONFIG.TRANSITION_COUNTDOWN_MS:0;
+  state.departAt=Date.now()+countdown+(s.onComplete??[]).reduce((sum,a)=>sum+(a.wait??0),0);
+  broadcastProgress(Date.now(),true);
   if (forced) hooks.forceComplete(s, players.party());
   for (const action of s.onComplete ?? []) {
     if (sceneKey() !== key) return; // сцену сменили вручную (/scene)
@@ -189,6 +195,7 @@ async function complete(s, { forced }) {
     if (action.notice) players.broadcast({ t: S2C.NOTICE, text: action.notice });
     if (action.wait) await new Promise((r) => setTimeout(r, action.wait));
   }
+  if(countdown)await new Promise(resolve=>setTimeout(resolve,countdown));
   if (sceneKey() !== key) return;
   if (!setScene(s.next)) state.transitioning = false;
 }
@@ -201,6 +208,7 @@ function allReady(party, s) {
 export function tick(now = Date.now()) {
   if (entities.takeDirty()) persist();
   const s = scene();
+  broadcastProgress(now);
   if (state.transitioning || !s.next || now < state.startAt) return;
   const party = players.party();
   if (!party.some((p) => p.connected)) return; // никого нет — сцена ждёт
@@ -219,6 +227,29 @@ export function tick(now = Date.now()) {
   // Шлюпка остаётся контрольной точкой; катсцены сохраняют собственный таймлайн.
   const talking = s.type === 'play' && party.some((p) => p.connected && p.dialogue?.until > now);
   if (done && !talking) complete(s, { forced: false }).catch((e) => console.error('[director]', e));
+}
+
+// Fixed server timestamps keep the visible countdown correct after reconnect and local clock drift.
+export function progressMessage(now=Date.now()) {
+  const s=scene(),party=players.party(),advance=s.advance??'timer';
+  const talking=party.filter(p=>p.connected&&p.dialogue?.until>now).length;
+  const done=party.filter(p=>hooks.playerDone(p,s.id)).length;
+  const base={t:S2C.SCENE_PROGRESS,scene:s.id,next:s.next,serverNow:now,done,total:party.length,
+    ready:party.filter(p=>p.ready).length,talking,endsAt:null};
+  if(!s.next||s.type==='lobby')return {...base,phase:'none'};
+  if(state.transitioning)return {...base,phase:'departing',endsAt:state.departAt};
+  if(advance==='timer'||advance==='timer_or_skip'){
+    const duration=sceneDuration(s);
+    return {...base,phase:'timed',endsAt:duration==null?null:state.startAt+duration*1000};
+  }
+  const complete=advance==='all_ready'?allReady(party,s):hooks.isSceneComplete(s,party);
+  if(complete&&talking)return {...base,phase:'dialogue'};
+  return {...base,phase:advance==='all_ready'?'checkpoint':'objectives'};
+}
+function broadcastProgress(now,force=false){
+  const message=progressMessage(now),{serverNow,...stable}=message,key=JSON.stringify(stable);
+  if(!force&&key===state.progressKey)return;
+  state.progressKey=key;players.broadcast(message);
 }
 
 export function broadcastTod() {
