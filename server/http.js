@@ -72,6 +72,7 @@ async function handleApi(req, res, path) {
     return sendJson(res, 200, {
       ok: true, ollama: !!s.ollama, tts: !!s.tts, model: s.model ?? null,
       players: players.connectedCount(), chunksServed: chunkStats.total(),
+      chunks: players.connected().map((p) => ({ name: p.name, served: chunkStats.of(p.id), loaded: p.chunks?.size ?? 0 })),
       demo: CONFIG.DEMO_MODE, dev: CONFIG.DEV,
     });
   }

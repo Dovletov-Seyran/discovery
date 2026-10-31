@@ -110,20 +110,27 @@ export function savePlayer(userId, state, { now = false } = {}) {
   flushTimer ??= setTimeout(flushPlayers, CONFIG.SAVE_DELAY_MS);
 }
 
+export function withTransaction(fn) {
+  db.exec('BEGIN');
+  try {
+    const r = fn();
+    db.exec('COMMIT');
+    return r;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+}
+
 export function flushPlayers() {
   clearTimeout(flushTimer);
   flushTimer = null;
   if (!pending.size) return;
   const batch = [...pending];
   pending.clear();
-  db.exec('BEGIN');
-  try {
+  withTransaction(() => {
     for (const [id, s] of batch) writePlayer(id, s);
-    db.exec('COMMIT');
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
-  }
+  });
 }
 
 // --- Память агентов (для Бэка 2) ---

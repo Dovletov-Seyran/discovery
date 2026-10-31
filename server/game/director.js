@@ -106,6 +106,7 @@ export function setScene(id) {
   const party = players.party().sort((a, b) => ROLES.indexOf(a.role) - ROLES.indexOf(b.role));
   party.forEach((p, i) => {
     p.ready = false;
+    if (p.zone !== state.zone) p.chunks?.clear();
     p.zone = state.zone;
     const pos = s.seats ? s.seats[i % s.seats.length] : spawnFor(s, p.role);
     p.seat = s.seats ? [...pos] : null;

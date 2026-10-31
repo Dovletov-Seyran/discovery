@@ -5,6 +5,7 @@ import { worldMeta, resetProgress } from '../db.js';
 import { players } from './players.js';
 import * as director from './director.js';
 import * as ai from './ai-bridge.js';
+import { onChunkReq, onChunkDrop } from '../world/chunks.js';
 
 const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
 
@@ -145,6 +146,11 @@ const handlers = {
   [C2S.NPC_HINT]: onNpcHint,
   [C2S.READY]: (p, msg) => director.onReadyMessage(p, msg.value !== false),
   [C2S.SKIP_VOTE]: (p) => director.onSkipVote(p),
+  [C2S.CHUNK_REQ]: (p, msg) => onChunkReq(p, msg, {
+    send: (m) => players.send(p, m),
+    entityState: (id) => director.entities()[id],
+  }),
+  [C2S.CHUNK_DROP]: onChunkDrop,
 };
 
 export function handle(p, msg) {
@@ -164,6 +170,7 @@ function devCommand(p, text) {
     case '/reset':
       resetProgress();
       for (const x of players.all()) {
+        if (!x.connected) { players.remove(x.id); continue; } // без ожидания grace
         x.inventory = []; x.quests = {}; x.log = []; x.ready = false; x.seat = null;
       }
       director.resetToStart();

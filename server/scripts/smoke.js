@@ -1,4 +1,5 @@
 // npm run smoke — проверка сервера тремя ботами. Сервер должен быть запущен с DEV=1.
+// Внимание: делает /reset — сбрасывает прогресс всех игроков на этом сервере.
 // SERVER=http://localhost:3000 по умолчанию.
 import WebSocket from 'ws';
 
@@ -86,7 +87,7 @@ for (const [i, b] of bots.entries()) {
   b.id = ok?.you.id;
 }
 const [g, p, l] = bots;
-g.send('chat', { text: '/scene lobby' });
+g.send('chat', { text: '/reset' }); // убрать отключённых с прошлого прогона, сцена → lobby
 await g.wait('scene', (m) => m.id === 'lobby');
 
 g.send('interact', { id: 'role:grumete' });
@@ -138,6 +139,35 @@ await sleep(200);
 check(g.closeCode === 4002, `вторая вкладка закрыла первую (код ${g.closeCode})`);
 check(!!ok2 && ok2.state.role === 'grumete' && ok2.state.p[0] > start[0] + 2, `состояние сохранилось: роль ${ok2?.state.role}, p ${JSON.stringify(ok2?.state.p)}`);
 check(!p.msgs.some((m) => m.t === 'player_leave' && m.id === g.id), 'смена вкладки не рассылает player_leave');
+
+// --- Чанки ---
+check(ok2?.world.totalChunks === 257 && ok2?.world.cacheLimit === 25, `мета мира: ${JSON.stringify(ok2?.world)}`);
+p.clear();
+p.send('chunk_req', { zone: 'ship', keys: ['0,0'] });
+const shipChunk = await p.wait('chunk', (m) => m.zone === 'ship');
+check(!!shipChunk && shipChunk.data.npcs.some((n) => n.id === 'columbus'), 'чанк корабля с Колумбом');
+p.send('chunk_req', { zone: 'canary', keys: ['8,10'] });
+check(!!(await p.wait('chunk_denied', (m) => m.reason === 'wrong_zone')), 'чанк чужой зоны → wrong_zone');
+
+g2.send('chat', { text: '/scene canary' });
+const canary = await p.wait('scene', (m) => m.id === 'canary');
+await sleep(1600);
+const [scx, scz] = canary.spawn.map((v) => Math.floor(v / 32)).filter((_, i) => i !== 1);
+const near = [];
+for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) near.push(`${scx + dx},${scz + dz}`);
+p.clear();
+p.send('chunk_req', { zone: 'canary', keys: near });
+await sleep(500);
+const got = p.msgs.filter((m) => m.t === 'chunk');
+check(got.length === 25, `25 чанков вокруг спавна (${got.length}), spawn ${JSON.stringify(canary.spawn)}`);
+check(got.every((m) => m.data.h.length === 33 * 33), 'в каждом чанке 33×33 высот');
+check(got.some((m) => m.data.interact.some((o) => o.id === 'well')), 'колодец есть в соседних чанках');
+p.send('chunk_req', { zone: 'canary', keys: [`${scx + 3},${scz}`, `${scx + 4},${scz}`, '0,0'] });
+await sleep(300);
+check(p.msgs.some((m) => m.t === 'chunk' && m.key === `${scx + 3},${scz}`), 'чанк на расстоянии 3 → выдан');
+check(p.msgs.filter((m) => m.t === 'chunk_denied' && m.reason === 'too_far').length === 2, 'чанки дальше 3 → too_far');
+const health2 = await api('/api/health');
+check(health2.body.chunksServed >= 27, `health: отдано чанков ${health2.body.chunksServed}`);
 
 for (const b of [g2, p, l]) b.ws.close();
 await sleep(200);

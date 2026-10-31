@@ -2,11 +2,17 @@
 import { createServer } from 'node:http';
 import { networkInterfaces } from 'node:os';
 import { CONFIG } from '../shared/config.js';
-import { closeDb } from './db.js';
+import { closeDb, worldMeta } from './db.js';
 import { handleHttp } from './http.js';
 import { attachWs } from './ws.js';
 import * as game from './game/index.js';
 import { players } from './game/players.js';
+import { seedWorld } from './world/generate.js';
+
+if (!worldMeta().totalChunks) {
+  console.log('[server] мир пуст — генерируем (npm run seed)');
+  seedWorld();
+}
 
 const server = createServer(handleHttp);
 const wss = attachWs(server);

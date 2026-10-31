@@ -7,7 +7,7 @@
   { "id": "cut_canary", "type": "cutscene", "duration": 20, "advance": "timer", "next": "canary" },
   { "id": "canary", "type": "play", "zone": "canary", "tod": 0.45, "demoDuration": 180,
     "advance": "all_ready", "readyAt": "boat", "next": "cut_evening",
-    "spawns": { "grumete": [256, 3, 250], "piloto": [258, 3, 250], "lengua": [254, 3, 250] } },
+    "spawns": { "grumete": [254, 3, 334], "piloto": [258, 3, 334], "lengua": [256, 3, 330] } },
   { "id": "cut_evening", "type": "cutscene", "duration": 15, "advance": "timer", "next": "ship_evening" },
   { "id": "ship_evening", "type": "play", "zone": "ship", "tod": 0.72, "demoDuration": 120, "advance": "quests_and_ready", "next": "cut_night",
     "spawns": { "grumete": [0, 1.6, 8], "piloto": [0, 1.6, 6], "lengua": [1, 1.6, 0] } },
