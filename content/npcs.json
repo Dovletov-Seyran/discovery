@@ -1,22 +1,22 @@
 [
-  { "id": "columbus", "name": "Адмирал Колумб", "type": "llm", "voice": "am_michael" },
-  { "id": "storyteller", "name": "Старый Хуан", "type": "llm", "voice": "bm_george" },
-  { "id": "trader", "name": "Торговец", "type": "llm", "voice": "bm_lewis",
+  { "id": "columbus",    "name": "Адмирал Колумб",        "type": "llm",    "voice": "am_michael" },
+  { "id": "storyteller", "name": "Старый Хуан",           "type": "llm",    "voice": "bm_george", "speed": 0.9 },
+  { "id": "trader",      "name": "Торговец Гонсало",      "type": "llm",    "voice": "bm_lewis",
     "goods": [
-      { "item": "cheese", "basePrice": 40, "minPrice": 28 },
-      { "item": "meat", "basePrice": 40, "minPrice": 30 },
-      { "item": "biscuit", "basePrice": 30, "minPrice": 20 }
+      { "item": "cheese",  "name": "Сыр",      "basePrice": 40, "minPrice": 28 },
+      { "item": "meat",    "name": "Солонина", "basePrice": 40, "minPrice": 30 },
+      { "item": "biscuit", "name": "Сухари",   "basePrice": 30, "minPrice": 22 }
     ] },
-  { "id": "boatswain", "name": "Боцман", "type": "lines", "voice": "am_adam" },
-  { "id": "cook", "name": "Кок", "type": "lines", "voice": "bm_daniel" },
-  { "id": "sailor_1", "name": "Матрос", "type": "lines", "voice": "am_adam" },
-  { "id": "sailor_2", "name": "Матрос", "type": "lines", "voice": "bm_daniel" },
-  { "id": "sailor_3", "name": "Матрос", "type": "lines", "voice": "am_michael" },
-  { "id": "sailor_4", "name": "Матрос", "type": "lines", "voice": "bm_george" },
-  { "id": "carpenter", "name": "Плотник", "type": "lines", "voice": "bm_lewis" },
-  { "id": "beatriz", "name": "Беатрис де Бобадилья", "type": "lines", "voice": "bf_emma" },
-  { "id": "town_1", "name": "Житель", "type": "lines", "voice": "am_adam" },
-  { "id": "town_2", "name": "Жительница", "type": "lines", "voice": "bf_emma" },
-  { "id": "town_3", "name": "Старик", "type": "lines", "voice": "bm_george" },
-  { "id": "narrator", "name": "Рассказчик", "type": "lines", "voice": "bf_emma" }
+  { "id": "narrator",    "name": "Рассказчик",            "type": "script", "voice": "bm_fable" },
+  { "id": "boatswain",   "name": "Боцман",                "type": "script", "voice": "am_adam" },
+  { "id": "cook",        "name": "Кок",                   "type": "script", "voice": "bm_daniel" },
+  { "id": "sailor_1",    "name": "Матрос Диего",          "type": "script", "voice": "am_eric" },
+  { "id": "sailor_2",    "name": "Матрос Педро",          "type": "script", "voice": "am_liam" },
+  { "id": "sailor_3",    "name": "Матрос Санчо",          "type": "script", "voice": "am_onyx" },
+  { "id": "grumete_npc", "name": "Песня юнги",            "type": "script", "voice": "am_puck" },
+  { "id": "carpenter",   "name": "Плотник",               "type": "script", "voice": "bm_daniel" },
+  { "id": "beatriz",     "name": "Донья Беатрис",         "type": "script", "voice": "bf_emma" },
+  { "id": "town_1",      "name": "Пастух",                "type": "script", "voice": "am_echo" },
+  { "id": "town_2",      "name": "Рыбачка",               "type": "script", "voice": "bf_isabella" },
+  { "id": "town_3",      "name": "Старик с Иерро",        "type": "script", "voice": "bm_george" }
 ]

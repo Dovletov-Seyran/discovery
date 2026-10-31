@@ -7,12 +7,15 @@ import { handleHttp } from './http.js';
 import { attachWs } from './ws.js';
 import * as game from './game/index.js';
 import { players } from './game/players.js';
-import { seedWorld } from './world/generate.js';
+import { seedWorld, worldIsStale } from './world/generate.js';
+import { initAi } from './game/ai-bridge.js';
 
-if (!worldMeta().totalChunks) {
-  console.log('[server] мир пуст — генерируем (npm run seed)');
+if (worldIsStale()) {
+  console.log(worldMeta().totalChunks ? '[server] раскладка мира изменилась — перегенерируем' : '[server] мир пуст — генерируем (npm run seed)');
   seedWorld();
 }
+
+initAi(); // прогрев LLM и Kokoro в фоне, сервер стартует сразу
 
 const server = createServer(handleHttp);
 const wss = attachWs(server);

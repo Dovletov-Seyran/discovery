@@ -11,6 +11,23 @@ const scenes = new Map(loadContent('scenes.json', []).map((s) => [s.id, s]));
 const FIRST = 'lobby';
 const DEFAULT_POS = [0, 1.6, 0];
 
+// Точку можно задать как [x, y, z] или { p: [x, y, z], r } (r — поворот как у камеры: 0 — лицом к носу)
+const point = (v) => (Array.isArray(v) ? { p: v, r: 0 } : v?.p ? { p: v.p, r: v.r ?? 0 } : null);
+const isRoleMap = (m) => m && ROLES.some((r) => r in m);
+
+// На корабле точки появления и места у фонаря берём из content/ship_layout.json (его ведёт Фронт 1):
+//   spawns: { grumete: P, piloto: P, lengua: P }            — для всех игровых сцен на корабле
+//   spawns: { ship_day: { grumete: P, ... }, ship_evening: … } — по сценам
+//   seats:  [P, P, P]                                        — места у фонаря в night_story
+// Если в layout их нет — остаются точки из scenes.json.
+const shipLayout = loadContent('ship_layout.json', {});
+for (const s of scenes.values()) {
+  if (s.zone !== 'ship') continue;
+  const sp = shipLayout.spawns?.[s.id] ?? (isRoleMap(shipLayout.spawns) ? shipLayout.spawns : null);
+  if (sp && s.spawns) s.spawns = sp;
+  if (Array.isArray(shipLayout.seats) && shipLayout.seats.length && s.seats) s.seats = shipLayout.seats;
+}
+
 const state = {
   id: FIRST,
   startAt: 0,
@@ -55,11 +72,14 @@ function currentTod(now = Date.now()) {
   return s.tod + (s.todTo - s.tod) * k;
 }
 
+// → { p, r } или null
 export function spawnFor(s, role) {
   const sp = s.spawns;
   if (!sp) return null;
-  return sp[role] ?? Object.values(sp)[0] ?? null;
+  return point(sp[role] ?? Object.values(sp)[0]);
 }
+
+const seatAt = (s, i) => point(s.seats[i % s.seats.length]);
 
 export function sceneMessage(p, { withSpawn = false } = {}) {
   const s = scene();
@@ -69,6 +89,7 @@ export function sceneMessage(p, { withSpawn = false } = {}) {
   };
   if (withSpawn && p.p && s.spawns) msg.spawn = p.p;
   if (p.seat) msg.seat = p.seat;
+  if (msg.spawn || msg.seat) msg.r = p.r; // куда смотреть после появления
   return msg;
 }
 
@@ -117,12 +138,12 @@ export function setScene(id) {
     p.scene = sceneKey();
     if (p.zone !== state.zone) p.chunks?.clear();
     p.zone = state.zone;
-    const pos = s.seats ? s.seats[i % s.seats.length] : spawnFor(s, p.role);
-    p.seat = s.seats ? [...pos] : null;
+    const pos = s.seats ? seatAt(s, i) : spawnFor(s, p.role);
+    p.seat = s.seats ? [...pos.p] : null;
     p.a = s.seats ? 'sit' : 'idle';
     if (pos) {
-      p.p = [...pos];
-      p.r = 0;
+      p.p = [...pos.p];
+      p.r = pos.r;
       p.lastMoveAt = state.startAt;
     }
     players.save(p, { now: true });
@@ -272,11 +293,11 @@ export function pickRole(p, role) {
 export function placeOnJoin(p) {
   if (p.scene === sceneKey() && p.zone === state.zone && p.p) return;
   const spawn = spawnFor(scene(), p.role);
-  if (spawn) p.p = [...spawn];
+  p.r = spawn?.r ?? 0;
+  if (spawn) p.p = [...spawn.p];
   else if (p.zone !== state.zone || !p.p) p.p = [...DEFAULT_POS];
   p.zone = state.zone;
   p.scene = sceneKey();
-  p.r = 0;
 }
 
 // Место у фонаря для того, кто вошёл посреди night_story
@@ -285,9 +306,11 @@ export function seatOnJoin(p) {
   if (!s.seats) { p.seat = null; return; }
   if (p.seat) return;
   const taken = new Set(players.party().filter((x) => x.seat && x !== p).map((x) => x.seat.join()));
-  const free = s.seats.find((seat) => !taken.has(seat.join())) ?? s.seats[0];
-  p.seat = [...free];
-  p.p = [...free];
+  const seats = s.seats.map(point);
+  const free = seats.find((seat) => !taken.has(seat.p.join())) ?? seats[0];
+  p.seat = [...free.p];
+  p.p = [...free.p];
+  p.r = free.r;
   p.a = 'sit';
 }
 

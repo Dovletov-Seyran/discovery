@@ -220,7 +220,7 @@ l.send('npc_hint', { npc: 'columbus', hint: 'reward' });
 check(!!(await l.wait('quest', (m) => m.id === 'q_ask_columbus' && m.status === 'done')), 'Колумб: подсказка → тема 2, задание выполнено');
 
 g2.send('chat', { text: '/done' });
-const pinta = await l.wait('npc_say', (m) => m.line === 'boatswain_pinta', 4000);
+const pinta = await l.wait('npc_say', (m) => m.line === 'rudder_alarm', 4000);
 check(!!pinta, `все задания дня → событие «Руль Пинты»: ${pinta?.ru}`);
 check(!!(await l.wait('npc_say', (m) => m.line === 'columbus_rudder', 5000)), 'Колумб: идём на Канары');
 
@@ -261,7 +261,7 @@ async function pilotFlow() {
   check(!!(await p.wait('notice', (m) => m.text.includes('ближе'))), 'плотник далеко → «Подойди ближе»');
   await p.walkTo(292, 331);
   p.send('interact', { id: 'carpenter' });
-  check(!!(await p.wait('npc_say', (m) => m.line === 'carpenter_ask')), 'плотник просит доски и смолу');
+  check(!!(await p.wait('npc_say', (m) => m.line === 'carpenter_task')), 'плотник просит доски и смолу');
   await p.walkTo(300, 321);
   p.send('pickup', { id: 'planks' });
   await p.walkTo(306, 321);
@@ -288,8 +288,8 @@ async function traderFlow() {
   const buy = async (item, offer) => { await sleep(2100); l.send('trade', { npc: 'trader', item, offer }); return l.wait('trade_state', (m) => m.goods.find((g) => g.item === item).sold); };
   await buy('cheese', 30);
   await buy('meat', 30);
-  const last = await buy('biscuit', 20);
-  check(last?.money === 20, `всё куплено, осталось ${last?.money} мараведи`);
+  const last = await buy('biscuit', 25);
+  check(last?.money === 15, `всё куплено, осталось ${last?.money} мараведи`);
   check(!!(await l.wait('quest', (m) => m.id === 'q_trade' && m.status === 'done')), '«Провизия» выполнено');
   await l.walkTo(258, 372);
   l.send('interact', { id: 'boat' });

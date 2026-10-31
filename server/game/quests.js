@@ -132,6 +132,12 @@ export function onEvent(p, ev, sceneId) {
   return any;
 }
 
+// Состояние задания для игрока (своё или общее) или null
+export function stateOf(p, sceneId, questId) {
+  const q = sceneQuests(sceneId).find((x) => x.id === questId);
+  return q ? ref(q, p)?.st ?? null : null;
+}
+
 // Есть ли у игрока активный шаг «отдать item → target»
 export function wantsDelivery(p, sceneId, item, target) {
   for (const q of sceneQuests(sceneId)) {

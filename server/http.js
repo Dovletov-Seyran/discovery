@@ -76,7 +76,7 @@ function sendFile(res, file, cache) {
 
 async function handleApi(req, res, path) {
   if (req.method === 'GET' && path === '/api/health') {
-    const s = ai.status();
+    const s = await ai.status();
     return sendJson(res, 200, {
       ok: true, ollama: !!s.ollama, tts: !!s.tts, model: s.model ?? null,
       players: players.connectedCount(), chunksServed: chunkStats.total(),

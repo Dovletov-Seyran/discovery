@@ -1,6 +1,7 @@
 // Связка с ИИ Бэка 2 (server/ai/index.js). Пока модуля нет — заглушки.
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { loadContent } from '../content.js';
+import { loadAgentMemory, saveAgentMemory, deleteAgentMemory } from '../db.js';
 
 const AI_MODULE = new URL('../ai/index.js', import.meta.url);
 
@@ -15,7 +16,31 @@ if (!existsSync(AI_MODULE)) {
   }
 }
 
+// Память агентов — в SQLite (agent_memory), а не в JSON-файле модуля ИИ
+impl?.setStore?.({ load: loadAgentMemory, save: saveAgentMemory, reset: deleteAgentMemory });
+
+// Прогрев модели и Kokoro при старте сервера (в фоне)
+export async function initAi() {
+  if (!impl?.init) return;
+  try {
+    await impl.init();
+    console.log('[ai] модуль ИИ готов');
+  } catch (e) {
+    console.error('[ai] init:', e.message);
+  }
+}
+
 const lines = new Map((loadContent('lines.json', []) ?? []).map((l) => [l.id, l]));
+
+// Озвучка готовых реплик: client/public/audio/vo/manifest.json (делает gen-voices Бэка 2)
+const MANIFEST = new URL('../../client/public/audio/vo/manifest.json', import.meta.url);
+let manifest = null;
+function voiceFile(lineId) {
+  if (!manifest && existsSync(MANIFEST)) {
+    try { manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')); } catch { manifest = null; }
+  }
+  return manifest?.[lineId] ?? null;
+}
 
 // Заглушка: темы Колумба по ключевым словам, чтобы задание «Слово адмирала» проходилось без ИИ
 const STUB_TOPICS = {
@@ -52,15 +77,20 @@ export async function talk(req) {
   return stubTalk(req);
 }
 
-// → { npc, en, ru, audio } — готовая реплика из content/lines.json
+// → { npc, en, ru, audio, duration? } — готовая реплика из content/lines.json
 export function playLine(lineId) {
   if (impl?.playLine) return impl.playLine(lineId);
   const l = lines.get(lineId);
   if (!l) return { npc: 'narrator', en: `[${lineId}]`, ru: `[${lineId}]`, audio: null };
-  return { npc: l.npc, en: l.en, ru: l.ru, audio: `/audio/vo/${lineId}.wav` };
+  const v = voiceFile(lineId);
+  return { npc: l.npc, en: l.en, ru: l.ru, audio: v ? `/audio/vo/${v.file}` : null, duration: v?.duration ?? null };
 }
 
-// → { ollama, tts, model? }
-export function status() {
-  return impl?.status ? impl.status() : { ollama: false, tts: false };
+// → Promise<{ ollama, tts, model? }> (у модуля ИИ status() асинхронный)
+export async function status() {
+  try {
+    return impl?.status ? await impl.status() : { ollama: false, tts: false };
+  } catch {
+    return { ollama: false, tts: false };
+  }
 }

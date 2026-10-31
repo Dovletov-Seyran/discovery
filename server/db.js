@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS agent_memory (
 CREATE TABLE IF NOT EXISTS game_state (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   scene TEXT, scene_started_at INTEGER, entities TEXT);
+CREATE TABLE IF NOT EXISTS world_meta (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS chunks (
   zone TEXT, cx INTEGER, cz INTEGER, data TEXT, bytes INTEGER,
   PRIMARY KEY (zone, cx, cz));
@@ -159,6 +160,9 @@ export function saveAgentMemory(userId, agentId, { told = [], history = [] }) {
   qSaveMem.run(userId, agentId, JSON.stringify(told), JSON.stringify(history));
 }
 
+const qDeleteMem = db.prepare('DELETE FROM agent_memory WHERE user_id = ? AND agent_id = ?');
+export const deleteAgentMemory = (userId, agentId) => { qDeleteMem.run(userId, agentId); };
+
 // --- Глобальное состояние игры ---
 
 const qLoadGame = db.prepare('SELECT scene, scene_started_at, entities FROM game_state WHERE id = 1');
@@ -196,6 +200,11 @@ export function putChunk(zone, cx, cz, data) {
   qPutChunk.run(zone, cx, cz, json, Buffer.byteLength(json));
   metaCache = null;
 }
+
+const qGetWorld = db.prepare('SELECT value FROM world_meta WHERE key = ?');
+const qSetWorld = db.prepare('INSERT INTO world_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+export const getWorldValue = (key) => qGetWorld.get(key)?.value ?? null;
+export const setWorldValue = (key, value) => { qSetWorld.run(key, value); };
 
 export function clearZone(zone) {
   db.prepare('DELETE FROM chunks WHERE zone = ?').run(zone);

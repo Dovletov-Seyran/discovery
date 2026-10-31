@@ -37,7 +37,13 @@ Dev-команды в чате (только `DEV=1`): `/scene <id>`, `/reset`, 
 
 ## Мир и чанки
 
-Мир генерирует `npm run seed` (`npm run seed -- --map` — ещё и карта острова в консоли); при пустой БД сервер делает это сам при старте. Расстановка — `content/canary_layout.json` и `content/ship_layout.json` (оба — черновики, координаты правим по моделям).
+Мир генерирует `npm run seed` (`npm run seed -- --map` — ещё и карта острова в консоли); сервер делает это сам при старте, если БД пуста или изменился `content/canary_layout.json` / `content/ship_layout.json`.
+
+**Корабль (`ship_layout.json`, ведёт Фронт 1)** отдаётся в чанке `ship 0,0` целиком, со всеми полями. Из него сервер берёт:
+- `spawns` — точки появления: `{ grumete: P, piloto: P, lengua: P }` для всех игровых сцен на корабле или `{ ship_day: {…}, ship_evening: {…} }` по сценам;
+- `seats` — места у фонаря в `night_story`: `[P, P, P]`.
+
+Точка `P` — `[x, y, z]` или `{ p: [x, y, z], r }`, `r` — поворот как у камеры (0 — лицом к носу). Если полей нет — точки из `content/scenes.json`. id в `interact`/`npcs` должны совпадать с `content/quests.json`: `hourglass`, `astrolabe`, `compass`, `map`, `sword`, `espingarda`, `wine`, `wine_barrel`, `cards`, `dance`, `lantern`, `columbus`, `storyteller`, …
 
 Ответ на `chunk_req` — `{ t: 'chunk', zone, key: 'cx,cz', data }`:
 
@@ -60,7 +66,8 @@ Dev-команды в чате (только `DEV=1`): `/scene <id>`, `/reset`, 
 | `inventory` | `items, money` | У инвентаря есть деньги (мараведи) |
 | `quest` | `id, title, status, progress, total, text, shared, optional, count?, need?, options?` | `text` — текущий шаг; `count/need` — счётчик шага («1/2»); `shared` — общее задание роли, которой нет |
 | `party` | `+ done: {id: bool}` | Игрок закончил свои обязательные задания сцены (HUD «Юнга ✓») |
-| `npc_say` | `+ line?` | id готовой реплики из `content/lines.json` (по нему можно запускать звук события) |
+| `scene` | `+ type, duration, r?` | `r` — куда смотреть после появления в `spawn`/`seat` |
+| `npc_say` | `+ line?, duration?` | id готовой реплики из `content/lines.json` (по нему можно запускать звук события), длительность из манифеста озвучки |
 | `scared` | `by, target` | Рассылается всем: напуганный — тот, у кого `target` = он сам, остальные смеются |
 | закрытие WS | `4001` / `4002` | Неверный токен / вошли с другой вкладки (не переподключаться) |
 

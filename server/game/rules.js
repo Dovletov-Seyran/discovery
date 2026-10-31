@@ -98,7 +98,7 @@ export function interact(p, msg) {
       if (st?.emptyAt && now < st.emptyAt) return notice(p, `Песок ещё сыплется: ${Math.ceil((st.emptyAt - now) / 1000)} с`);
       entities.setState(id, { emptyAt: now + hourglassPeriod(d) * 1000, turnedBy: p.id });
       broadcastEntity(id);
-      sayLine('hourglass_prayer');
+      sayLine('grumete_song');
       break;
     }
     case 'well':
@@ -112,12 +112,15 @@ export function interact(p, msg) {
       break;
   }
 
+  const rudderStep = quests.stateOf(p, sceneId(), 'q_rudder')?.step;
   event(p, { type: 'interact', target: id });
 
   // E у NPC или шлюпки — отдать всё, что ждут задания
-  let delivered = false;
-  for (const item of [...p.inventory]) delivered = deliver(p, item, id) || delivered;
-  if (id === 'carpenter') sayLine(delivered ? 'carpenter_thanks' : 'carpenter_ask', p);
+  for (const item of [...p.inventory]) deliver(p, item, id);
+  if (id === 'carpenter') {
+    const st = quests.stateOf(p, sceneId(), 'q_rudder');
+    sayLine(st?.status === 'done' ? 'carpenter_done' : rudderStep ? 'carpenter_wait' : 'carpenter_task', p);
+  }
 
   if (director.scene().readyAt === id) boardBoat(p, id);
 }
@@ -125,6 +128,7 @@ export function interact(p, msg) {
 function boardBoat(p, id) {
   if (!quests.playerDone(p, sceneId())) return notice(p, 'Сначала закончи своё задание');
   director.onReadyAt(p, id);
+  if (players.party().some((x) => !x.ready)) sayLine('boat_wait', p);
 }
 
 // --- Мини-игры ---
