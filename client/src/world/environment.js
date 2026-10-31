@@ -108,13 +108,14 @@ export class Environment {
     this.scene.fog = new THREE.FogExp2(0xb9cbd6, 0.0011);
 
 
-    // At sea «Пинта» and «Нинья» keep station with us; at La Gomera all three ride at anchor in the bay.
+    // At sea «Пинта» and «Нинья» keep station with us; at La Gomera all three ride at anchor in the bay,
+    // well off the pier: the crews go ashore in the boat.
     this.zone = 'ship';
     this.fleet = [];
     const FLEET = [
-      { opts: {}, s: 0.85, sea: [62, -150, 0.06], bay: [294, 368, 1.2] },
-      { opts: { lateen: true }, s: 0.72, sea: [-120, -280, -0.05], bay: [228, 372, -0.7] },
-      { opts: {}, s: 1, sea: null, bay: [262, 378, -0.35] }, // the Santa María herself (starboard to the cutscene camera), seen from the island
+      { opts: {}, s: 0.85, sea: [62, -150, 0.06], bay: [298, 400, 0.5] },
+      { opts: { lateen: true }, s: 0.72, sea: [-120, -280, -0.05], bay: [222, 404, -0.45] },
+      { opts: {}, s: 1, sea: null, bay: [262, 412, -0.35] }, // the Santa María herself (starboard to the cutscene camera), seen from the island
     ];
     for (const f of FLEET) {
       const { group, sails } = buildShip(M, { far: true, ...f.opts });

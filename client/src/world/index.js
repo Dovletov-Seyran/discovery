@@ -148,7 +148,7 @@ export const world = {
   frame(dt) {
     dt = Math.min(dt, 0.1);
     this.cutscene.update?.(dt); // takes the camera while a cutscene runs
-    this.env.update(dt, this.camera.position);
+    this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
     this.island.refresh();
     this.players.update(dt);
     for (const o of this.interactables) {
