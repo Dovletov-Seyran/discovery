@@ -1,0 +1,442 @@
+{
+ "intro_1": {
+  "file": "intro_1.mp3",
+  "npc": "narrator",
+  "duration": 9.55,
+  "ru": "Двести лет Европа зачитывалась книгой венецианца Марко Поло: о Китае, о Великом хане и о Японии, где крыши дворцов покрыты золотом.",
+  "en": "For two hundred years, Europe read the book of the Venetian Marco Polo: tales of China, of the Great Khan, and of Japan, where palace roofs were covered in gold.",
+  "hash": "87ffdac2"
+ },
+ "intro_2": {
+  "file": "intro_2.mp3",
+  "npc": "narrator",
+  "duration": 7.15,
+  "ru": "Шёлк и пряности шли с Востока бесконечными дорогами, через множество рук, и стоили дороже золота.",
+  "en": "Silk and spices travelled from the East along endless roads, through countless hands, and were worth more than gold.",
+  "hash": "e01ead64"
+ },
+ "intro_3": {
+  "file": "intro_3.mp3",
+  "npc": "narrator",
+  "duration": 6.25,
+  "ru": "В 1453 году турки взяли Константинополь. Путь на Восток стал ещё труднее.",
+  "en": "In 1453 the Turks took Constantinople. The road to the East grew even harder.",
+  "hash": "f1c7eac0"
+ },
+ "intro_4": {
+  "file": "intro_4.mp3",
+  "npc": "narrator",
+  "duration": 10.63,
+  "ru": "У генуэзского моряка Христофора Колумба была дерзкая идея. Если Земля — шар, до Азии можно доплыть на запад. По его расчётам — всего несколько недель пути.",
+  "en": "A Genoese sailor named Christopher Columbus had a bold idea. If the Earth is round, one can reach Asia by sailing west. By his calculations, it was only a few weeks away.",
+  "hash": "828f2093"
+ },
+ "intro_5": {
+  "file": "intro_5.mp3",
+  "npc": "narrator",
+  "duration": 7.05,
+  "ru": "Он ошибся больше чем в четыре раза. И не знал, что между Европой и Азией лежит целый неизвестный мир.",
+  "en": "He was wrong by more than four times. And he did not know that between Europe and Asia lay an entire unknown world.",
+  "hash": "7108950f"
+ },
+ "intro_6": {
+  "file": "intro_6.mp3",
+  "npc": "narrator",
+  "duration": 8.53,
+  "ru": "3 августа 1492 года. Порт Палос. Три корабля — «Санта-Мария», «Пинта» и «Нинья» — уходят на запад.",
+  "en": "The third of August, 1492. The port of Palos. Three ships, the Santa Maria, the Pinta and the Nina, set sail to the west.",
+  "hash": "cd142864"
+ },
+ "boatswain_welcome": {
+  "file": "boatswain_welcome.mp3",
+  "npc": "boatswain",
+  "duration": 4.65,
+  "ru": "Подъём, собаки! Все за работу, адмирал смотрит.",
+  "en": "Wake up, you dogs! Every man to his work, the Admiral is watching.",
+  "hash": "ec840ea5"
+ },
+ "boatswain_hint_grumete": {
+  "file": "boatswain_hint_grumete.mp3",
+  "npc": "boatswain",
+  "duration": 5.65,
+  "ru": "Юнга! Следи за песочными часами на корме. Как песок кончится — переверни и пой.",
+  "en": "Boy! Keep an eye on the sand glass at the stern. When the sand runs out, turn it and sing.",
+  "hash": "4058b447"
+ },
+ "boatswain_hint_piloto": {
+  "file": "boatswain_hint_piloto.mp3",
+  "npc": "boatswain",
+  "duration": 6.13,
+  "ru": "Штурман, адмирал хочет знать широту к полудню. Твоя астролябия в сундуке на корме.",
+  "en": "Pilot, the Admiral wants our latitude at noon. Your astrolabe is in the chest at the stern.",
+  "hash": "11311aa8"
+ },
+ "boatswain_hint_lengua": {
+  "file": "boatswain_hint_lengua.mp3",
+  "npc": "boatswain",
+  "duration": 4.97,
+  "ru": "Переводчик, тебя звал адмирал. Иди на корму, и будь повежливее.",
+  "en": "Interpreter, the Admiral asked for you. Go to the stern, and mind your manners.",
+  "hash": "5fed3903"
+ },
+ "boatswain_hourglass": {
+  "file": "boatswain_hourglass.mp3",
+  "npc": "boatswain",
+  "duration": 3.03,
+  "ru": "Юнга! Песок кончился! Переверни часы!",
+  "en": "Boy! The sand has run out! Turn the glass!",
+  "hash": "5a3a28ea"
+ },
+ "boatswain_idle_1": {
+  "file": "boatswain_idle_1.mp3",
+  "npc": "boatswain",
+  "duration": 4.18,
+  "ru": "Тяни канат крепче, а то парус хлопает, как мокрая курица.",
+  "en": "Pull that rope tighter, or the sail will flap like a wet hen.",
+  "hash": "a13030b8"
+ },
+ "boatswain_idle_2": {
+  "file": "boatswain_idle_2.mp3",
+  "npc": "boatswain",
+  "duration": 3.9,
+  "ru": "Чистая палуба — счастливый корабль. Драйте, ребята, драйте!",
+  "en": "A clean deck is a happy ship. Scrub, lads, scrub!",
+  "hash": "b5f5b35b"
+ },
+ "grumete_song": {
+  "file": "grumete_song.mp3",
+  "npc": "grumete_npc",
+  "duration": 9.2,
+  "ru": "Благословен час, когда родился Господь, и святая Мария, что родила Его. Одна склянка прошла, другая наполняется. Доброго пути, если Бог даст!",
+  "en": "Blessed be the hour our Lord was born, and holy Mary who bore Him. One glass is gone, another is filling. Good voyage, if God wills!",
+  "hash": "e8edc5aa"
+ },
+ "rudder_alarm": {
+  "file": "rudder_alarm.mp3",
+  "npc": "boatswain",
+  "duration": 5.35,
+  "ru": "Адмирал! «Пинта» стреляет из пушки и поднимает флаг! У неё соскочил руль!",
+  "en": "Admiral! The Pinta is firing a gun and raising a flag! Her rudder has come loose!",
+  "hash": "f16f64f5"
+ },
+ "columbus_rudder": {
+  "file": "columbus_rudder.mp3",
+  "npc": "columbus",
+  "duration": 8.68,
+  "ru": "Опять! Клянусь, кому-то на «Пинте» не хочется плыть. Меняем курс! Идём на Канарские острова чинить её.",
+  "en": "Again! I swear someone on the Pinta does not wish to sail. Change course! We make for the Canary Islands to repair her.",
+  "hash": "090da8e5"
+ },
+ "cook_1": {
+  "file": "cook_1.mp3",
+  "npc": "cook",
+  "duration": 5.4,
+  "ru": "Опять бобы и солёные сардины. Не жалуйся, через месяц будешь видеть их во сне.",
+  "en": "Beans and salted sardines again. Do not complain, in a month you will dream of them.",
+  "hash": "15b0376b"
+ },
+ "cook_2": {
+  "file": "cook_2.mp3",
+  "npc": "cook",
+  "duration": 4.28,
+  "ru": "Осторожнее у очага. Одна искра — и все поплывём домой вплавь.",
+  "en": "Careful near the fire box. One spark and we all swim home.",
+  "hash": "cf6c1c33"
+ },
+ "cook_3": {
+  "file": "cook_3.mp3",
+  "npc": "cook",
+  "duration": 4.43,
+  "ru": "Сухари пекут дважды, чтобы не гнили. Ну, хотя бы не слишком быстро.",
+  "en": "The biscuit is baked twice so it does not rot. Well, not too fast.",
+  "hash": "442defe0"
+ },
+ "sailor_1_a": {
+  "file": "sailor_1_a.mp3",
+  "npc": "sailor_1",
+  "duration": 5,
+  "ru": "Говорят, адмирал — чужеземец, который никогда так далеко не плавал. Помоги нам Бог.",
+  "en": "They say the Admiral is a foreigner who has never sailed this far. God help us.",
+  "hash": "5ad9ef7e"
+ },
+ "sailor_1_b": {
+  "file": "sailor_1_b.mp3",
+  "npc": "sailor_1",
+  "duration": 5.05,
+  "ru": "Жена три дня плакала, когда я нанялся. Я сказал ей, что привезу золото.",
+  "en": "My wife cried for three days when I signed on. I told her I would bring back gold.",
+  "hash": "56d7fe17"
+ },
+ "sailor_2_a": {
+  "file": "sailor_2_a.mp3",
+  "npc": "sailor_2",
+  "duration": 4.93,
+  "ru": "Я сплю прямо здесь, на палубе. Если дождь — сплю мокрым. Такое оно, море.",
+  "en": "I sleep right here, on the deck. If it rains, I sleep wet. Such is the sea.",
+  "hash": "7e4e535c"
+ },
+ "sailor_2_b": {
+  "file": "sailor_2_b.mp3",
+  "npc": "sailor_2",
+  "duration": 5.33,
+  "ru": "Глянь на «Нинью», как бежит. Наша «Санта-Мария» рядом с ней — толстая старая корова.",
+  "en": "Look at the Nina, how fast she runs. Our Santa Maria is a fat old cow next to her.",
+  "hash": "a77effdd"
+ },
+ "sailor_3_a": {
+  "file": "sailor_3_a.mp3",
+  "npc": "sailor_3",
+  "duration": 4.78,
+  "ru": "Кое-кого из наших выпустили из тюрьмы, чтобы плыть с нами. Береги кошелёк.",
+  "en": "Some of the men here were let out of prison to sail with us. Watch your purse.",
+  "hash": "40dd9f61"
+ },
+ "sailor_3_b": {
+  "file": "sailor_3_b.mp3",
+  "npc": "sailor_3",
+  "duration": 3.93,
+  "ru": "Компас никогда не врёт. Врут те, кто по нему читает.",
+  "en": "The compass never lies. The men who read it, they lie.",
+  "hash": "f1fe4200"
+ },
+ "canary_title": {
+  "file": "canary_title.mp3",
+  "npc": "narrator",
+  "duration": 4.6,
+  "ru": "Ла-Гомера, Канарские острова. Август 1492 года.",
+  "en": "La Gomera, the Canary Islands. August 1492.",
+  "hash": "262d86dd"
+ },
+ "carpenter_task": {
+  "file": "carpenter_task.mp3",
+  "npc": "carpenter",
+  "duration": 7.63,
+  "ru": "Руль «Пинты»? Починю, но мне нужны хорошие доски и ведро смолы. Доски у верфи, смола в сарае.",
+  "en": "The Pinta's rudder? I can fix it, but I need good planks and a bucket of tar. The planks are by the shipyard, the tar is in the shed.",
+  "hash": "2318a430"
+ },
+ "carpenter_wait": {
+  "file": "carpenter_wait.mp3",
+  "npc": "carpenter",
+  "duration": 4.6,
+  "ru": "Нет досок, нет смолы — нет руля. Так уж устроено плотницкое дело, друг.",
+  "en": "No planks, no tar, no rudder. That is how carpentry works, friend.",
+  "hash": "91f94d9c"
+ },
+ "carpenter_done": {
+  "file": "carpenter_done.mp3",
+  "npc": "carpenter",
+  "duration": 5.1,
+  "ru": "Хорошее дерево, хорошая смола. Твоя «Пинта» пойдёт прямо до самого края света.",
+  "en": "Good wood, good tar. Your Pinta will steer straight all the way to the end of the world.",
+  "hash": "c023a8f1"
+ },
+ "carpenter_nina": {
+  "file": "carpenter_nina.mp3",
+  "npc": "carpenter",
+  "duration": 6.95,
+  "ru": "А вашей «Нинье» мы поставили прямые паруса вместо треугольных. Так лучше для долгого пути с попутным ветром.",
+  "en": "And your Nina? We gave her square sails instead of the triangle ones. Better for a long run with the wind behind.",
+  "hash": "c89663d7"
+ },
+ "beatriz_1": {
+  "file": "beatriz_1.mp3",
+  "npc": "beatriz",
+  "duration": 7.08,
+  "ru": "Значит, ты плывёшь с генуэзцем. Передай своему адмиралу, что Ла-Гомера ему рада и что я жду его обратно.",
+  "en": "So you sail with the Genoese. Tell your Admiral that La Gomera welcomes him, and that I expect him to return.",
+  "hash": "9405209a"
+ },
+ "beatriz_2": {
+  "file": "beatriz_2.mp3",
+  "npc": "beatriz",
+  "duration": 5.98,
+  "ru": "Этот остров — последняя христианская земля перед открытым морем. Дальше — одному Богу известно.",
+  "en": "This island is the last Christian land before the open sea. After us, only God knows.",
+  "hash": "138277af"
+ },
+ "town_1_a": {
+  "file": "town_1_a.mp3",
+  "npc": "town_1",
+  "duration": 5.9,
+  "ru": "Слышишь свист? Это мой брат с другой горы. Говорит, корабли у вас очень некрасивые.",
+  "en": "You hear that whistle? That is my brother on the other mountain. He says your ships are very ugly.",
+  "hash": "fd41964b"
+ },
+ "town_2_a": {
+  "file": "town_2_a.mp3",
+  "npc": "town_2",
+  "duration": 5.43,
+  "ru": "Наберите воды в колодце у гавани. Каждый корабль, что идёт на запад, пьёт нашу воду.",
+  "en": "Fill your barrels at the well by the harbour. Every ship that goes west drinks our water.",
+  "hash": "9cbc4994"
+ },
+ "town_3_a": {
+  "file": "town_3_a.mp3",
+  "npc": "town_3",
+  "duration": 8.18,
+  "ru": "Я с острова Иерро. Каждый год в ясные дни мы видим землю на западе. Горы, клянусь. А потом они исчезают.",
+  "en": "I am from El Hierro. Every year, on clear days, we see land to the west. Mountains, I swear it. Then they vanish.",
+  "hash": "95abfb96"
+ },
+ "town_3_b": {
+  "file": "town_3_b.mp3",
+  "npc": "town_3",
+  "duration": 5.18,
+  "ru": "Сан-Борондон, так мы его зовём. Остров, который не хочет, чтобы его нашли.",
+  "en": "San Borondon, we call it. An island that does not want to be found.",
+  "hash": "9a7866f5"
+ },
+ "boat_wait": {
+  "file": "boat_wait.mp3",
+  "npc": "boatswain",
+  "duration": 3.7,
+  "ru": "В шлюпку! Ждём остальных — и обратно на корабль.",
+  "en": "Into the boat! We wait for the others, then back to the ship.",
+  "hash": "a8a6bdb8"
+ },
+ "feast_toast_1": {
+  "file": "feast_toast_1.mp3",
+  "npc": "sailor_1",
+  "duration": 3.73,
+  "ru": "За адмирала, за королеву и за золото хана!",
+  "en": "To the Admiral, to the Queen, and to the gold of the Khan!",
+  "hash": "e50b867f"
+ },
+ "feast_toast_2": {
+  "file": "feast_toast_2.mp3",
+  "npc": "sailor_2",
+  "duration": 3.6,
+  "ru": "Пейте, ребята! Завтра — только вода да небо.",
+  "en": "Drink, lads! Tomorrow there is nothing but water and sky.",
+  "hash": "7d97ead7"
+ },
+ "feast_dance": {
+  "file": "feast_dance.mp3",
+  "npc": "sailor_3",
+  "duration": 3.6,
+  "ru": "Давай, пляши! Сегодня даже рыбы пляшут!",
+  "en": "Come on, dance! Even the fish are dancing tonight!",
+  "hash": "28f6e67e"
+ },
+ "feast_cards_win": {
+  "file": "feast_cards_win.mp3",
+  "npc": "sailor_3",
+  "duration": 2.85,
+  "ru": "Ха! Мечи меня никогда не подводят.",
+  "en": "Ha! The swords never fail me.",
+  "hash": "7d76b840"
+ },
+ "feast_cards_lose": {
+  "file": "feast_cards_lose.mp3",
+  "npc": "sailor_3",
+  "duration": 3.23,
+  "ru": "Проклятые монеты! Тебе везёт, как чёрту.",
+  "en": "Cursed coins! You have the devil's luck.",
+  "hash": "37d362cc"
+ },
+ "story_1": {
+  "file": "story_1.mp3",
+  "npc": "storyteller",
+  "duration": 8.65,
+  "ru": "Знаете, как мавры зовут этот океан, ребята? Море Мрака. Кто уплывал слишком далеко на запад, тот не возвращался.",
+  "en": "Do you know what the Moors call this ocean, lads? The Sea of Darkness. Those who sailed too far west never came back.",
+  "hash": "934a943b"
+ },
+ "story_2": {
+  "file": "story_2.mp3",
+  "npc": "storyteller",
+  "duration": 13.85,
+  "ru": "На Иерро я знал одного рыбака. Он клялся, что видел на западе остров с чёрными горами. Видел много раз. Но каждый раз, когда плыл к нему, остров уходил, как мираж.",
+  "en": "On El Hierro I knew a fisherman. He swore he saw an island to the west, with black mountains. He saw it many times. But every time he sailed toward it, it moved away, like a mirage.",
+  "hash": "5e36ab28"
+ },
+ "story_3": {
+  "file": "story_3.mp3",
+  "npc": "storyteller",
+  "duration": 11.3,
+  "ru": "Однажды корабль всё-таки дошёл. Люди сошли на берег. Ни травы, ни птиц. Только гладкий чёрный камень, холодный и мокрый. Они развели костёр, чтобы согреться.",
+  "en": "Once, a ship did reach it. The men went ashore. No grass, no birds. Only smooth black stone, cold and wet. They made a fire to warm themselves.",
+  "hash": "6370735b"
+ },
+ "story_4": {
+  "file": "story_4.mp3",
+  "npc": "storyteller",
+  "duration": 3.53,
+  "ru": "И тут земля под ними вздохнула.",
+  "en": "And then the ground beneath them breathed.",
+  "hash": "8914a561"
+ },
+ "story_5": {
+  "file": "story_5.mp3",
+  "npc": "storyteller",
+  "duration": 9.65,
+  "ru": "Остров ушёл под воду. Это была спина зверя. Кто добежал до шлюпки — выжил. Остальных утянуло вниз, во тьму.",
+  "en": "The island sank into the sea. It was the back of a beast. Those who reached the boat lived. The others were pulled down into the dark.",
+  "hash": "3da25e3e"
+ },
+ "story_6": {
+  "file": "story_6.mp3",
+  "npc": "storyteller",
+  "duration": 8.95,
+  "ru": "Выжившие много дней дрейфовали в тумане. А ночью слышали, как что-то стучит в днище. Снизу. Три раза.",
+  "en": "The survivors drifted in the fog for days. And at night they heard something knocking on the hull. From below. Three times.",
+  "hash": "fceb19b2"
+ },
+ "story_7": {
+  "file": "story_7.mp3",
+  "npc": "storyteller",
+  "duration": 7.35,
+  "ru": "А утром нашли на палубе мокрые следы. Следы, которые выходили из моря. И уходили обратно.",
+  "en": "In the morning they found wet footprints on the deck. Footprints coming out of the sea. And going back in.",
+  "hash": "4a823912"
+ },
+ "story_8": {
+  "file": "story_8.mp3",
+  "npc": "storyteller",
+  "duration": 7.35,
+  "ru": "Ха! Видели бы вы свои лица! Сказки, ребята, просто сказки. Спите. Завтра будет ветер.",
+  "en": "Ha! Look at your faces! Tales, lads, only tales. Go to sleep. Tomorrow, the wind will come.",
+  "hash": "90cd500e"
+ },
+ "scare_laugh_1": {
+  "file": "scare_laugh_1.mp3",
+  "npc": "sailor_2",
+  "duration": 1.98,
+  "ru": "Ха! Гляди, как подскочил!",
+  "en": "Ha! Look at him jump!",
+  "hash": "1ff07f7b"
+ },
+ "scare_laugh_2": {
+  "file": "scare_laugh_2.mp3",
+  "npc": "sailor_1",
+  "duration": 2.85,
+  "ru": "Тише, дурни, адмирала разбудите!",
+  "en": "Quiet, you fools, you will wake the Admiral!",
+  "hash": "87931036"
+ },
+ "sleep_title_1": {
+  "file": "sleep_title_1.mp3",
+  "npc": "narrator",
+  "duration": 4.68,
+  "ru": "12 октября 1492 года. Два часа ночи.",
+  "en": "The twelfth of October, 1492. Two o'clock in the morning.",
+  "hash": "9c52cc67"
+ },
+ "sleep_title_2": {
+  "file": "sleep_title_2.mp3",
+  "npc": "sailor_1",
+  "duration": 1.53,
+  "ru": "Земля! Земля!",
+  "en": "Land! Land!",
+  "hash": "3a9f3e5a"
+ },
+ "part2_title": {
+  "file": "part2_title.mp3",
+  "npc": "narrator",
+  "duration": 3.03,
+  "ru": "Часть вторая. Те, кто стоял на берегу.",
+  "en": "Part two. Those who stood on the shore.",
+  "hash": "82a25155"
+ }
+}

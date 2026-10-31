@@ -12,6 +12,7 @@ export const AI = {
   HISTORY: 6,            // последних реплик в промпте
   MAX_CARDS: 2,          // фактов на один ответ
   MAX_SENTENCES: 3,
+  MAX_WORDS: 32,         // длиннее — перевод и голос растягиваются до 8–9 с
 
   TTS_MODEL: 'onnx-community/Kokoro-82M-v1.0-ONNX',
   TTS_DTYPE: 'q8',

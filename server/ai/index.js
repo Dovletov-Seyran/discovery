@@ -3,7 +3,7 @@ import { getAgent, loadAgents } from './agents.js';
 import { chat, warmup, ollamaUp } from './llm.js';
 import { findCards } from './retrieval.js';
 import { loadMemory, saveMemory, setStore } from './memory.js';
-import { buildMessages, cleanAnswer, isEnglish } from './prompt.js';
+import { buildMessages, cleanAnswer, isEnglish, ensureRepeatOpening } from './prompt.js';
 import { toRussian } from './translate.js';
 import { speak, loadTTS, ttsReady } from './tts.js';
 
@@ -34,9 +34,13 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   const cards = findCards(agent, userText, { hintId });
   const newCards = cards.filter((c) => !mem.told.includes(c.id));
   const toldCards = cards.filter((c) => mem.told.includes(c.id));
-  const steerCard = cards.length ? null : agent.cards.find((c) => !mem.told.includes(c.id));
+  const untold = agent.cards.filter((c) => !mem.told.includes(c.id));
+  // Повторный вопрос: всё найденное уже рассказано — добавим новую деталь из нерассказанного
+  const isRepeat = toldCards.length > 0 && newCards.length === 0;
+  const extraCard = isRepeat ? untold[0] : null;
+  const steerCard = cards.length ? null : untold[0];
 
-  const messages = buildMessages({ agent, context, newCards, toldCards, steerCard, tradeResult, history: mem.history, text: userText });
+  const messages = buildMessages({ agent, context, newCards, toldCards, extraCard, steerCard, tradeResult, history: mem.history, text: userText });
 
   let en = null;
   let llmMs = 0;
@@ -45,7 +49,7 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
       const res = await chat(messages, { priority: 1 });
       llmMs += res.ms;
       const answer = cleanAnswer(res.text);
-      if (isEnglish(answer)) en = answer;
+      if (isEnglish(answer)) en = isRepeat ? ensureRepeatOpening(answer) : answer;
     } catch (err) {
       console.warn(`[ai] ${npc}: ${err.message}`);
       break;
@@ -68,6 +72,7 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
     translateMs = tr.ms;
     audio = voice.url;
     ttsMs = voice.ms;
+    // extraCard не помечаем: модель не всегда вставляет новую деталь, а помеченное агент потом пропустит
     topicsTold = newCards.map((c) => c.id);
     mem.told.push(...topicsTold);
     mem.history.push({ role: 'user', content: userText || '(greets you)' }, { role: 'assistant', content: en });

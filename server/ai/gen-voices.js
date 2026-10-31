@@ -1,4 +1,4 @@
-// Озвучка всех готовых реплик из content/lines.json → client/public/audio/vo/<id>.wav (+ .ogg, если есть ffmpeg)
+// Озвучка всех готовых реплик из content/lines.json → client/public/audio/vo/<id>.wav (+ .mp3, если есть ffmpeg)
 // и манифест с длительностями для субтитров: client/public/audio/vo/manifest.json
 // npm run voices            — только новые и изменённые реплики
 // npm run voices -- --force — переозвучить всё
@@ -53,10 +53,10 @@ for (const line of lines) {
   const { ms, duration } = await speak(line.en, npc.voice, { file: wav, dir: OUT, url: '', speed: npc.speed ?? 1, keep: true });
   let file = wav;
   if (hasFfmpeg) {
-    const ogg = `${line.id}.ogg`;
-    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', join(OUT, wav), '-c:a', 'libvorbis', '-q:a', '4', join(OUT, ogg)]);
+    const mp3 = `${line.id}.mp3`;
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', join(OUT, wav), '-c:a', 'libmp3lame', '-q:a', '4', join(OUT, mp3)]);
     unlinkSync(join(OUT, wav));
-    file = ogg;
+    file = mp3;
   }
   manifest[line.id] = { file, npc: line.npc, duration: Math.round(duration * 100) / 100, ru: line.ru, en: line.en, hash: h };
   done++;
@@ -64,4 +64,4 @@ for (const line of lines) {
 }
 
 writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1));
-console.log(`\nОзвучено ${done} реплик за ${Math.round((performance.now() - started) / 1000)} с${hasFfmpeg ? ' (ogg)' : ' (wav — поставьте ffmpeg, файлы будут в ~10 раз меньше)'}`);
+console.log(`\nОзвучено ${done} реплик за ${Math.round((performance.now() - started) / 1000)} с${hasFfmpeg ? ' (mp3)' : ' (wav — поставьте ffmpeg, файлы будут в ~10 раз меньше)'}`);
