@@ -1,0 +1,412 @@
+{
+ "amb_gulls": {
+  "file": "amb/amb_gulls.mp3",
+  "kind": "amb",
+  "duration": 33.52,
+  "title": "Seagull on beach",
+  "author": "squashy555",
+  "freesoundId": 353416,
+  "url": "https://freesound.org/people/squashy555/sounds/353416/",
+  "license": "CC0 1.0"
+ },
+ "sfx_coins": {
+  "file": "sfx/sfx_coins.mp3",
+  "kind": "sfx",
+  "duration": 2.08,
+  "title": "Coin dropping.wav",
+  "author": "Jace",
+  "freesoundId": 17502,
+  "url": "https://freesound.org/people/Jace/sounds/17502/",
+  "license": "CC0 1.0"
+ },
+ "amb_sea_ship": {
+  "file": "amb/amb_sea_ship.mp3",
+  "kind": "amb",
+  "duration": 90,
+  "title": "Sailboat Sailing Interior 2",
+  "author": "AugustSandberg",
+  "freesoundId": 252670,
+  "url": "https://freesound.org/people/AugustSandberg/sounds/252670/",
+  "license": "CC0 1.0"
+ },
+ "amb_ship_creak": {
+  "file": "amb/amb_ship_creak.mp3",
+  "kind": "amb",
+  "duration": 90,
+  "title": "ship_creak.mp3",
+  "author": "Walter_Odington",
+  "freesoundId": 31574,
+  "url": "https://freesound.org/people/Walter_Odington/sounds/31574/",
+  "license": "CC0 1.0"
+ },
+ "amb_wind_sails": {
+  "file": "amb/amb_wind_sails.mp3",
+  "kind": "amb",
+  "duration": 90,
+  "title": "Stronger wind at a marina, rattling at masts and rigging of the yachts.",
+  "author": "Pfannkuchn",
+  "freesoundId": 360633,
+  "url": "https://freesound.org/people/Pfannkuchn/sounds/360633/",
+  "license": "CC0 1.0"
+ },
+ "amb_harbour": {
+  "file": "amb/amb_harbour.mp3",
+  "kind": "amb",
+  "duration": 90,
+  "title": "harbor noises.mp3",
+  "author": "mrrap4food",
+  "freesoundId": 619078,
+  "url": "https://freesound.org/people/mrrap4food/sounds/619078/",
+  "license": "CC0 1.0"
+ },
+ "amb_shore": {
+  "file": "amb/amb_shore.mp3",
+  "kind": "amb",
+  "duration": 90,
+  "title": "Big waves hit land.wav",
+  "author": "straget",
+  "freesoundId": 412308,
+  "url": "https://freesound.org/people/straget/sounds/412308/",
+  "license": "CC0 1.0"
+ },
+ "amb_island_birds": {
+  "file": "amb/amb_island_birds.mp3",
+  "kind": "amb",
+  "duration": 90,
+  "title": "Bird call in spring.mp3",
+  "author": "jmiddlesworth",
+  "freesoundId": 364663,
+  "url": "https://freesound.org/people/jmiddlesworth/sounds/364663/",
+  "license": "CC0 1.0"
+ },
+ "amb_market": {
+  "file": "amb/amb_market.mp3",
+  "kind": "amb",
+  "duration": 90,
+  "title": "market.wav",
+  "author": "ninebilly",
+  "freesoundId": 173013,
+  "url": "https://freesound.org/people/ninebilly/sounds/173013/",
+  "license": "CC0 1.0"
+ },
+ "amb_feast_music": {
+  "file": "amb/amb_feast_music.mp3",
+  "kind": "amb",
+  "duration": 79.68,
+  "title": "Guitar soundtrack",
+  "author": "txirimiri",
+  "freesoundId": 261608,
+  "url": "https://freesound.org/people/txirimiri/sounds/261608/",
+  "license": "CC0 1.0"
+ },
+ "amb_tavern_crowd": {
+  "file": "amb/amb_tavern_crowd.mp3",
+  "kind": "amb",
+  "duration": 90,
+  "title": "Small_Town_Bar_004.wav",
+  "author": "conleec",
+  "freesoundId": 212096,
+  "url": "https://freesound.org/people/conleec/sounds/212096/",
+  "license": "CC0 1.0"
+ },
+ "amb_fire": {
+  "file": "amb/amb_fire.mp3",
+  "kind": "amb",
+  "duration": 60.82,
+  "title": "Fire in the stove",
+  "author": "mcmikai",
+  "freesoundId": 532191,
+  "url": "https://freesound.org/people/mcmikai/sounds/532191/",
+  "license": "CC0 1.0"
+ },
+ "amb_night_calm": {
+  "file": "amb/amb_night_calm.mp3",
+  "kind": "amb",
+  "duration": 90,
+  "title": "beach_waves.mp3",
+  "author": "3bagbrew",
+  "freesoundId": 59564,
+  "url": "https://freesound.org/people/3bagbrew/sounds/59564/",
+  "license": "CC0 1.0"
+ },
+ "amb_night_drone": {
+  "file": "amb/amb_night_drone.mp3",
+  "kind": "amb",
+  "duration": 59.64,
+  "title": "Soft Tonal Wind_01",
+  "author": "janbezouska",
+  "freesoundId": 397091,
+  "url": "https://freesound.org/people/janbezouska/sounds/397091/",
+  "license": "CC0 1.0"
+ },
+ "amb_intro_lute": {
+  "file": "amb/amb_intro_lute.mp3",
+  "kind": "amb",
+  "duration": 74.9,
+  "title": "Oud.wav",
+  "author": "--DeletedUser--",
+  "freesoundId": 160461,
+  "url": "https://freesound.org/people/--DeletedUser--/sounds/160461/",
+  "license": "CC0 1.0"
+ },
+ "sfx_cannon_far": {
+  "file": "sfx/sfx_cannon_far.mp3",
+  "kind": "sfx",
+  "duration": 3.79,
+  "title": "Distant Cannon Fire (simulated)",
+  "author": "stomachache",
+  "freesoundId": 565794,
+  "url": "https://freesound.org/people/stomachache/sounds/565794/",
+  "license": "CC0 1.0"
+ },
+ "sfx_ship_bell": {
+  "file": "sfx/sfx_ship_bell.mp3",
+  "kind": "sfx",
+  "duration": 2.53,
+  "title": "Ship Bell Two Chimes",
+  "author": "Sojan",
+  "freesoundId": 353232,
+  "url": "https://freesound.org/people/Sojan/sounds/353232/",
+  "license": "CC0 1.0"
+ },
+ "sfx_mast_creak": {
+  "file": "sfx/sfx_mast_creak.mp3",
+  "kind": "sfx",
+  "duration": 0.88,
+  "title": "Wooden Creak",
+  "author": "Mafon2",
+  "freesoundId": 377552,
+  "url": "https://freesound.org/people/Mafon2/sounds/377552/",
+  "license": "CC0 1.0"
+ },
+ "sfx_wind_dies": {
+  "file": "sfx/sfx_wind_dies.mp3",
+  "kind": "sfx",
+  "duration": 1.59,
+  "title": "Woosh",
+  "author": "florianreichelt",
+  "freesoundId": 683096,
+  "url": "https://freesound.org/people/florianreichelt/sounds/683096/",
+  "license": "CC0 1.0"
+ },
+ "sfx_splash_far": {
+  "file": "sfx/sfx_splash_far.mp3",
+  "kind": "sfx",
+  "duration": 2.17,
+  "title": "Big Water Splash",
+  "author": "qubodup",
+  "freesoundId": 442773,
+  "url": "https://freesound.org/people/qubodup/sounds/442773/",
+  "license": "CC0 1.0"
+ },
+ "sfx_hull_thud": {
+  "file": "sfx/sfx_hull_thud.mp3",
+  "kind": "sfx",
+  "duration": 10,
+  "title": "thud_me.wav",
+  "author": "opriema",
+  "freesoundId": 400188,
+  "url": "https://freesound.org/people/opriema/sounds/400188/",
+  "license": "CC0 1.0"
+ },
+ "sfx_water_drips": {
+  "file": "sfx/sfx_water_drips.mp3",
+  "kind": "sfx",
+  "duration": 9.93,
+  "title": "Water Droplets",
+  "author": "Legnalegna55",
+  "freesoundId": 543649,
+  "url": "https://freesound.org/people/Legnalegna55/sounds/543649/",
+  "license": "CC0 1.0"
+ },
+ "sfx_hull_knock_3": {
+  "file": "sfx/sfx_hull_knock_3.mp3",
+  "kind": "sfx",
+  "duration": 2.06,
+  "title": "door_knock.wav",
+  "author": "wjtaylor",
+  "freesoundId": 268500,
+  "url": "https://freesound.org/people/wjtaylor/sounds/268500/",
+  "license": "CC0 1.0"
+ },
+ "sfx_wet_footsteps": {
+  "file": "sfx/sfx_wet_footsteps.mp3",
+  "kind": "sfx",
+  "duration": 2.16,
+  "title": "Running on grass with wet feet.aif",
+  "author": "nathanaelsams",
+  "freesoundId": 127955,
+  "url": "https://freesound.org/people/nathanaelsams/sounds/127955/",
+  "license": "CC0 1.0"
+ },
+ "sfx_sailors_laugh": {
+  "file": "sfx/sfx_sailors_laugh.mp3",
+  "kind": "sfx",
+  "duration": 6.07,
+  "title": "R15-82-Men Laughing Heartily.wav",
+  "author": "craigsmith",
+  "freesoundId": 480806,
+  "url": "https://freesound.org/people/craigsmith/sounds/480806/",
+  "license": "CC0 1.0"
+ },
+ "sfx_scream": {
+  "file": "sfx/sfx_scream.mp3",
+  "kind": "sfx",
+  "duration": 0.63,
+  "title": "gruntsound.wav",
+  "author": "snaginneb",
+  "freesoundId": 90164,
+  "url": "https://freesound.org/people/snaginneb/sounds/90164/",
+  "license": "CC0 1.0"
+ },
+ "sfx_heartbeat": {
+  "file": "sfx/sfx_heartbeat.mp3",
+  "kind": "sfx",
+  "duration": 3.51,
+  "title": "Four Heartbeats HQ_BeatSmith.wav",
+  "author": "Lunardrive",
+  "freesoundId": 22416,
+  "url": "https://freesound.org/people/Lunardrive/sounds/22416/",
+  "license": "CC0 1.0"
+ },
+ "sfx_hourglass": {
+  "file": "sfx/sfx_hourglass.mp3",
+  "kind": "sfx",
+  "duration": 4.32,
+  "title": "sandfall5.wav",
+  "author": "Wagna",
+  "freesoundId": 326304,
+  "url": "https://freesound.org/people/Wagna/sounds/326304/",
+  "license": "CC0 1.0"
+ },
+ "sfx_well_bucket": {
+  "file": "sfx/sfx_well_bucket.mp3",
+  "kind": "sfx",
+  "duration": 9.9,
+  "title": "Water Pour",
+  "author": "JohnsonBrandEditing",
+  "freesoundId": 173930,
+  "url": "https://freesound.org/people/JohnsonBrandEditing/sounds/173930/",
+  "license": "CC0 1.0"
+ },
+ "sfx_hammer_wood": {
+  "file": "sfx/sfx_hammer_wood.mp3",
+  "kind": "sfx",
+  "duration": 4.2,
+  "title": "hammer v1.wav",
+  "author": "blukotek",
+  "freesoundId": 337816,
+  "url": "https://freesound.org/people/blukotek/sounds/337816/",
+  "license": "CC0 1.0"
+ },
+ "sfx_footsteps_wood": {
+  "file": "sfx/sfx_footsteps_wood.mp3",
+  "kind": "sfx",
+  "duration": 3.7,
+  "title": "Indoor Footsteps.wav",
+  "author": "WakuWakuWakuWaku",
+  "freesoundId": 366111,
+  "url": "https://freesound.org/people/WakuWakuWakuWaku/sounds/366111/",
+  "license": "CC0 1.0"
+ },
+ "sfx_pickup": {
+  "file": "sfx/sfx_pickup.mp3",
+  "kind": "sfx",
+  "duration": 1.27,
+  "title": "collect.wav",
+  "author": "Wagna",
+  "freesoundId": 325805,
+  "url": "https://freesound.org/people/Wagna/sounds/325805/",
+  "license": "CC0 1.0"
+ },
+ "sfx_cards_shuffle": {
+  "file": "sfx/sfx_cards_shuffle.mp3",
+  "kind": "sfx",
+  "duration": 0.75,
+  "title": "shuffle.wav",
+  "author": "deathpie",
+  "freesoundId": 19245,
+  "url": "https://freesound.org/people/deathpie/sounds/19245/",
+  "license": "CC0 1.0"
+ },
+ "sfx_cup_clink": {
+  "file": "sfx/sfx_cup_clink.mp3",
+  "kind": "sfx",
+  "duration": 1.35,
+  "title": "Cheers!.wav",
+  "author": "dazza007",
+  "freesoundId": 433721,
+  "url": "https://freesound.org/people/dazza007/sounds/433721/",
+  "license": "CC0 1.0"
+ },
+ "sfx_pour_wine": {
+  "file": "sfx/sfx_pour_wine.mp3",
+  "kind": "sfx",
+  "duration": 10,
+  "title": "pouring_wine.aif",
+  "author": "Heigh-hoo",
+  "freesoundId": 44775,
+  "url": "https://freesound.org/people/Heigh-hoo/sounds/44775/",
+  "license": "CC0 1.0"
+ },
+ "sfx_clapping": {
+  "file": "sfx/sfx_clapping.mp3",
+  "kind": "sfx",
+  "duration": 0.57,
+  "title": "never be clap.wav",
+  "author": "kendallbear",
+  "freesoundId": 147597,
+  "url": "https://freesound.org/people/kendallbear/sounds/147597/",
+  "license": "CC0 1.0"
+ },
+ "sfx_rowing": {
+  "file": "sfx/sfx_rowing.mp3",
+  "kind": "sfx",
+  "duration": 1.61,
+  "title": "heavehgroup.wav",
+  "author": "stomachache",
+  "freesoundId": 47891,
+  "url": "https://freesound.org/people/stomachache/sounds/47891/",
+  "license": "CC0 1.0"
+ },
+ "sfx_anchor_chain": {
+  "file": "sfx/sfx_anchor_chain.mp3",
+  "kind": "sfx",
+  "duration": 9.96,
+  "title": "13FMokroluskyT_retez.WAV",
+  "author": "13FPanska_Mokrolusky_Tomas",
+  "freesoundId": 377489,
+  "url": "https://freesound.org/people/13FPanska_Mokrolusky_Tomas/sounds/377489/",
+  "license": "CC0 1.0"
+ },
+ "sfx_sail_flap": {
+  "file": "sfx/sfx_sail_flap.mp3",
+  "kind": "sfx",
+  "duration": 0.88,
+  "title": "Wing Flap (Flag Flapping) 5a",
+  "author": "ani_music",
+  "freesoundId": 244982,
+  "url": "https://freesound.org/people/ani_music/sounds/244982/",
+  "license": "CC0 1.0"
+ },
+ "sfx_page_turn": {
+  "file": "sfx/sfx_page_turn.mp3",
+  "kind": "sfx",
+  "duration": 8.73,
+  "title": "Paper Sketchbook Page Flips 1",
+  "author": "OwlStorm",
+  "freesoundId": 320148,
+  "url": "https://freesound.org/people/OwlStorm/sounds/320148/",
+  "license": "CC0 1.0"
+ },
+ "sfx_rope_creak": {
+  "file": "sfx/sfx_rope_creak.mp3",
+  "kind": "sfx",
+  "duration": 1.12,
+  "title": "Stretch - Short",
+  "author": "NearTheAtmoshphere",
+  "freesoundId": 676988,
+  "url": "https://freesound.org/people/NearTheAtmoshphere/sounds/676988/",
+  "license": "CC0 1.0"
+ }
+}
