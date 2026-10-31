@@ -1,0 +1,19 @@
+[
+  { "id": "lobby", "type": "lobby", "zone": "ship", "advance": "all_ready", "next": "intro" },
+  { "id": "intro", "type": "cutscene", "duration": 90, "demoDuration": 45, "advance": "timer_or_skip", "next": "ship_day" },
+  { "id": "ship_day", "type": "play", "zone": "ship", "tod": 0.35, "todTo": 0.5, "duration": 600, "demoDuration": 180,
+    "advance": "quests", "onComplete": [ {"say": "columbus_rudder"}, {"wait": 6000} ], "next": "cut_canary",
+    "spawns": { "grumete": [0, 1.6, 8], "piloto": [0, 3.2, -9], "lengua": [1, 1.6, 0] } },
+  { "id": "cut_canary", "type": "cutscene", "duration": 20, "advance": "timer", "next": "canary" },
+  { "id": "canary", "type": "play", "zone": "canary", "tod": 0.45, "demoDuration": 180,
+    "advance": "all_ready", "readyAt": "boat", "next": "cut_evening",
+    "spawns": { "grumete": [256, 3, 250], "piloto": [258, 3, 250], "lengua": [254, 3, 250] } },
+  { "id": "cut_evening", "type": "cutscene", "duration": 15, "advance": "timer", "next": "ship_evening" },
+  { "id": "ship_evening", "type": "play", "zone": "ship", "tod": 0.72, "demoDuration": 120, "advance": "quests_and_ready", "next": "cut_night",
+    "spawns": { "grumete": [0, 1.6, 8], "piloto": [0, 1.6, 6], "lengua": [1, 1.6, 0] } },
+  { "id": "cut_night", "type": "cutscene", "duration": 25, "advance": "timer", "next": "night_story" },
+  { "id": "night_story", "type": "locked", "zone": "ship", "tod": 0.95, "duration": 150, "advance": "timer", "next": "sleep",
+    "seats": [[2, 1.6, 3], [-2, 1.6, 3], [0, 1.6, 5]] },
+  { "id": "sleep", "type": "cutscene", "duration": 10, "advance": "timer", "next": "end" },
+  { "id": "end", "type": "end" }
+]
