@@ -13,11 +13,14 @@
     "dev": "concurrently -k -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w client",
     "start": "node server/index.js",
-    "start:demo": "npm run build && cross-env DEMO=1 node server/index.js",
+    "start:demo": "npm run build && cross-env DEMO=1 HTTPS=1 node server/index.js",
     "seed": "node server/scripts/seed-world.js",
     "reset": "node server/scripts/reset.js",
     "smoke": "node server/scripts/smoke.js",
-    "start:dev": "npm run build && cross-env DEV=1 DEMO=1 node server/index.js"
+    "start:dev": "npm run build && cross-env DEV=1 DEMO=1 node server/index.js",
+    "start:https": "cross-env HTTPS=1 node server/index.js",
+    "dev:https": "cross-env HTTPS=1 npm run dev",
+    "cert": "node server/scripts/cert.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

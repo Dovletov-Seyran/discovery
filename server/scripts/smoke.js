@@ -1,8 +1,10 @@
 // npm run smoke — проверка сервера тремя ботами. Сервер должен быть запущен с DEV=1.
 // Внимание: делает /reset — сбрасывает прогресс всех игроков на этом сервере.
-// SERVER=http://localhost:3000 по умолчанию.
+// SERVER=http://localhost:3000 по умолчанию; SERVER=https://localhost:3000 — сервер с HTTPS=1.
 import WebSocket from 'ws';
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 // Координаты объектов корабля — из раскладки Фронта 1, чтобы тест не ломался при перестановке
 const LAYOUT = JSON.parse(readFileSync(new URL('../../content/ship_layout.json', import.meta.url), 'utf8'));
@@ -10,6 +12,14 @@ const at = (id) => { const o = LAYOUT.interact.find((x) => x.id === id); return 
 
 const BASE = process.env.SERVER || 'http://localhost:3000';
 const WS_URL = BASE.replace(/^http/, 'ws') + '/ws';
+
+// По https сертификат проверяется по-настоящему: доверяем нашему CA. Node читает NODE_EXTRA_CA_CERTS
+// только при старте процесса, поэтому перезапускаем себя с ним.
+if (BASE.startsWith('https') && !process.env.NODE_EXTRA_CA_CERTS) {
+  const ca = fileURLToPath(new URL('../../data/certs/ca.crt', import.meta.url));
+  const r = spawnSync(process.execPath, process.argv.slice(1), { stdio: 'inherit', env: { ...process.env, NODE_EXTRA_CA_CERTS: ca } });
+  process.exit(r.status ?? 1);
+}
 const suffix = Math.random().toString(36).slice(2, 7);
 
 let failed = 0;

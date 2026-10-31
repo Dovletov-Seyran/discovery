@@ -13,6 +13,7 @@ export const CONFIG = {
   INTERACT_DIST: 3,            // м
   DEMO_MODE: env.DEMO === '1',
   DEV: env.DEV === '1',
+  HTTPS: env.HTTPS === '1',  // сервер по https/wss со своим CA (server/tls.js)
 
   // Сеть
   AUTH_TIMEOUT_MS: 3000,       // нет auth за это время — закрываем

@@ -2,7 +2,9 @@ import { defineConfig } from 'vite';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const SERVER = `http://localhost:${process.env.PORT || 3000}`;
+// HTTPS=1 (npm run dev:https): сервер на https/wss со своим CA — прокси ходит туда без проверки сертификата
+const SERVER = `${process.env.HTTPS === '1' ? 'https' : 'http'}://localhost:${process.env.PORT || 3000}`;
+const to = (extra = {}) => ({ target: SERVER, secure: false, ...extra });
 
 // index.html (the game, Фронт 2) may not exist yet; world-dev.html is the stand-alone world page.
 const pages = ['index.html', 'world-dev.html', 'intro-dev.html'].filter((p) => existsSync(new URL(p, import.meta.url)));
@@ -12,9 +14,9 @@ export default defineConfig({
     host: true, // доступно по LAN
     port: 5173,
     proxy: {
-      '/api': SERVER,
-      '/ws': { target: SERVER, ws: true },
-      '/audio/rt': SERVER, // реплики, сгенерированные на лету; /audio/vo лежит в public
+      '/api': to(),
+      '/ws': to({ ws: true }),
+      '/audio/rt': to(), // реплики, сгенерированные на лету; /audio/vo лежит в public
     },
     fs: { allow: [fileURLToPath(new URL('..', import.meta.url))] }, // импорт из ../shared и ../content
   },
