@@ -13,6 +13,7 @@
   { "id": "sailor_1",    "name": "Матрос Диего",          "type": "script", "voice": "am_eric" },
   { "id": "sailor_2",    "name": "Матрос Педро",          "type": "script", "voice": "am_liam" },
   { "id": "sailor_3",    "name": "Матрос Санчо",          "type": "script", "voice": "am_onyx" },
+  { "id": "musician",    "name": "Матрос Хиль, гитарист", "type": "script", "voice": "am_echo" },
   { "id": "grumete_npc", "name": "Песня юнги",            "type": "script", "voice": "am_puck" },
   { "id": "carpenter",   "name": "Плотник",               "type": "script", "voice": "bm_daniel" },
   { "id": "beatriz",     "name": "Донья Беатрис",         "type": "script", "voice": "bf_emma" },

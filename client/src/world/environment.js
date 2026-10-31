@@ -253,7 +253,11 @@ export class Environment {
     this.sky.material.uniforms.time.value += dt;
     const flick = 0.85 + 0.15 * Math.sin(T * 13.1) * Math.sin(T * 7.3 + 1);
     // switched-off lamps leave the shader entirely (one recompile at dusk instead of three lights every frame)
-    for (const l of this.lamps) { l.visible = this.p.lamps > 0.01; l.intensity = this.p.lamps * 4 * flick; }
+    // a cutscene may light them one by one (lampScale per lamp); they stay in the shader meanwhile, no recompiles
+    this.lamps.forEach((l, i) => {
+      const k = this.lampScale ? this.lampScale[i] ?? 1 : 1;
+      l.visible = this.p.lamps > 0.01; l.intensity = this.p.lamps * k * 4 * flick;
+    });
     this.apply();
   }
 }

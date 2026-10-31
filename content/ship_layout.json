@@ -36,7 +36,8 @@
     { "id": "seat_1", "m": "keg", "p": [1.5, 0, -4.6] },
     { "id": "seat_2", "m": "keg", "p": [0, 0, -3.1] },
     { "id": "seat_3", "m": "keg", "p": [-1.5, 0, -4.6] },
-    { "id": "seat_4", "m": "keg", "p": [0, 0, -6.1] }
+    { "id": "seat_4", "m": "keg", "p": [0, 0, -6.1] },
+    { "id": "seat_5", "m": "keg", "p": [-1.4, 0, -3.4] }
   ],
   "interact": [
     { "id": "hourglass", "m": "hourglass", "p": [-0.95, 1.95, 6.75], "kind": "hourglass", "label": "Песочные часы", "period": 120, "demoPeriod": 60 },
@@ -54,11 +55,12 @@
   ],
   "npcs": [
     { "id": "columbus", "label": "Колумб", "pose": "admiral", "p": [2.55, 1.95, 5.75], "r": 0.25 },
-    { "id": "boatswain", "label": "Боцман", "pose": "akimbo", "p": [1.9, 0, -1.6], "r": -2.84 },
+    { "id": "boatswain", "label": "Боцман", "pose": "akimbo", "p": [1.3, 0, -1.1], "r": -2.84 },
     { "id": "cook", "label": "Кок", "pose": "stir", "p": [1.4, 0, -5.75], "r": 0 },
     { "id": "sailor_1", "label": "Матрос", "pose": "kneel", "p": [-1.0, 0, -2.5], "r": 1.89 },
     { "id": "sailor_2", "label": "Матрос", "pose": "haul", "p": [-2.75, 0, 1.0], "r": -1.69 },
     { "id": "sailor_3", "label": "Матрос", "pose": "stand", "p": [1.3, 1.6, -9.2], "r": 3.14 },
-    { "id": "storyteller", "label": "Старый Хуан", "pose": "sit", "p": [-2.55, 0.2, -3.6], "r": -1.5708 }
+    { "id": "storyteller", "label": "Старый Хуан", "pose": "sit", "p": [-2.55, 0.2, -3.6], "r": -1.5708 },
+    { "id": "musician", "label": "Матрос Хиль", "pose": "guitar", "p": [-1.4, 0, -3.4], "r": -1.04 }
   ]
 }

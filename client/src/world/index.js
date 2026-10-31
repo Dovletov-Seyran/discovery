@@ -19,6 +19,7 @@ import { Collider } from './collision.js';
 import { Chunks } from './chunks.js';
 import {paths as canaryPaths} from '../../../content/canary_layout.json';
 import { Cutscenes } from './cutscene.js';
+import { strum } from './people.js';
 import islandLod from 'virtual:island-lod';
 
 const SMOKE_PUFFS = 8;
@@ -153,6 +154,7 @@ export const world = {
     this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
     this.island.refresh();
     this.players.update(dt);
+    for (const n of this.npcs) if (n.userData.rig) strum(n.userData.rig, this.env.time);
     for (const o of this.interactables) {
       const u = o.userData;
       if (u.emptyAt) u.setFill(THREE.MathUtils.clamp((u.emptyAt - Date.now()) / u.turnSpan, 0, 1));

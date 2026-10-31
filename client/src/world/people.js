@@ -19,6 +19,7 @@ export const NPC_LOOK = {
   sailor_1: { shirt: 0xd9cdb3, pants: 0x354638, hatColor: 0xa02a22 },
   sailor_2: { shirt: 0xe0d5bd, pants: 0x354257, hatColor: 0xb3332a },
   sailor_3: { shirt: 0xc9bfa8, pants: 0x4a5560, hatColor: 0x8a2a24, skin: 0xb88660 },
+  musician: { shirt: 0xe4d8bf, vest: 0x5a3a26, pants: 0x3e4a52, hat: 'brim', hatColor: 0x4a3422, hair: 0x2a1c12 },
   // La Gomera
   trader: { shirt: 0x8a5a2c, sleeves: 0xd8ccb2, vest: 0x5a3a1e, pants: 0x3a3028, hat: 'brim', hatColor: 0x3a2a1a, hair: 0x2a1f16, skin: 0xc68a62 },
   carpenter: { shirt: 0xcfc0a0, pants: 0x3d4648, vest: 0x8a6a44, hat: 'none', hair: 0x6a5038, skin: 0xc08060 },
@@ -179,4 +180,72 @@ export function makeLabel() {
     tex.needsUpdate = true;
   };
   return sprite;
+}
+
+// A four-course guitar of the 1490s (the «guitarra» Tinctoris describes): small waisted body, short neck,
+// four pegs — not the modern six-string. Body centred at the origin, neck along +x, top facing +z.
+export function guitar(mat) {
+  const g = new THREE.Group();
+  const add = (geo, hex, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(paint(geo, hex), mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+  const half = (x) => Math.max(0.105 * Math.sqrt(Math.max(0, 1 - ((x + 0.06) / 0.115) ** 2)), 0.085 * Math.sqrt(Math.max(0, 1 - ((x - 0.085) / 0.09) ** 2)), x > -0.17 && x < 0.17 ? 0.068 : 0);
+  const sh = new THREE.Shape(), N = 28, pts = [];
+  for (let i = 0; i <= N; i++) { const x = -0.175 + (0.35 * i) / N; pts.push([x, half(x)]); }
+  sh.moveTo(pts[0][0], 0);
+  for (const [x, y] of pts) sh.lineTo(x, y);
+  for (const [x, y] of pts.reverse()) sh.lineTo(x, -y);
+  const body = new THREE.ExtrudeGeometry(sh, { depth: 0.07, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.006, bevelSegments: 1 });
+  body.translate(0, 0, -0.035);
+  add(body, 0x8a5a32);
+  const top = new THREE.ShapeGeometry(sh); add(top, 0xd3a86a, 0, 0, 0.042);
+  add(new THREE.CircleGeometry(0.03, 16), 0x1a120c, 0.055, 0, 0.0435);
+  add(new THREE.BoxGeometry(0.03, 0.07, 0.008), 0x4a2e18, -0.1, 0, 0.047); // bridge
+  add(new THREE.BoxGeometry(0.33, 0.042, 0.022), 0x5e3c22, 0.33, 0, 0.032); // neck
+  const head = add(new THREE.BoxGeometry(0.11, 0.055, 0.02), 0x5e3c22, 0.545, 0, 0.022); head.rotation.y = 0.25;
+  for (const [dx, dy] of [[0.515, 1], [0.565, 1], [0.515, -1], [0.565, -1]]) add(new THREE.CylinderGeometry(0.006, 0.006, 0.05, 6), 0x3a2414, dx, dy * 0.045, 0.02);
+  for (let i = 0; i < 4; i++) add(new THREE.BoxGeometry(0.6, 0.0025, 0.0025), 0xece2c8, 0.2, -0.014 + i * 0.0093, 0.047);
+  return g;
+}
+
+// Seated with the guitar across the right thigh, neck to the left; strum() plays it.
+export function guitarist(mat, look) {
+  const rig = person(mat, look);
+  pose(rig, 'sit');
+  const gtr = guitar(mat);
+  gtr.position.set(-0.06, 0.62, 0.25);
+  gtr.rotation.set(-0.25, 0.2, 0.5);
+  gtr.scale.setScalar(1.1);
+  rig.root.add(gtr);
+  rig.guitar = gtr;
+  strum(rig, 0);
+  return rig;
+}
+
+// Two-bone reach: point the upper arm and the forearm so the hand lands on `target` (world), the elbow bending
+// towards `pole` (torso space). Arm bones hang along −y; upper arm 0.31 m, forearm to the hand 0.30 m.
+const DOWN = new THREE.Vector3(0, -1, 0), _S = new THREE.Vector3(), _T = new THREE.Vector3(), _E = new THREE.Vector3(), _P = new THREE.Vector3(), _q = new THREE.Quaternion();
+export function reach(rig, arm, target, pole) {
+  const A = 0.31, B = 0.3;
+  _S.copy(arm.ua.position);
+  _T.copy(target); rig.torso.worldToLocal(_T);
+  const st = _T.clone().sub(_S), d = Math.min(st.length(), A + B - 0.01);
+  st.normalize();
+  const x = (A * A - B * B + d * d) / (2 * d), h = Math.sqrt(Math.max(0, A * A - x * x));
+  _P.copy(pole).addScaledVector(st, -pole.dot(st)).normalize();
+  _E.copy(_S).addScaledVector(st, x).addScaledVector(_P, h);
+  arm.ua.quaternion.setFromUnitVectors(DOWN, _E.clone().sub(_S).normalize());
+  const toHand = _S.copy(_S).addScaledVector(st, d).sub(_E).normalize().applyQuaternion(_q.copy(arm.ua.quaternion).invert());
+  arm.fa.quaternion.setFromUnitVectors(DOWN, toHand);
+}
+
+const POLE_R = new THREE.Vector3(-1, -0.6, -0.4), POLE_L = new THREE.Vector3(1, -0.8, -0.3);
+export function strum(rig, t) {
+  const beat = Math.sin(t * Math.PI * 2 * 1.6), lazy = Math.sin(t * 0.9);
+  rig.torso.rotation.set(0.12 + 0.02 * beat, 0, 0);
+  rig.head.rotation.set(0.3, -0.25 + 0.1 * lazy, 0); // looking down at the strings
+  rig.root.updateMatrixWorld(true);
+  const g = rig.guitar;
+  for (const arm of rig.arms) {
+    if (arm.s < 0) reach(rig, arm, g.localToWorld(_T.set(0.05, 0.035 * beat, 0.1)), POLE_R); // right hand over the sound hole
+    else reach(rig, arm, g.localToWorld(_T.set(0.42 + 0.02 * lazy, -0.01, 0.07)), POLE_L); // left hand on the neck
+  }
 }
