@@ -245,19 +245,23 @@ export function buildShip(M, { far = false, lateen = false } = {}) {
     add(mesh(boxGeo(0.85, 1.3, 0.05, 0.75, 0.65, -7.5), M.get('trim')));
     add(mesh(boxGeo(0.06, 0.06, 0.06, 0.45, 0.65, -7.46), M.get('iron')));
     add(mesh(boxGeo(0.85, 1.4, 0.05, 1.2, 0.7, 4.82), M.get('trim')));
-    // invisible fence above the bulwarks so nobody falls overboard
+    // Invisible fence above the bulwarks so nobody gets overboard: 4.5 m high, more than a jump from the
+    // top of stacked barrels or crates; closed at the bow and the stern.
+    const FENCE = 4.5;
     for (const side of [-1, 1]) {
       const pos = [], idx = [], n = 60;
       for (let i = 0; i <= n; i++) {
         const z = lerp(L0 + 0.3, L1, i / n), x = side * secX(z, 0)[0], y = topY(z);
-        pos.push(x, y - 0.2, z, x, y + 1.5, z);
+        pos.push(x, y - 0.2, z, x, y + FENCE, z);
         if (i) idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i);
       }
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
       col.push(g);
     }
-    col.push(boxGeo(2 * secX(L1, 0)[0], 1.5, 0.1, 0, topY(L1) + 0.6, L1));
+    col.push(boxGeo(2 * secX(L1, 0)[0] + 0.2, FENCE + 0.2, 0.1, 0, topY(L1) - 0.2 + (FENCE + 0.2) / 2, L1));
+    const bowZ = L0 + 0.3;
+    col.push(boxGeo(2 * secX(bowZ, 0)[0] + 0.2, FENCE + 0.2, 0.1, 0, topY(bowZ) - 0.2 + (FENCE + 0.2) / 2, bowZ));
   }
   bake(ship);
   return { group: ship, collider: col };

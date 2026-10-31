@@ -2,11 +2,15 @@
 // Внимание: делает /reset — сбрасывает прогресс всех игроков на этом сервере.
 // SERVER=http://localhost:3000 по умолчанию.
 import WebSocket from 'ws';
+import { resolveLayout } from '../world/terrain.js';
 import { readFileSync } from 'node:fs';
 
 // Координаты объектов корабля — из раскладки Фронта 1, чтобы тест не ломался при перестановке
 const LAYOUT = JSON.parse(readFileSync(new URL('../../content/ship_layout.json', import.meta.url), 'utf8'));
 const at = (id) => { const o = LAYOUT.interact.find((x) => x.id === id); return [o.p[0], o.p[2]]; };
+// …и острова — с координатами, которые считает генератор (пристань ищет берег сама)
+const ISLE = resolveLayout(JSON.parse(readFileSync(new URL('../../content/canary_layout.json', import.meta.url), 'utf8'))).layout;
+const isle = (id) => { const o = [...ISLE.interact, ...ISLE.npcs].find((x) => x.id === id); return [o.p[0], o.p[2]]; };
 
 const BASE = process.env.SERVER || 'http://localhost:3000';
 const WS_URL = BASE.replace(/^http/, 'ws') + '/ws';
@@ -240,7 +244,7 @@ await sleep(1600);
 check(!!(await l.wait('inventory', (m) => m.items.includes('purse') && m.money === 100)), 'переводчику выдан кошель, 100 мараведи');
 
 async function grumeteFlow() {
-  await g2.walkTo(254, 367);
+  await g2.walkTo(...isle('barrel'));
   g2.send('pickup', { id: 'barrel' });
   await g2.wait('inventory', (m) => m.items.includes('barrel'));
   // Переподключение с бочонком в руках
@@ -250,41 +254,41 @@ async function grumeteFlow() {
   await g3.open();
   g3.send('auth', { token: tokens[0] });
   const ok3 = await g3.wait('auth_ok');
-  check(ok3?.state.inventory.includes('barrel') && Math.abs(ok3.state.p[2] - 367) < 1, `переподключение: бочонок и позиция на месте ${JSON.stringify(ok3?.state.p)}`);
+  check(ok3?.state.inventory.includes('barrel') && Math.abs(ok3.state.p[2] - isle('barrel')[1]) < 1, `переподключение: бочонок и позиция на месте ${JSON.stringify(ok3?.state.p)}`);
   check(!!(await g3.wait('quest', (m) => m.id === 'q_water' && m.progress === 1)), 'переподключение: задание на том же шаге');
   g3.pos = ok3.state.p;
   g3.id = ok3.you.id;
-  await g3.walkTo(240, 284);
+  await g3.walkTo(...isle('well'));
   g3.send('interact', { id: 'well' });
   check(!!(await g3.wait('inventory', (m) => m.items.includes('barrel_full'))), 'колодец: бочонок наполнен');
-  await g3.walkTo(258, 372);
+  await g3.walkTo(...isle('boat'));
   g3.send('interact', { id: 'boat' });
   check(!!(await g3.wait('quest', (m) => m.id === 'q_water' && m.status === 'done')), 'вода в шлюпке → «Вода для Америки» выполнено');
   return g3;
 }
 
 async function pilotFlow() {
-  await p.walkTo(272, 288);
+  await p.walkTo(...isle('trader'));
   p.send('interact', { id: 'carpenter' });
   check(!!(await p.wait('notice', (m) => m.text.includes('ближе'))), 'плотник далеко → «Подойди ближе»');
-  await p.walkTo(292, 331);
+  await p.walkTo(...isle('carpenter'));
   p.send('interact', { id: 'carpenter' });
   check(!!(await p.wait('npc_say', (m) => m.line === 'carpenter_task')), 'плотник просит доски и смолу');
-  await p.walkTo(300, 321);
+  await p.walkTo(...isle('planks'));
   p.send('pickup', { id: 'planks' });
-  await p.walkTo(306, 321);
+  await p.walkTo(...isle('tar'));
   p.send('pickup', { id: 'tar' });
   await p.wait('inventory', (m) => m.items.includes('tar') && m.items.includes('planks'));
-  await p.walkTo(292, 331);
+  await p.walkTo(...isle('carpenter'));
   p.send('interact', { id: 'boat' }); // далеко — ничего
   p.send('interact', { id: 'carpenter' });
   check(!!(await p.wait('quest', (m) => m.id === 'q_rudder' && m.status === 'done')), 'доски и смола у плотника → руль починен');
-  await p.walkTo(258, 372);
+  await p.walkTo(...isle('boat'));
   p.send('interact', { id: 'boat' });
 }
 
 async function traderFlow() {
-  await l.walkTo(270, 290);
+  await l.walkTo(...isle('trader'));
   l.send('interact', { id: 'trader' });
   const ts = await l.wait('trade_state');
   check(ts?.goods.length === 3 && ts.money === 100, `торговец: ${JSON.stringify(ts?.goods)}`);
@@ -299,7 +303,7 @@ async function traderFlow() {
   const last = await buy('biscuit', 25);
   check(last?.money === 15, `всё куплено, осталось ${last?.money} мараведи`);
   check(!!(await l.wait('quest', (m) => m.id === 'q_trade' && m.status === 'done')), '«Провизия» выполнено');
-  await l.walkTo(258, 372);
+  await l.walkTo(...isle('boat'));
   l.send('interact', { id: 'boat' });
 }
 

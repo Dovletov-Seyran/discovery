@@ -191,7 +191,16 @@ export class Island {
 
   collide(capsule) {
     let onGround = false;
-    const delta = new THREE.Vector3(), { start, end } = capsule;
+    const delta = new THREE.Vector3(), { start, end, radius } = capsule;
+    // The chunk under the player has not arrived yet (scene start, reconnect, a fast run): stand still
+    // instead of falling under a ground that is about to appear.
+    if (this.heightAt(start.x, start.z) === null) {
+      this.hold ??= start.y;
+      const dy = this.hold - start.y;
+      start.y += dy; end.y += dy; delta.y += dy;
+      return { onGround: true, delta };
+    }
+    this.hold = null;
     for (const c of this.chunks.values()) {
       if (!c.visible) continue;
       const x0 = c.cx * CS - 3, z0 = c.cz * CS - 3;
@@ -200,8 +209,9 @@ export class Island {
       onGround ||= r.onGround;
       delta.add(r.delta);
     }
-    // the sea: walk in up to the waist, then the slope pushes you back ashore
-    for (let k = 0; k < 20; k++) {
+    // the sea: walk in up to the waist, then the slope pushes you back ashore — only someone in the water,
+    // not on the pier or the boat above it (that used to stop players 8 m along the pier)
+    for (let k = 0; k < 20 && start.y - radius < 0.4; k++) {
       const h = this.heightAt(start.x, start.z);
       if (h === null || h > -1.0) break;
       const gx = (this.heightAt(start.x + 0.5, start.z) ?? h) - (this.heightAt(start.x - 0.5, start.z) ?? h);
@@ -209,6 +219,13 @@ export class Island {
       const len = Math.hypot(gx, gz) || 1;
       start.x += (gx / len) * 0.1; start.z += (gz / len) * 0.1; end.x = start.x; end.z = start.z;
       delta.x += (gx / len) * 0.1; delta.z += (gz / len) * 0.1;
+    }
+    // Safety net: feet never end up under the terrain (nothing walkable is below it)
+    const ground = this.heightAt(start.x, start.z);
+    if (ground !== null && start.y - radius < ground - 0.3) {
+      const dy = ground - (start.y - radius);
+      start.y += dy; end.y += dy; delta.y += dy;
+      onGround = true;
     }
     return { onGround, delta };
   }

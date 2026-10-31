@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { MeshBVH } from 'three-mesh-bvh';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
+const GROUND = Math.sin(35 * Math.PI / 180);
+
 // Static collider of a zone: one BVH over simplified geometry (decks, bulwarks, walls, ramps, props).
 // Capsule-vs-triangles resolution follows the characterMovement example of three-mesh-bvh.
 export class Collider {
@@ -19,6 +21,8 @@ export class Collider {
     this._tri = new THREE.Vector3();
     this._cap = new THREE.Vector3();
     this._ray = new THREE.Ray();
+    this._n = new THREE.Vector3();
+    this._p = new THREE.Vector3();
   }
 
   // capsule = { start, end, radius }: world-space centres of the bottom and top spheres.
@@ -28,23 +32,38 @@ export class Collider {
     seg.start.copy(start); seg.end.copy(end);
     box.makeEmpty().expandByPoint(seg.start).expandByPoint(seg.end);
     box.min.addScalar(-radius); box.max.addScalar(radius);
-    for (let pass = 0; pass < 2; pass++) {
+    // Standing is decided per contact, not by the total push: pressed against a wall, a tree or the
+    // bulwark the sideways push used to outweigh the floor's, and Space did nothing. A contact holds
+    // the player up if it pushes up at 35° or steeper, i.e. the surface is at most 55° from level.
+    let onGround = false;
+    for (let pass = 0; pass < 3; pass++) {
       this.bvh.shapecast({
         intersectsBounds: (b) => b.intersectsBox(box),
         intersectsTriangle: (tri) => {
           const d = tri.closestPointToSegment(seg, this._tri, this._cap);
-          if (d < radius) {
+          if (d >= radius) return;
+          if (d > 1e-5) {
             const dir = this._cap.sub(this._tri).normalize();
+            if (dir.y >= GROUND) onGround = true;
             seg.start.addScaledVector(dir, radius - d);
             seg.end.addScaledVector(dir, radius - d);
+            return;
           }
+          // The capsule's axis goes right through the triangle (a big step, a spawn under the ground):
+          // the direction above is zero and the capsule used to fall through. Push it out along the face
+          // normal, the upward side for floors, by the depth of the lower end plus the radius.
+          const n = tri.getNormal(this._n);
+          if (n.y < 0) n.negate();
+          if (n.y >= GROUND) onGround = true;
+          const a = tri.a, below = Math.max(0, -n.dot(this._p.subVectors(seg.start, a)), -n.dot(this._p.subVectors(seg.end, a)));
+          seg.start.addScaledVector(n, below + radius);
+          seg.end.addScaledVector(n, below + radius);
         },
       });
     }
     const delta = seg.start.clone().sub(start);
     start.copy(seg.start); end.copy(seg.end);
-    const horiz = Math.hypot(delta.x, delta.z);
-    return { onGround: delta.y > 1e-5 && delta.y >= horiz * 0.7, delta };
+    return { onGround, delta };
   }
 
   // Height of the first surface below (x, fromY, z), or null.
