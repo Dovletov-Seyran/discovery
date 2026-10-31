@@ -15,6 +15,7 @@ function create(userId, name) {
     connected: false,
     disconnectedAt: null,
     role: saved?.role ?? null,
+    scene: saved?.scene ?? null, // запуск сцены 'id@startAt', в которой игрок был последний раз
     zone: saved?.zone ?? null,
     p: saved?.p ?? null,
     r: saved?.r ?? 0,
@@ -37,7 +38,7 @@ function create(userId, name) {
 }
 
 const serialize = (p) => ({
-  role: p.role, zone: p.zone, p: p.p, r: p.r, inventory: p.inventory, money: p.money, quests: p.quests, log: p.log,
+  role: p.role, scene: p.scene, zone: p.zone, p: p.p, r: p.r, inventory: p.inventory, money: p.money, quests: p.quests, log: p.log,
 });
 
 export const players = {

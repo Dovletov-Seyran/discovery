@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS player_state (
   user_id INTEGER PRIMARY KEY REFERENCES users(id),
   role TEXT, zone TEXT, x REAL, y REAL, z REAL, ry REAL,
   inventory TEXT, quests TEXT, log TEXT,
-  updated_at INTEGER);
+  updated_at INTEGER, scene TEXT);
 CREATE TABLE IF NOT EXISTS agent_memory (
   user_id INTEGER, agent_id TEXT,
   told TEXT, history TEXT,
@@ -34,6 +34,11 @@ CREATE TABLE IF NOT EXISTS chunks (
   zone TEXT, cx INTEGER, cz INTEGER, data TEXT, bytes INTEGER,
   PRIMARY KEY (zone, cx, cz));
 `);
+
+// Миграция: колонка scene появилась позже — сцена, в которой игрок был последний раз
+if (!db.prepare('PRAGMA table_info(player_state)').all().some((c) => c.name === 'scene')) {
+  db.exec('ALTER TABLE player_state ADD COLUMN scene TEXT');
+}
 
 const parse = (s, fallback) => {
   if (s == null) return fallback;
@@ -66,14 +71,14 @@ export const getSession = (token) => (typeof token === 'string' && token ? qSess
 
 const qLoadPlayer = db.prepare('SELECT * FROM player_state WHERE user_id = ?');
 const qSavePlayer = db.prepare(`
-  INSERT INTO player_state (user_id, role, zone, x, y, z, ry, inventory, quests, log, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  INSERT INTO player_state (user_id, role, zone, x, y, z, ry, inventory, quests, log, updated_at, scene)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(user_id) DO UPDATE SET role = excluded.role, zone = excluded.zone,
     x = excluded.x, y = excluded.y, z = excluded.z, ry = excluded.ry,
     inventory = excluded.inventory, quests = excluded.quests, log = excluded.log,
-    updated_at = excluded.updated_at`);
+    updated_at = excluded.updated_at, scene = excluded.scene`);
 
-// → { role, zone, p, r, inventory: [itemId...], money, quests, log } или null
+// → { role, scene, zone, p, r, inventory: [itemId...], money, quests, log } или null
 // В колонке inventory хранится { items, money }.
 export function loadPlayer(userId) {
   const row = qLoadPlayer.get(userId);
@@ -81,6 +86,7 @@ export function loadPlayer(userId) {
   const inv = parse(row.inventory, {});
   return {
     role: row.role ?? null,
+    scene: row.scene ?? null,
     zone: row.zone ?? null,
     p: row.x == null ? null : [row.x, row.y, row.z],
     r: row.ry ?? 0,
@@ -95,7 +101,7 @@ function writePlayer(userId, s) {
   const p = s.p ?? [null, null, null];
   qSavePlayer.run(userId, s.role ?? null, s.zone ?? null, p[0], p[1], p[2], s.r ?? 0,
     JSON.stringify({ items: s.inventory ?? [], money: s.money ?? 0 }), JSON.stringify(s.quests ?? {}),
-    JSON.stringify(s.log ?? []), Date.now());
+    JSON.stringify(s.log ?? []), Date.now(), s.scene ?? null);
 }
 
 // Отложенная запись: копим последнее состояние, пишем раз в SAVE_DELAY_MS.

@@ -32,6 +32,8 @@ export const setHooks = (h) => { hooks = { ...hooks, ...h }; };
 export const scene = () => scenes.get(state.id) ?? { id: state.id, type: 'end' };
 export const getScene = (id) => scenes.get(id);
 export const zone = () => state.zone;
+// Конкретный запуск сцены: та же сцена, запущенная заново, — уже другая
+const sceneKey = () => `${state.id}@${state.startAt}`;
 export const startAt = () => state.startAt;
 
 const sceneType = () => scene().type;
@@ -110,6 +112,7 @@ export function setScene(id) {
   const party = players.party().sort((a, b) => ROLES.indexOf(a.role) - ROLES.indexOf(b.role));
   party.forEach((p, i) => {
     p.ready = false;
+    p.scene = sceneKey();
     if (p.zone !== state.zone) p.chunks?.clear();
     p.zone = state.zone;
     const pos = s.seats ? s.seats[i % s.seats.length] : spawnFor(s, p.role);
@@ -261,11 +264,14 @@ export function pickRole(p, role) {
   onPartyChanged();
 }
 
-// Позиция при входе: если сохранённая зона не совпадает с текущей — ставим в spawn сцены
+// Позиция при входе: сцена сменилась, пока игрока не было, — ставим в spawn текущей сцены
 export function placeOnJoin(p) {
-  if (p.zone === state.zone && p.p) return;
+  if (p.scene === sceneKey() && p.zone === state.zone && p.p) return;
+  const spawn = spawnFor(scene(), p.role);
+  if (spawn) p.p = [...spawn];
+  else if (p.zone !== state.zone || !p.p) p.p = [...DEFAULT_POS];
   p.zone = state.zone;
-  p.p = [...(spawnFor(scene(), p.role) ?? DEFAULT_POS)];
+  p.scene = sceneKey();
   p.r = 0;
 }
 
