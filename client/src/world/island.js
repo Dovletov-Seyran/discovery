@@ -4,6 +4,7 @@ import { bake } from './geom.js';
 import { ISLAND_MODELS, VEGETATION } from './islandModels.js';
 import { place, colliderFor, buildInteract, buildNpc } from './props.js';
 import { fbm } from './texgen.js';
+import { IslandLod } from './islandLod.js';
 
 // The island zone (F1.5): every chunk from the server becomes terrain + buildings + interactables + NPCs
 // with its own collider. Vegetation of all visible chunks is drawn by one InstancedMesh per model part,
@@ -17,12 +18,66 @@ const C = {
 };
 const tmp = new THREE.Color();
 
+// Paths (canary_layout.json → paths) are painted by the ground shader per pixel: a 3 m lane gets crisp,
+// slightly ragged edges instead of the 1 m blur vertex colours would give. Every polyline segment is a capsule;
+// "stone": true paths (plaza, main streets) are cobbled, the rest are trodden earth. A negative width marks stone.
+const PATH_MAX = 48;
+const PATH_PARS = /* glsl */ `
+uniform vec4 pathSeg[${PATH_MAX}];
+uniform float pathW[${PATH_MAX}];
+uniform int pathN;
+uniform vec3 pathDirt, pathStone, pathGrout;
+varying vec3 vPathPos;
+float pathHash(vec2 p) { p = mod(p, 289.0); return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float pathNoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(pathHash(i), pathHash(i + vec2(1, 0)), f.x), mix(pathHash(i + vec2(0, 1)), pathHash(i + vec2(1, 1)), f.x), f.y);
+}
+// cobbles: x — distance to the joint between stones, y — this stone's random tone
+vec2 pathCobble(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  float d1 = 8.0, d2 = 8.0, id = 0.0;
+  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+    vec2 g = vec2(x, y), c = g + 0.2 + 0.6 * vec2(pathHash(i + g), pathHash(i + g + 17.3)) - f;
+    float d = dot(c, c);
+    if (d < d1) { d2 = d1; d1 = d; id = pathHash(i + g + 5.1); } else if (d < d2) d2 = d;
+  }
+  return vec2(sqrt(d2) - sqrt(d1), id);
+}`;
+const PATH_FRAG = /* glsl */ `
+{
+  vec2 xz = vPathPos.xz;
+  float dd = 1e5, ds = 1e5;
+  for (int i = 0; i < ${PATH_MAX}; i++) {
+    if (i >= pathN) break;
+    vec2 a = pathSeg[i].xy, ab = pathSeg[i].zw - a, ap = xz - a;
+    float d = length(ap - ab * clamp(dot(ap, ab) / dot(ab, ab), 0.0, 1.0)) - abs(pathW[i]) * 0.5;
+    if (pathW[i] < 0.0) ds = min(ds, d); else dd = min(dd, d);
+  }
+  // ragged edge: grass creeps in, the lane frays out; paving keeps a cleaner line
+  float jag = (pathNoise(xz * 0.8) - 0.5) * 0.9 + (pathNoise(xz * 3.3) - 0.5) * 0.4;
+  float dry = smoothstep(0.4, 1.0, vPathPos.y); // nothing under water
+  float md = (1.0 - smoothstep(-0.3, 0.3, dd + jag)) * dry;
+  float ms = (1.0 - smoothstep(-0.12, 0.12, ds + jag * 0.35)) * dry;
+  if (md + ms > 0.0) {
+    vec3 tex = diffuseColor.rgb / max(vColor.rgb, vec3(0.02)); // the ground texture alone
+    float grit = pathNoise(xz * 7.0), ruts = smoothstep(-1.4, -0.3, dd) * (1.0 - smoothstep(-0.3, 0.1, dd));
+    vec3 dirt = pathDirt * (0.88 + 0.22 * grit) * (1.0 - 0.18 * ruts); // trodden darker along the edges
+    vec2 cb = pathCobble(xz * 3.2); // stones ~30 cm, rounded: darker towards the joints
+    vec3 stone = pathStone * (0.7 + 0.45 * cb.y) * (0.9 + 0.2 * grit) * (0.72 + 0.28 * smoothstep(0.03, 0.4, cb.x));
+    stone = mix(pathGrout * (0.8 + 0.4 * grit), stone, smoothstep(0.02, 0.09, cb.x));
+    vec3 base = diffuseColor.rgb;
+    diffuseColor.rgb = mix(base, tex * dirt, md);
+    diffuseColor.rgb = mix(diffuseColor.rgb, mix(tex, vec3(dot(tex, vec3(0.333))), 0.6) * stone, ms);
+  }
+}`;
+
 function groundColor(x, z, h, ny, out) {
   const n = fbm(x / 37, z / 37, 1024, 1024, 3, 91), n2 = fbm(x / 9, z / 9, 1024, 1024, 2, 92);
   // late summer: mostly dry grass, greener in hollows and higher up
   out.copy(C.dry).lerp(C.grass, THREE.MathUtils.smoothstep(n, 0.5, 0.68));
-  // the flattened town (2–4.5 m) is trodden earth
-  out.lerp(C.earth, THREE.MathUtils.smoothstep(ny, 0.992, 0.999) * (1 - THREE.MathUtils.smoothstep(h, 4.2, 5)) * THREE.MathUtils.smoothstep(h, 1.8, 2.4));
+  // the flattened town (2–4.5 m): grass worn to earth in patches — the streets themselves are painted by the shader
+  out.lerp(C.earth, 0.45 * THREE.MathUtils.smoothstep(ny, 0.992, 0.999) * (1 - THREE.MathUtils.smoothstep(h, 4.2, 5)) * THREE.MathUtils.smoothstep(h, 1.8, 2.4));
   out.lerp(C.scrub, THREE.MathUtils.smoothstep(h, 12, 22));
   out.lerp(C.red, THREE.MathUtils.smoothstep(h, 26, 34) * 0.8);
   out.lerp(C.rock, THREE.MathUtils.smoothstep(1 - ny, 0.25, 0.45) * (0.7 + 0.3 * n2));
@@ -52,6 +107,43 @@ export class Island {
       });
       this.veg[m] = v;
     }
+    this.pathU = {
+      pathSeg: { value: Array.from({ length: PATH_MAX }, () => new THREE.Vector4()) },
+      pathW: { value: new Float32Array(PATH_MAX) },
+      pathN: { value: 0 },
+      pathDirt: { value: new THREE.Color(0xcdb68c) },
+      pathStone: { value: new THREE.Color(0xa59a88) },
+      pathGrout: { value: new THREE.Color(0x7a6a52) },
+    };
+    const ground = M.get('ground');
+    ground.onBeforeCompile = (s) => {
+      Object.assign(s.uniforms, this.pathU);
+      s.vertexShader = s.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vPathPos;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\nvPathPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      s.fragmentShader = s.fragmentShader
+        .replace('#include <common>', `#include <common>\n${PATH_PARS}`)
+        .replace('#include <color_fragment>', `#include <color_fragment>\n${PATH_FRAG}`);
+    };
+    ground.customProgramCacheKey = () => 'island-paths';
+  }
+
+  // the whole island, coarse, for everything beyond the loaded chunks (islandLod.js)
+  setLod(data) {
+    this.lod = new IslandLod(this.group, this.M, data, groundColor);
+    this.dirty = true;
+  }
+
+  // [{ points: [[x, z], …], width, stone? }] from canary_layout.json
+  setPaths(paths) {
+    let n = 0;
+    for (const { points, width, stone } of paths ?? []) {
+      for (let i = 1; i < points.length && n < PATH_MAX; i++, n++) {
+        this.pathU.pathSeg.value[n].set(...points[i - 1], ...points[i]);
+        this.pathU.pathW.value[n] = stone ? -width : width;
+      }
+    }
+    this.pathU.pathN.value = n;
   }
 
   // --- heights -------------------------------------------------------------
@@ -185,6 +277,7 @@ export class Island {
     }
     this.interactables.length = 0;
     for (const c of this.chunks.values()) if (c.visible) this.interactables.push(...c.interact, ...c.npcs);
+    this.lod?.update(new Set([...this.chunks.values()].filter((c) => c.visible).map((c) => c.key)));
   }
 
   // --- collisions ------------------------------------------------------------

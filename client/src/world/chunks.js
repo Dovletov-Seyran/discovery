@@ -47,8 +47,9 @@ export class Chunks {
     return keys.sort((a, b) => dist(a, pcx, pcz) - dist(b, pcx, pcz));
   }
 
-  // p: { x, z } (a Vector3 is fine)
+  // p: { x, z } (a Vector3 is fine). While a cutscene sets `focus`, chunks load around its camera instead.
   update(p, dt = 1 / 60) {
+    p = this.focus ?? p;
     this.timer += dt;
     if (!this.zone || this.timer < EVERY) return;
     this.timer = 0;

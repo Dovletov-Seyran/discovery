@@ -17,6 +17,9 @@ import { Pipeline } from './pipeline.js';
 import { Players } from './players.js';
 import { Collider } from './collision.js';
 import { Chunks } from './chunks.js';
+import { Cutscenes } from './cutscene.js';
+import canaryLayout from '../../../content/canary_layout.json';
+import islandLod from 'virtual:island-lod';
 
 const SMOKE_PUFFS = 8;
 
@@ -26,10 +29,8 @@ export const world = {
   players: null, chunks: new Chunks(),
   quality: 'high', zone: 'ship',
 
-  cutscene: {
-    // F1.8 is scheduled last; resolve right away so scene flow can already be wired up
-    play(id, startAt) { console.info('[world] cutscene not implemented yet:', id); return Promise.resolve(); },
-  },
+  // world.cutscene.play(id, startAt) → Promise (cutscene.js, shots in content/cutscenes.json); real after init()
+  cutscene: { play: () => Promise.resolve(), stop() {}, active: false },
 
   async init(canvas, quality = 'high', { auto = true } = {}) {
     this.quality = quality;
@@ -58,8 +59,11 @@ export const world = {
     this.smoke = new THREE.Group();
     this.smokeMat = new THREE.SpriteMaterial({ map: tex.soft.map, color: 0xc9c4bc, transparent: true, depthWrite: false });
     this.scene.add(this.smoke);
+    this.cutscene = new Cutscenes(this);
 
     this.island = new Island(this.scene, this.M);
+    this.island.setPaths(canaryLayout.paths); // static town plan; the terrain itself comes in chunks
+    this.island.setLod(islandLod);
     this.chunks.setBuilder('ship', { add: (key, data) => this.loadLayout(data), remove: () => this.unloadLayout(), setVisible: () => {} });
     this.chunks.setBuilder('canary', this.island);
 
@@ -143,7 +147,8 @@ export const world = {
 
   frame(dt) {
     dt = Math.min(dt, 0.1);
-    this.env.update(dt, this.camera.position);
+    this.cutscene.update?.(dt); // takes the camera while a cutscene runs
+    this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
     this.island.refresh();
     this.players.update(dt);
     for (const o of this.interactables) {
