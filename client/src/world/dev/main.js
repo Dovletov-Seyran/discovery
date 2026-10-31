@@ -6,6 +6,7 @@
 //   ?bots=2      fake remote players walking in circles (tests interpolation)
 //   ?cam=x,y,z,yaw,pitch   fixed camera, no controls (for screenshots)
 //   ?bench       measure every preset on this machine (see bench.js)
+// Keys: C plays the cut_canary cutscene (from the ship to the pier of La Gomera).
 import * as THREE from 'three';
 import { world } from '../index.js';
 import layout from '../../../../content/ship_layout.json';
@@ -70,6 +71,11 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Digit3') spawn('lengua');
   if (e.code === 'KeyE' && target) interact(target);
   if (e.code === 'KeyZ') setZone(world.zone === 'ship' ? 'canary' : 'ship');
+  // the arrival on La Gomera; afterwards stand on the pier like the server's canary spawn
+  if (e.code === 'KeyC' && !world.cutscene.active) {
+    if (world.zone !== 'ship') setZone('ship');
+    world.cutscene.play('cut_canary').then(() => { feet.set(256, 1.55, 328); yaw = 0; pitch = 0; vel.set(0, 0, 0); });
+  }
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 

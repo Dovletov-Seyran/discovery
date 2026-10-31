@@ -5,7 +5,7 @@
   "shape": { "center": [256, 250], "radius": [135, 105], "peak": [252, 190, 38], "peakHeight": 24 },
   "town": { "center": [256, 288], "half": 40, "height": 3 },
   "paths": [
-    { "points": [[256, 324], [256, 292]], "width": 5, "stone": true },
+    { "points": [[256, 333], [256, 292]], "width": 5, "stone": true },
     { "points": [[247, 290], [259, 290]], "width": 12, "stone": true },
     { "points": [[256, 284], [256, 259]], "width": 4.5, "stone": true },
     { "points": [[256, 268], [246, 266], [235, 263.5]], "width": 3 },

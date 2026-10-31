@@ -4,7 +4,7 @@
   { "id": "ship_day", "type": "play", "zone": "ship", "tod": 0.35, "todTo": 0.5, "duration": 600, "demoDuration": 180,
     "advance": "quests", "onComplete": [ {"say": "rudder_alarm"}, {"wait": 3000}, {"say": "columbus_rudder"}, {"wait": 5000} ], "next": "cut_canary",
     "spawns": { "grumete": [0, 1.6, 8], "piloto": [0, 3.2, -9], "lengua": [1, 1.6, 0] } },
-  { "id": "cut_canary", "type": "cutscene", "duration": 20, "advance": "timer", "next": "canary" },
+  { "id": "cut_canary", "type": "cutscene", "duration": 6, "advance": "timer", "next": "canary" },
   { "id": "canary", "type": "play", "zone": "canary", "tod": 0.45, "demoDuration": 180,
     "advance": "all_ready", "readyAt": "boat", "next": "cut_evening",
     "give": { "lengua": [ {"item": "purse", "money": 100} ] },

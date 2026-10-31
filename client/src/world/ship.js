@@ -121,10 +121,28 @@ function rampGeo({ x, w, z0, z1, y0, y1 }) {
 }
 
 // Ship model. `far` skips interior details for the two ships in the distance.
-// Returns { group, collider: BufferGeometry[] } — the collider only for the player's ship.
+// Returns { group, collider: BufferGeometry[], sails } — the collider only for the player's ship, sails only for `far`.
 export function buildShip(M, { far = false, lateen = false } = {}) {
   const ship = new THREE.Group(), col = [];
   const add = (o) => (ship.add(o), o);
+  // On the distant ships the sails stay separate meshes (not baked), so a cutscene can furl them (furlSails).
+  // yard: the lateen yard [A, B] the sail gathers along; square sails bunch up under their yard (local y = 0).
+  const sails = [];
+  const sail = (m, yard) => {
+    add(m);
+    if (!far) return m;
+    m.userData.noBake = true;
+    const set = m.geometry.attributes.position.array.slice(), furled = new Float32Array(set.length), v = new V3();
+    const ab = yard && new V3().subVectors(yard[1], yard[0]).normalize();
+    for (let i = 0; i < set.length / 3; i++) {
+      v.fromArray(set, i * 3);
+      if (yard) v.sub(yard[0]).projectOnVector(ab).add(yard[0]).y -= 0.25;
+      else v.set(v.x * 0.96, v.y * 0.06 - 0.15, v.z * 0.25);
+      v.toArray(furled, i * 3);
+    }
+    sails.push({ m, set, furled, k: 0 });
+    return m;
+  };
   const hull = hullGeometry(far ? 40 : 80, far ? 12 : 24);
   add(mesh(hull, M.get('hull')));
   col.push(hull);
@@ -176,15 +194,15 @@ export function buildShip(M, { far = false, lateen = false } = {}) {
     mast(0.27, 0.18, 1.6, 12.6, FOREZ); top(0.75, 11.7, FOREZ);
     yard(15, 13.7, MAINZ - 0.42); yard(8, 21.6, MAINZ - 0.3, 0.13); yard(10, 11.0, FOREZ - 0.36, 0.16);
     add(mesh(between(new V3(0, 2.4, -10.6), new V3(0, 5.5, -17.6), 0.2, 0.09, 16), M.get('wood')));
-    const s1 = add(mesh(sailGeo(14.2, 15.2, 9.0, 1.7), M.get('sailCross'))); s1.position.set(0, 13.55, MAINZ - 0.62);
-    const s2 = add(mesh(sailGeo(7.2, 9.6, 6.0, 0.9), M.get('sail'))); s2.position.set(0, 21.45, MAINZ - 0.45);
-    const s3 = add(mesh(sailGeo(9.6, 10.4, 7.2, 1.2), M.get('sail'))); s3.position.set(0, 10.85, FOREZ - 0.5);
+    const s1 = sail(mesh(sailGeo(14.2, 15.2, 9.0, 1.7), M.get('sailCross'))); s1.position.set(0, 13.55, MAINZ - 0.62);
+    const s2 = sail(mesh(sailGeo(7.2, 9.6, 6.0, 0.9), M.get('sail'))); s2.position.set(0, 21.45, MAINZ - 0.45);
+    const s3 = sail(mesh(sailGeo(9.6, 10.4, 7.2, 1.2), M.get('sail'))); s3.position.set(0, 10.85, FOREZ - 0.5);
     // mizzen with a lateen sail, above the heads of people on the quarterdeck
     mast(0.2, 0.13, DECKS.quarter.y, 13.5, MIZZENZ);
     {
       const A = new V3(0.35, 4.5, MIZZENZ - 3.6), B = new V3(0.35, 14.2, MIZZENZ + 3.4), C = new V3(0.45, 4.6, MIZZENZ + 3.9);
       add(mesh(between(A, B, 0.11, 0.07, 10), M.get('wood')));
-      add(mesh(lateenGeo(A, B, C, 0.8), M.get('sail')));
+      sail(mesh(lateenGeo(A, B, C, 0.8), M.get('sail')), [A, B]);
       R(C, new V3(2.0, 3.0, L1 - 0.2), 0.025);
     }
     for (const s of [-1, 1]) {
@@ -219,7 +237,7 @@ export function buildShip(M, { far = false, lateen = false } = {}) {
       mast(0.26, 0.15, 0, h, z);
       const A = new V3(0.35, 2.6, z - yl * 0.55), B = new V3(0.35, h + 2.2, z + yl * 0.45), C = new V3(0.35, 2.4, z + yl * 0.45);
       add(mesh(between(A, B, 0.12, 0.07, 10), M.get('wood')));
-      add(mesh(lateenGeo(A, B, C, 1.0), M.get('sail')));
+      sail(mesh(lateenGeo(A, B, C, 1.0), M.get('sail')), [A, B]);
       R(new V3(0, h, z), new V3(3.2, 1, z), 0.03); R(new V3(0, h, z), new V3(-3.2, 1, z), 0.03);
     }
   }
@@ -264,5 +282,16 @@ export function buildShip(M, { far = false, lateen = false } = {}) {
     col.push(boxGeo(2 * secX(bowZ, 0)[0] + 0.2, FENCE + 0.2, 0.1, 0, topY(bowZ) - 0.2 + (FENCE + 0.2) / 2, bowZ));
   }
   bake(ship);
-  return { group: ship, collider: col };
+  return { group: ship, collider: col, sails };
+}
+
+// k: 0 — sails set, 1 — furled to the yards
+export function furlSails(sails, k) {
+  for (const s of sails) {
+    if (s.k === k) continue;
+    s.k = k;
+    const a = s.m.geometry.attributes.position;
+    for (let i = 0; i < a.array.length; i++) a.array[i] = s.set[i] + (s.furled[i] - s.set[i]) * k;
+    a.needsUpdate = true;
+  }
 }
