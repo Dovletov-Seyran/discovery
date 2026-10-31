@@ -1,0 +1,160 @@
+// Module `world` (Фронт 1): rendering, sea and sky, the ship, NPCs, remote players, colliders.
+// API as agreed in docs/front-1-world.md, plus:
+//   world.frame(dt)              — update and draw one frame (call from the game loop)
+//   world.loadLayout(layout)     — props, interactables and NPCs of the ship (chunk `ship 0,0`)
+//   world.entity(id) / world.setEntityState(id, { visible, fill })
+//   world.layout                 — spawn points and night seats from the current layout
+//   world.stats()                — numbers for the F3 overlay
+import * as THREE from 'three';
+import { generateTextures, Materials } from './materials.js';
+import { buildShip } from './ship.js';
+import { buildLayout } from './props.js';
+import { Environment } from './environment.js';
+import { Pipeline } from './pipeline.js';
+import { Players } from './players.js';
+import { Collider } from './collision.js';
+import { Chunks } from './chunks.js';
+
+const SMOKE_PUFFS = 8;
+
+export const world = {
+  camera: null, scene: null, renderer: null,
+  interactables: [], npcs: [], layout: null,
+  players: null, chunks: new Chunks(),
+  quality: 'high', zone: 'ship',
+
+  cutscene: {
+    // F1.8 is scheduled last; resolve right away so scene flow can already be wired up
+    play(id, startAt) { console.info('[world] cutscene not implemented yet:', id); return Promise.resolve(); },
+  },
+
+  async init(canvas, quality = 'high', { auto = true } = {}) {
+    this.quality = quality;
+    // the canvas' own MSAA is the cheap way to smooth edges; a context cannot change it later, so `low` at start means no AA
+    const r = (this.renderer = new THREE.WebGLRenderer({ canvas, antialias: quality !== 'low', powerPreference: 'high-performance' }));
+    r.outputColorSpace = THREE.SRGBColorSpace;
+    r.shadowMap.enabled = true;
+    r.shadowMap.type = THREE.PCFShadowMap;
+    r.info.autoReset = false;
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 12000);
+    this.camera.position.set(0.5, 3.6, 8);
+    this.scene.add(this.camera);
+
+    const tex = await generateTextures(quality, Math.min(4, r.capabilities.getMaxAnisotropy()));
+    this.M = new Materials(tex);
+    this.env = new Environment(this.scene, r, this.M, tex, quality);
+
+    const ship = buildShip(this.M);
+    this.ship = ship.group;
+    this.shipCollider = ship.collider;
+    this.scene.add(this.ship);
+    this.zoneRoot = new THREE.Group();
+    this.scene.add(this.zoneRoot);
+
+    this.smoke = new THREE.Group();
+    this.smokeMat = new THREE.SpriteMaterial({ map: tex.soft.map, color: 0xc9c4bc, transparent: true, depthWrite: false });
+    this.scene.add(this.smoke);
+
+    this.players = new Players(this.scene, this.M);
+    this.env.mirrorHide.push(this.zoneRoot, this.smoke, this.players.group);
+    this.pipeline = new Pipeline(r, this.scene, this.camera);
+    this.pipeline.build(quality);
+    this.collider = new Collider(this.shipCollider);
+    addEventListener('resize', () => this.pipeline.resize());
+
+    this.fps = { frames: 0, time: 0, value: 0, auto, probe: { from: 1, to: 4, frames: 0, time: 0 }, clock: 0 };
+    return this;
+  },
+
+  loadLayout(layout) {
+    this.layout = layout;
+    this.zoneRoot.clear();
+    this.smoke.clear();
+    const built = buildLayout(this.M, layout);
+    this.zoneRoot.add(built.decor, ...built.interactables, ...built.npcs);
+    this.interactables = [...built.interactables, ...built.npcs];
+    this.npcs = built.npcs;
+    this.env.lamps = [];
+    this.env.addLamps(built.lamps);
+    for (const p of built.smoke) for (let i = 0; i < SMOKE_PUFFS; i++) {
+      const s = new THREE.Sprite(this.smokeMat.clone());
+      s.userData = { base: p, phase: i / SMOKE_PUFFS };
+      this.smoke.add(s);
+    }
+    this.collider = new Collider([...this.shipCollider, ...built.col]);
+    this.chunks.markLoaded('ship', '0,0', JSON.stringify(layout).length);
+  },
+
+  entity(id) { return this.interactables.find((o) => o.userData.id === id) ?? null; },
+
+  setEntityState(id, state) {
+    const o = this.entity(id);
+    if (!o) return;
+    if ('visible' in state) o.visible = state.visible;
+    if ('fill' in state) o.userData.setFill?.(state.fill);
+  },
+
+  setZone(zone) {
+    this.zone = zone;
+    const ship = zone === 'ship';
+    this.ship.visible = ship; this.zoneRoot.visible = ship; this.smoke.visible = ship;
+    if (!ship) console.warn('[world] zone not built yet:', zone);
+  },
+
+  setTimeOfDay(t, immediate = false) { this.env.setTimeOfDay(t, immediate); },
+
+  setQuality(q) {
+    if (q === this.quality) return;
+    this.quality = q;
+    this.env.setQuality(q);
+    this.pipeline.build(q);
+  },
+
+  collide(capsule) { return this.collider.collide(capsule); },
+  groundHeight(x, z, fromY) { return this.collider.groundHeight(x, z, fromY); },
+
+  frame(dt) {
+    dt = Math.min(dt, 0.1);
+    this.env.update(dt);
+    this.players.update(dt);
+    this.updateSmoke(dt);
+    this.renderer.info.reset();
+    this.pipeline.render(this.env.bloom);
+    this.measure(dt);
+  },
+
+  updateSmoke(dt) {
+    const light = 0.12 + 0.88 * this.env.daylight;
+    for (const s of this.smoke.children) {
+      const u = s.userData;
+      u.phase = (u.phase + dt * 0.12) % 1;
+      const t = u.phase;
+      s.position.set(u.base.x + Math.sin(t * 9 + u.base.x) * 0.15 * t * 4, u.base.y + t * 4.5, u.base.z - t * 2.5);
+      s.scale.setScalar(0.4 + t * 2.4);
+      s.material.opacity = 0.5 * (1 - t) * Math.min(1, t * 6);
+      s.material.color.setRGB(0.79 * light, 0.77 * light, 0.74 * light);
+    }
+  },
+
+  // F1.1: measure FPS between seconds 1 and 4; below 45 → drop to low
+  measure(dt) {
+    const f = this.fps;
+    f.frames++; f.time += dt; f.clock += dt;
+    if (f.time >= 0.5) { f.value = f.frames / f.time; f.frames = 0; f.time = 0; }
+    const pr = f.probe;
+    if (f.auto && pr && f.clock > pr.from) {
+      pr.frames++; pr.time += dt;
+      if (f.clock > pr.to) {
+        const avg = pr.frames / pr.time;
+        if (avg < 45 && this.quality !== 'low') { console.info(`[world] ${avg.toFixed(0)} FPS → low`); this.setQuality('low'); }
+        f.probe = null;
+      }
+    }
+  },
+
+  stats() {
+    const i = this.renderer.info.render;
+    return { fps: this.fps.value, calls: i.calls, triangles: i.triangles, quality: this.quality, tod: this.env.t, chunks: this.chunks.stats() };
+  },
+};

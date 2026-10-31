@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1492 — world dev</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0f12; color: #f3ead6; font: 14px system-ui, sans-serif; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #stats { position: fixed; left: 10px; top: 10px; font: 12px ui-monospace, monospace; white-space: pre; background: rgba(0,0,0,0.45); padding: 6px 8px; border-radius: 6px; display: none; }
+  #prompt { position: fixed; left: 50%; bottom: 18%; transform: translateX(-50%); background: rgba(20,14,8,0.7); padding: 8px 14px; border-radius: 8px; display: none; }
+  #dot { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: rgba(255,255,255,0.8); }
+  #help { position: fixed; right: 10px; bottom: 10px; font-size: 12px; opacity: 0.75; text-align: right; line-height: 1.5; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; font-size: 18px; background: #0d0f12; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="dot"></div>
+<div id="stats"></div>
+<div id="prompt"></div>
+<div id="help">Клик — захват мыши · WASD, Shift, Space<br>E — взаимодействие · T — время суток · Q — качество<br>1/2/3 — точки появления ролей · F3 — статистика</div>
+<div id="loading">Генерация текстур…</div>
+<script type="module" src="/src/world/dev/main.js"></script>
+</body>
+</html>
