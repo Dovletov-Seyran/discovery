@@ -1,0 +1,47 @@
+{
+  "_comment": "Черновик расстановки Ла-Гомеры (Бэк 1). Координаты [x, z] в метрах, y считает генератор по рельефу (или задан явно третьим числом). Север — -z, море и бухта — на юге (+z). После правки: npm run seed.",
+  "seed": 1492,
+  "size": 512,
+  "town": { "center": [256, 280], "half": 60, "height": 3 },
+  "paths": [
+    { "points": [[256, 340], [252, 300], [256, 245]], "width": 5 },
+    { "points": [[252, 300], [295, 322]], "width": 4 }
+  ],
+  "objects": [
+    { "id": "pier", "m": "pier", "p": [256, 1.2, 356], "r": 0 },
+    { "id": "church", "m": "church", "p": [256, 236], "r": 0 },
+    { "id": "governor_house", "m": "house_governor", "p": [224, 244], "r": 0.5 },
+    { "id": "market_stall_1", "m": "market_stall", "p": [268, 292], "r": -1.57 },
+    { "id": "market_stall_2", "m": "market_stall", "p": [274, 284], "r": -1.57 },
+    { "id": "shipyard", "m": "shipyard", "p": [296, 328], "r": 0 },
+    { "id": "warehouse", "m": "warehouse", "p": [306, 314], "r": 1.57 },
+    { "id": "house_1", "m": "house", "p": [214, 300], "r": 1.57 },
+    { "id": "house_2", "m": "house", "p": [212, 320], "r": 1.57 },
+    { "id": "house_3", "m": "house", "p": [232, 322], "r": 0 },
+    { "id": "house_4", "m": "house", "p": [284, 256], "r": 3.14 },
+    { "id": "house_5", "m": "house", "p": [300, 270], "r": -1.57 },
+    { "id": "house_6", "m": "house", "p": [302, 246], "r": -1.57 },
+    { "id": "house_7", "m": "house", "p": [216, 274], "r": 1.57 }
+  ],
+  "interact": [
+    { "id": "well", "m": "well", "p": [240, 284], "kind": "well", "label": "Колодец" },
+    { "id": "boat", "m": "boat", "p": [259, 374], "kind": "boat", "label": "Шлюпка" },
+    { "id": "barrel", "m": "barrel", "p": [254, 1.2, 368], "kind": "item", "item": "barrel", "label": "Пустой бочонок" },
+    { "id": "planks", "m": "planks", "p": [300, 322], "kind": "item", "item": "planks", "label": "Доски" },
+    { "id": "tar", "m": "tar_bucket", "p": [307, 322], "kind": "item", "item": "tar", "label": "Ведро смолы" }
+  ],
+  "npcs": [
+    { "id": "trader", "p": [271, 288], "r": -1.57, "label": "Торговец" },
+    { "id": "carpenter", "p": [292, 333], "r": 3.14, "label": "Плотник" },
+    { "id": "beatriz", "p": [226, 252], "r": 0.5, "label": "Беатрис де Бобадилья" },
+    { "id": "town_1", "p": [244, 288], "r": 2.4, "label": "Житель" },
+    { "id": "town_2", "p": [256, 302], "r": 0, "label": "Жительница" },
+    { "id": "town_3", "p": [222, 300], "r": 1.57, "label": "Старик" }
+  ],
+  "scatter": [
+    { "m": "palm_canary", "count": 260, "minDist": 6, "h": [0.6, 14], "scale": [0.8, 1.3] },
+    { "m": "dragon_tree", "count": 60, "minDist": 12, "h": [5, 26], "scale": [0.8, 1.4] },
+    { "m": "rock", "count": 320, "minDist": 5, "h": [0.2, 45], "scale": [0.5, 2.2] },
+    { "m": "bush", "count": 420, "minDist": 4, "h": [1, 22], "scale": [0.6, 1.2] }
+  ]
+}
