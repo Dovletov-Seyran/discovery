@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { Water } from 'three/addons/objects/Water.js';
-import { buildShip } from './ship.js';
+import { buildShip, furlSails } from './ship.js';
 import { WATER_Y } from './hullShape.js';
 
 // Time-of-day keys (F1.3). Everything in between is interpolated.
@@ -108,18 +108,19 @@ export class Environment {
     this.scene.fog = new THREE.FogExp2(0xb9cbd6, 0.0011);
 
 
-    // At sea «Пинта» and «Нинья» keep station with us; at La Gomera all three ride at anchor in the bay.
+    // At sea «Пинта» and «Нинья» keep station with us; at La Gomera all three ride at anchor in the bay,
+    // well off the pier: the crews go ashore in the boat.
     this.zone = 'ship';
     this.fleet = [];
     const FLEET = [
-      { opts: {}, s: 0.85, sea: [62, -150, 0.06], bay: [292, 412, 1.3] },
-      { opts: { lateen: true }, s: 0.72, sea: [-120, -280, -0.05], bay: [222, 420, -0.8] },
-      { opts: {}, s: 1, sea: null, bay: [258, 434, 0.25] }, // the Santa María herself, seen from the island
+      { opts: {}, s: 0.85, sea: [62, -150, 0.06], bay: [298, 400, 0.5] },
+      { opts: { lateen: true }, s: 0.72, sea: [-120, -280, -0.05], bay: [222, 404, -0.45] },
+      { opts: {}, s: 1, sea: null, bay: [262, 412, -0.35] }, // the Santa María herself (starboard to the cutscene camera), seen from the island
     ];
     for (const f of FLEET) {
-      const { group } = buildShip(M, { far: true, ...f.opts });
+      const { group, sails } = buildShip(M, { far: true, ...f.opts });
       group.scale.setScalar(f.s);
-      group.userData = { ...f, phase: Math.random() * 10 };
+      group.userData = { ...f, sails, phase: Math.random() * 10 };
       this.root.add(group); this.fleet.push(group);
     }
     this.focus = new THREE.Vector3();
@@ -139,9 +140,17 @@ export class Environment {
       if (!at) continue;
       f.position.set(at[0], waterY + 2.25 * f.userData.s, at[1]); f.rotation.set(0, at[2], 0);
       f.userData.base = f.position.clone();
+      furlSails(f.userData.sails, sea ? 0 : 1); // at anchor in the bay the sails are furled
     }
     if (sea) this.light.target.position.set(0, 4, -1);
     this.apply(true);
+  }
+
+  // A cutscene sails fleet[i] (0 Pinta, 1 Niña, 2 Santa María) to (x, z) with the bow turned by `heading`.
+  placeShip(i, x, z, heading) {
+    const f = this.fleet[i];
+    f.position.x = x; f.position.z = z; f.rotation.y = heading;
+    f.userData.base.x = x; f.userData.base.z = z;
   }
 
   setQuality(q) {

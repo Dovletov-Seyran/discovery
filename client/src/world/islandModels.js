@@ -141,7 +141,9 @@ function pier(M) {
   for (let z = 0.5; z <= L; z += 2.5) for (const s of [-1, 1]) g.add(mesh(cylGeo(0.14, 0.14, 4.6, 8).translate(s * (W / 2 - 0.1), -2.2, z), M.get('trim')));
   for (const s of [-1, 1]) g.add(mesh(boxGeo(0.12, 0.12, L, s * (W / 2 - 0.06), 0.13, L / 2), M.get('trim')));
   g.add(mesh(cylGeo(0.12, 0.15, 0.6, 10).translate(1.1, 0.35, L - 1), M.get('trim')));
-  return { obj: g, col: [boxGeo(W, 0.3, L, 0, -0.08, L / 2)] };
+  // collider down to the sea floor, between the piles: under the deck a player used to get wedged
+  // where the beach rises to the planks
+  return { obj: g, col: [boxGeo(W, 8.07, L, 0, 0.07 - 8.07 / 2, L / 2)] };
 }
 
 function well(M) {

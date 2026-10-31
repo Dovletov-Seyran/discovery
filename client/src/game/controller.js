@@ -109,7 +109,7 @@ export class Controller {
       const offset=new Vector3(x,0,z);
       if(moving)offset.normalize().applyAxisAngle(UP,this.yaw).multiplyScalar(running?6:3);
       // Прыжок — пробел, только стоя на палубе или земле (onGround с прошлого кадра)
-      const wasGrounded=this.onGround;
+      const wasGrounded=this.onGround, from=this.position.clone();
       let jumped=false;
       if(this.keys.has('Space')&&this.onGround&&this.hasControl){this.velocityY=5.5;this.onGround=false;jumped=true;}
 
@@ -136,18 +136,25 @@ export class Controller {
         // к жителю или стене, столкновение толкает вбок и чуть вниз, и раньше прыжок гас на первом кадре
         else if(result?.delta&&result.delta.y<-1e-3&&-result.delta.y>Math.hypot(result.delta.x,result.delta.z))this.velocityY=Math.min(0,this.velocityY);
       }
-      // Спуск по склону или ступеньке: без этого на бегу вниз игрок отрывается от земли
-      // и пробел не срабатывает. Опускаем капсулу на высоту шага и оставляем, только если она встала на опору;
-      // берём только высоту — боковой толчок от склона разгонял бы под гору.
-      if(!grounded&&wasGrounded&&!jumped&&this.velocityY<=0){
+      // Прилипание к земле каждый кадр, пока не прыгаем: без него на бегу под гору игрок отрывался
+      // от склона, пробел не срабатывал, а высота шла лесенкой — камера дрожала. Опускаем капсулу
+      // на высоту шага; если она встала на опору — ставим игрока на эту высоту. Склон выталкивает
+      // по нормали (и вбок), поэтому возвращаем капсулу под игрока и уточняем высоту ещё дважды.
+      if((grounded||wasGrounded)&&!jumped&&this.velocityY<=0){
         const capsule=this.capsule, snap=0.1+offset.length()*dt*1.5;
-        capsule.start.set(this.position.x,this.position.y-snap+capsule.radius,this.position.z);
-        capsule.end.set(this.position.x,this.position.y-snap+1.7-capsule.radius,this.position.z);
-        if(this.world.collide(capsule)?.onGround&&capsule.start.y-capsule.radius<=this.position.y+0.02){
-          this.position.y=capsule.start.y-capsule.radius;
-          grounded=true;this.velocityY=0;
+        let y=this.position.y-snap, standing=false;
+        for(let pass=0;pass<3;pass++){
+          capsule.start.set(this.position.x,y+capsule.radius,this.position.z);
+          capsule.end.set(this.position.x,y+1.7-capsule.radius,this.position.z);
+          const result=this.world.collide(capsule);
+          if(pass===0&&!result?.onGround)break;
+          standing=true;y=capsule.start.y-capsule.radius;
         }
+        if(standing&&y<=this.position.y+0.02){this.position.y=y;grounded=true;this.velocityY=0;}
       }
+      // Трение: кто стоит на опоре и не идёт, тот не сползает. Склон выталкивает по нормали,
+      // и на 40° игрок съезжал вниз на 0,2–0,3 м в секунду, просто стоя на месте.
+      if(grounded&&wasGrounded&&!jumped&&offset.lengthSq()===0&&this.position.distanceTo(from)<0.05)this.position.copy(from);
       this.onGround=grounded;
     }
     if (this.enabled) this.applyCamera(moving ? Math.sin(time*10)*0.02 : 0);

@@ -6,6 +6,7 @@
 //   ?bots=2      fake remote players walking in circles (tests interpolation)
 //   ?cam=x,y,z,yaw,pitch   fixed camera, no controls (for screenshots)
 //   ?bench       measure every preset on this machine (see bench.js)
+// Keys: C plays the cut_canary cutscene (from the ship to the pier of La Gomera).
 import * as THREE from 'three';
 import { world } from '../index.js';
 import layout from '../../../../content/ship_layout.json';
@@ -18,7 +19,8 @@ const BENCH = P.has('bench');
 await world.init($('c'), P.get('q') ?? 'high', { auto: !P.get('q') && !BENCH });
 // chunks: the same messages the server would send, produced locally
 const fake = createFakeServer(
-  () => ({ zone: world.zone, p: world.camera.position.toArray() }),
+  // like the server: chunks around the player, not the camera (the bench and ?cam= fly the camera alone)
+  () => ({ zone: world.zone, p: BENCH || P.has('cam') ? world.camera.position.toArray() : [feet.x, feet.y, feet.z] }),
   (m) => (m.t === 'chunk' ? world.chunks.receive(m.zone, m.key, m.data) : world.chunks.denied(m.zone, m.key, m.reason)),
 );
 world.chunks.setWorldMeta(fake.meta);
@@ -70,6 +72,12 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Digit3') spawn('lengua');
   if (e.code === 'KeyE' && target) interact(target);
   if (e.code === 'KeyZ') setZone(world.zone === 'ship' ? 'canary' : 'ship');
+  // as in the game: the server's cut_canary moves everyone to the pier at once and switches the zone
+  if (e.code === 'KeyC' && !world.cutscene.active) {
+    world.setZone('canary');
+    feet.set(256, 1.55, 328); yaw = 0; pitch = 0; vel.set(0, 0, 0);
+    world.cutscene.play('cut_canary');
+  }
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 
