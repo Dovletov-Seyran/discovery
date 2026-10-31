@@ -29,6 +29,7 @@ export class WorldConnection {
       // Остров и другие зоны — через менеджер чанков мира (кеш ≤ 10%); корабль — раскладкой ниже
       if(message.zone!=='ship'){this.world.chunks?.receive?.(message.zone,message.key,message.data);return;}
       if(message.key!=='0,0')return;
+      this.world.chunks?.setStaticData?.('ship-layout',new TextEncoder().encode(JSON.stringify(message.data)).length);
       const layout=layoutForWorld(message.data);
       this.world.loadLayout(layout);
       this.hourglasses.clear();

@@ -19,10 +19,21 @@ export class Chunks {
     this.builders = {}; // zone → { add(key, data), remove(key), setVisible(key, v) }
     this.timer = 0;
     this.lastPos = null;
+    this.staticData=new Map();
   }
 
   setSender(fn) { this.send = fn; }
-  setWorldMeta(meta) { if (meta) this.meta = { ...this.meta, ...meta }; }
+  setWorldMeta(meta) { if (meta) this.meta = { ...this.meta, ...meta };this.evict(); }
+  setStaticData(name,bytes){this.staticData.set(name,Math.max(0,bytes||0));this.evict();}
+  staticBytes(){return [...this.staticData.values()].reduce((sum,n)=>sum+n,0);}
+  payloadBytes(){return [...this.cache.values()].reduce((sum,c)=>sum+c.bytes,0);}
+  byteBudget(){return this.meta.totalBytes?Math.max(0,Math.floor(this.meta.totalBytes*.10)-this.staticBytes()):Infinity;}
+  staticSlots(){return this.meta.totalBytes?Math.ceil(this.staticBytes()/this.meta.totalBytes*this.meta.totalChunks):0;}
+  payloadLimit(){
+    const count=Math.max(1,this.meta.cacheLimit-this.staticSlots());
+    const average=this.cache.size?this.payloadBytes()/this.cache.size:this.meta.totalBytes/(this.meta.totalChunks||1);
+    return Math.min(count,average>0?Math.max(1,Math.floor(this.byteBudget()/average)):count);
+  }
   setBuilder(zone, builder) { this.builders[zone] = builder; }
 
   setZone(zone) {
@@ -44,7 +55,7 @@ export class Chunks {
       if (cx >= 0 && cz >= 0 && cx < n && cz < n) keys.push(`${cx},${cz}`);
     }
     // nearest first
-    return keys.sort((a, b) => dist(a, pcx, pcz) - dist(b, pcx, pcz));
+    return keys.sort((a,b)=>distanceTo(a,p)-distanceTo(b,p)).slice(0,this.payloadLimit());
   }
 
   // p: { x, z } (a Vector3 is fine)
@@ -73,7 +84,7 @@ export class Chunks {
     const builder = this.builders[zone];
     if (!builder) return;
     builder.add(key, data);
-    const c = { zone, key, bytes: JSON.stringify(data).length, visible: true, seen: performance.now() / 1000 };
+    const c = { zone, key, bytes: new TextEncoder().encode(JSON.stringify(data)).length, visible: true, seen: performance.now() / 1000 };
     this.cache.set(id, c);
     if (zone !== this.zone) this.show(c, false);
     this.evict();
@@ -91,28 +102,33 @@ export class Chunks {
   }
 
   evict() {
-    const limit = Math.max(1, this.meta.cacheLimit);
-    if (this.cache.size <= limit) return;
-    const hidden = [...this.cache.values()].filter((c) => !c.visible).sort((a, b) => a.seen - b.seen);
-    const drop = {};
-    while (this.cache.size > limit && hidden.length) {
-      const c = hidden.shift();
-      this.builders[c.zone]?.remove(c.key);
-      this.cache.delete(`${c.zone}:${c.key}`);
-      (drop[c.zone] ??= []).push(c.key);
+    const drop={};
+    const here=this.lastPos?`${Math.floor(this.lastPos.x/CS)},${Math.floor(this.lastPos.z/CS)}`:null;
+    while(this.cache.size>this.payloadLimit()||this.payloadBytes()>this.byteBudget()){
+      const candidates=[...this.cache.values()].sort((a,b)=>{
+        const protectedA=a.zone===this.zone&&a.key===here,protectedB=b.zone===this.zone&&b.key===here;
+        if(protectedA!==protectedB)return Number(protectedA)-Number(protectedB);
+        if(a.visible!==b.visible)return Number(a.visible)-Number(b.visible);
+        return this.lastPos?distanceTo(b.key,this.lastPos)-distanceTo(a.key,this.lastPos):a.seen-b.seen;
+      });
+      const c=candidates[0];if(!c)break;
+      this.builders[c.zone]?.remove(c.key);this.cache.delete(`${c.zone}:${c.key}`);
+      (drop[c.zone]??=[]).push(c.key);
     }
-    for (const [zone, keys] of Object.entries(drop)) this.send?.({ t: 'chunk_drop', zone, keys });
+    for(const [zone,keys]of Object.entries(drop))this.send?.({t:'chunk_drop',zone,keys});
   }
 
   stats() {
-    let bytes = 0;
-    for (const c of this.cache.values()) bytes += c.bytes;
-    const total = this.meta.totalChunks || 1;
-    return { loaded: this.cache.size, total, bytes, totalBytes: this.meta.totalBytes, pct: (100 * this.cache.size) / total, limit: this.meta.cacheLimit };
+    const bytes=this.staticBytes()+this.payloadBytes(),total=this.meta.totalChunks||1;
+    return {loaded:this.cache.size+this.staticSlots(),cachedChunks:this.cache.size,staticBytes:this.staticBytes(),
+      total,bytes,totalBytes:this.meta.totalBytes,pct:this.meta.totalBytes?100*bytes/this.meta.totalBytes:0,
+      limit:this.meta.cacheLimit,payloadLimit:this.payloadLimit()};
   }
 }
 
-function dist(key, pcx, pcz) {
-  const [cx, cz] = key.split(',').map(Number);
-  return Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz));
+function distanceTo(key,p){
+ const [x,z]=key.split(',').map(Number),dx=Math.max(x*CS-p.x,0,p.x-(x+1)*CS),dz=Math.max(z*CS-p.z,0,p.z-(z+1)*CS);
+ // Within a chunk prefer the one containing the player, then its closest neighbours.
+ const own=Math.floor(p.x/CS)===x&&Math.floor(p.z/CS)===z;
+ return own?-1:dx*dx+dz*dz+.001*((x+.5)*CS-p.x)**2+.001*((z+.5)*CS-p.z)**2;
 }
