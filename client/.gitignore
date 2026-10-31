@@ -1,0 +1,5 @@
+node_modules/
+dist/
+# the root workspace lock (package-lock.json in the repo root) is the one that counts
+package-lock.json
+.DS_Store
