@@ -102,6 +102,14 @@ export async function handleHttp(req, res) {
     if (path.startsWith('/api/')) return await handleApi(req, res, path);
     if (req.method !== 'GET' && req.method !== 'HEAD') return sendJson(res, 405, { error: 'method' });
 
+    // Сертификат нашего CA — чтобы поставить его на ноутбуки (это открытая часть, ключ не отдаётся)
+    if (path === '/ca.crt') {
+      const file = resolveFile(join(DATA_DIR, 'certs'), 'ca.crt');
+      if (!file) return sendJson(res, 404, { error: 'not_found', message: 'Нет сертификата: npm run cert' });
+      res.writeHead(200, { 'Content-Type': 'application/x-x509-ca-cert', 'Content-Disposition': 'attachment; filename="1492-lan-ca.crt"', 'Content-Length': file.size });
+      return createReadStream(file.full).pipe(res);
+    }
+
     if (path.startsWith('/audio/rt/')) {
       const file = resolveFile(AUDIO_RT, path.slice('/audio/rt/'.length));
       return file ? sendFile(res, file, 'no-cache') : sendJson(res, 404, { error: 'not_found' });
