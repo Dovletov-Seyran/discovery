@@ -2,12 +2,18 @@
 // Runs every preset by day and by night from two views, ~4 s each, and prints a table to copy into the chat.
 // Run it with the browser window maximised: the result depends on the number of pixels.
 
+// [zone, x, y (null: ground + eye height), z, yaw, pitch]
 const VIEWS = {
-  quarterdeck: [0.95, 3.6, 9.7, 0.07, 0.07],
-  main_deck: [-1.5, 1.62, 3.6, 0.12, 0.12],
+  quarterdeck: ['ship', 0.95, 3.6, 9.7, 0.07, 0.07],
+  main_deck: ['ship', -1.5, 1.62, 3.6, 0.12, 0.12],
+  town: ['canary', 252, null, 300, 0, 0.08],
+  hills: ['canary', 330, null, 250, 0.9, 0.0],
 };
 const RUNS = [];
-for (const q of ['low', 'high', 'ultra']) for (const tod of [0.4, 0.95]) for (const view of Object.keys(VIEWS)) RUNS.push({ q, tod, view });
+for (const view of Object.keys(VIEWS)) for (const q of ['low', 'high', 'ultra']) for (const tod of [0.4, 0.95]) {
+  if (VIEWS[view][0] === 'canary' && tod > 0.5) continue; // nobody is on the island at night
+  RUNS.push({ q, tod, view });
+}
 
 function gpuName(gl) {
   const ext = gl.getExtension('WEBGL_debug_renderer_info');
@@ -31,6 +37,7 @@ async function measure(world, seconds) {
   let last = await frame();
   const end = last + seconds * 1000;
   while (last < end) {
+    world.chunks.update(world.camera.position, 1 / 60);
     world.frame(1 / 60);
     const now = await frame();
     times.push(now - last);
@@ -49,20 +56,23 @@ export async function runBench(world, out) {
     `${navigator.userAgent.match(/(Windows[^;)]*|Mac OS X [\d_]+|Linux[^;)]*)/)?.[0] ?? navigator.platform} · окно ${innerWidth}×${innerHeight} · devicePixelRatio ${devicePixelRatio}`,
   ];
   if (/swiftshader|llvmpipe|software|basic render/i.test(gpu)) lines.push('⚠ Браузер рисует без видеокарты: включите аппаратное ускорение (chrome://settings/system, chrome://gpu).');
-  lines.push('', 'пресет  время  вид           FPS   p95, мс  кадр, мс  draw calls', '(кадр, мс — сколько стоит кадр без ожидания vsync; < 16 — есть запас до 60 FPS)');
+  lines.push('', 'пресет  время  вид           FPS   p95, мс  кадр, мс  draw calls  чанки', '(кадр, мс — сколько стоит кадр без ожидания vsync; < 16 — есть запас до 60 FPS)');
   out.textContent = lines.join('\n') + '\n…';
   const results = [];
   for (const r of RUNS) {
     world.setQuality(r.q);
     world.setTimeOfDay(r.tod, true);
-    const [x, y, z, yaw, pitch] = VIEWS[r.view];
-    world.camera.position.set(x, y, z);
+    const [zone, x, y, z, yaw, pitch] = VIEWS[r.view];
+    if (world.zone !== zone) world.setZone(zone);
+    world.camera.position.set(x, y ?? 50, z);
     world.camera.rotation.set(pitch, yaw, 0, 'YXZ');
-    await measure(world, 1); // warm-up: shader compilation, first shadow map
+    await measure(world, 1); // warm-up: chunks arrive, shaders compile, first shadow map
+    if (y === null) world.camera.position.y = (world.groundHeight(x, z) ?? 0) + 1.7;
     const m = await measure(world, 3);
     const calls = world.stats().calls, ms = cost(world);
     results.push({ ...r, ...m, ms, calls });
-    lines.push(`${r.q.padEnd(7)} ${r.tod < 0.5 ? 'день ' : 'ночь '}  ${r.view.padEnd(12)} ${m.fps.toFixed(0).padStart(4)}  ${m.p95.toFixed(1).padStart(7)}  ${ms.toFixed(1).padStart(8)}  ${String(calls).padStart(6)}`);
+    const ch = world.stats().chunks;
+    lines.push(`${r.q.padEnd(7)} ${r.tod < 0.5 ? 'день ' : 'ночь '}  ${r.view.padEnd(12)} ${m.fps.toFixed(0).padStart(4)}  ${m.p95.toFixed(1).padStart(7)}  ${ms.toFixed(1).padStart(8)}  ${String(calls).padStart(6)}      ${ch.loaded}/${ch.total}`);
     out.textContent = lines.join('\n') + '\n…';
   }
   const of = (q) => results.filter((r) => r.q === q);

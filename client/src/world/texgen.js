@@ -125,6 +125,71 @@ export function waterNormals(size = 512) {
   return { normalMap: normalFromHeight(N, N, hgt, 2.0) };
 }
 
+// Whitewashed lime plaster of Canarian houses.
+export function plaster(size = 512) {
+  const N = size, col = img(N, N), hgt = new Float32Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const u = x / N, v = y / N;
+    const blot = fbm(u * 3, v * 3, 3, 3, 4, 21), grain = fbm(u * 64, v * 64, 64, 64, 2, 22);
+    const lum = 0.93 + (blot - 0.5) * 0.12 + (grain - 0.5) * 0.06;
+    const i = (y * N + x) * 4;
+    col.data[i] = 236 * lum; col.data[i + 1] = 229 * lum; col.data[i + 2] = 214 * lum; col.data[i + 3] = 255;
+    hgt[y * N + x] = blot * 0.6 + grain * 0.4;
+  }
+  return { map: col, normalMap: normalFromHeight(N, N, hgt, 1.2) };
+}
+
+// Curved terracotta roof tiles: columns of tiles across U, overlapping rows along V.
+export function roofTiles(size = 512) {
+  const N = size, col = img(N, N), hgt = new Float32Array(N * N), cols = 13, rows = 14;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const v = y / N, row = Math.floor(v * rows), fv = v * rows - row;
+    const u = x / N + (row % 2) * 0.5 / cols, cu = Math.floor(u * cols), fu = u * cols - cu, c = mod(cu, cols);
+    const t = ihash(c, row, 31), curve = Math.sin(Math.PI * fu);
+    const shade = (0.55 + 0.45 * curve) * (0.72 + 0.28 * smooth(0, 0.3, fv));
+    const weather = fbm(x / N * 4, v * 4, 4, 4, 3, 32);
+    const lum = shade * (0.85 + t * 0.3) * (1 - 0.25 * Math.max(0, weather - 0.5));
+    const i = (y * N + x) * 4;
+    col.data[i] = 182 * lum; col.data[i + 1] = (84 + t * 14) * lum; col.data[i + 2] = 52 * lum; col.data[i + 3] = 255;
+    hgt[y * N + x] = curve * 0.8 + fv * 0.35;
+  }
+  return { map: col, normalMap: normalFromHeight(N, N, hgt, 3.0) };
+}
+
+// Dark volcanic stone masonry (Worley cells with mortar between them).
+export function stone(size = 512) {
+  const N = size, col = img(N, N), hgt = new Float32Array(N * N), G = 10;
+  const pt = (gx, gy) => [gx + 0.15 + 0.7 * ihash(mod(gx, G), mod(gy, G), 41), gy + 0.15 + 0.7 * ihash(mod(gx, G), mod(gy, G), 42)];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const px = x / N * G, py = y / N * G * 1.6, gx = Math.floor(px), gy = Math.floor(py);
+    let d1 = 9, d2 = 9, id = 0;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      const [fx, fy] = pt(gx + i, gy + j), d = Math.hypot(px - fx, py - fy);
+      if (d < d1) { d2 = d1; d1 = d; id = mod(gx + i, G) * 31 + mod(gy + j, G); } else if (d < d2) d2 = d;
+    }
+    const edge = smooth(0.03, 0.12, d2 - d1), t = ihash(id, 0, 43), n = fbm(x / N * 16, y / N * 16, 16, 16, 3, 44);
+    const lum = (0.75 + t * 0.4) * (0.85 + n * 0.3);
+    const k = (y * N + x) * 4;
+    const r = 92 * lum, g = 84 * lum, b = 76 * lum;
+    col.data[k] = r + (176 - r) * (1 - edge); col.data[k + 1] = g + (166 - g) * (1 - edge); col.data[k + 2] = b + (150 - b) * (1 - edge); col.data[k + 3] = 255;
+    hgt[y * N + x] = edge * (0.8 + n * 0.4);
+  }
+  return { map: col, normalMap: normalFromHeight(N, N, hgt, 3.0) };
+}
+
+// Grey detail for the terrain: the real colour comes from vertex colours.
+export function groundDetail(size = 512) {
+  const N = size, col = img(N, N), hgt = new Float32Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const u = x / N, v = y / N;
+    const a = fbm(u * 6, v * 6, 6, 6, 4, 51), b = fbm(u * 40, v * 40, 40, 40, 2, 52);
+    const lum = 0.8 + a * 0.25 + (b - 0.5) * 0.12;
+    const i = (y * N + x) * 4;
+    col.data[i] = col.data[i + 1] = col.data[i + 2] = Math.min(255, 255 * lum); col.data[i + 3] = 255;
+    hgt[y * N + x] = a * 0.7 + b * 0.3;
+  }
+  return { map: col, normalMap: normalFromHeight(N, N, hgt, 2.0) };
+}
 
 export function soft(size = 128) {
   const N = size, col = img(N, N);
@@ -151,5 +216,9 @@ export function recipes(quality) {
     sailCross: () => sail({ size: S, cross: true }),
     water: () => waterNormals(512),
     soft: () => soft(),
+    plaster: () => plaster(),
+    tiles: () => roofTiles(),
+    stone: () => stone(),
+    ground: () => groundDetail(),
   };
 }

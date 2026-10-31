@@ -1,5 +1,6 @@
 // Stand-alone page for working on the world without the server: /world-dev.html
 // The real first-person controller, HUD and networking belong to Фронт 2; this is just enough to walk around.
+//   ?zone=canary  start on La Gomera (Z switches zones); chunks come from dev/fakeServer.js
 //   ?q=low|high|ultra   start on this preset (otherwise high with auto-detect)
 //   ?tod=0.72    time of day
 //   ?bots=2      fake remote players walking in circles (tests interpolation)
@@ -8,13 +9,20 @@
 import * as THREE from 'three';
 import { world } from '../index.js';
 import layout from '../../../../content/ship_layout.json';
+import { createFakeServer } from './fakeServer.js';
 
 const P = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
 
 const BENCH = P.has('bench');
 await world.init($('c'), P.get('q') ?? 'high', { auto: !P.get('q') && !BENCH });
-world.loadLayout(layout);
+// chunks: the same messages the server would send, produced locally
+const fake = createFakeServer(
+  () => ({ zone: world.zone, p: world.camera.position.toArray() }),
+  (m) => (m.t === 'chunk' ? world.chunks.receive(m.zone, m.key, m.data) : world.chunks.denied(m.zone, m.key, m.reason)),
+);
+world.chunks.setWorldMeta(fake.meta);
+world.chunks.setSender(fake.handle);
 world.setTimeOfDay(+(P.get('tod') ?? 0.4), true);
 $('loading').remove();
 window.world = world;
@@ -30,8 +38,17 @@ const RADIUS = 0.3, EYE = 1.62;
 const feet = new THREE.Vector3(), vel = new THREE.Vector3();
 let yaw = 0, pitch = 0, onGround = false;
 const keys = new Set();
-const spawn = (role) => { const [x, y, z, r] = layout.spawn[role]; feet.set(x, y + 0.05, z); yaw = r; pitch = -0.05; vel.set(0, 0, 0); };
-spawn('piloto');
+const TOWN = [252, 300, 0]; // on La Gomera: the square between the market and the well, facing the church
+function spawn(role = 'piloto') {
+  if (world.zone === 'canary') { feet.set(TOWN[0], fake.heightAt(TOWN[0], TOWN[1]) + 0.3, TOWN[1]); yaw = TOWN[2]; }
+  else { const { p, r } = layout.spawns[role]; feet.set(p[0], p[1] + 0.05, p[2]); yaw = r; }
+  pitch = -0.05; vel.set(0, 0, 0);
+  world.camera.position.set(feet.x, feet.y + EYE, feet.z);
+}
+function setZone(zone) { world.setZone(zone); spawn(); }
+// for screenshots from the console: dev.go(x, z, yaw, pitch)
+window.dev = { go: (x, z, y = 0, p = 0) => { feet.set(x, (world.groundHeight(x, z) ?? fake.heightAt(x, z)) + 0.1, z); yaw = y; pitch = p; vel.set(0, 0, 0); } };
+setZone(P.get('zone') === 'canary' ? 'canary' : 'ship');
 
 const fixedCam = P.get('cam')?.split(',').map(Number);
 const canvas = $('c');
@@ -52,6 +69,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Digit2') spawn('piloto');
   if (e.code === 'Digit3') spawn('lengua');
   if (e.code === 'KeyE' && target) interact(target);
+  if (e.code === 'KeyZ') setZone(world.zone === 'ship' ? 'canary' : 'ship');
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 
@@ -62,6 +80,8 @@ function move(dt) {
   const wish = new THREE.Vector3(s, 0, -f);
   if (wish.lengthSq()) wish.normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw).multiplyScalar(speed);
   vel.x = wish.x; vel.z = wish.z;
+  // nothing to stand on until the chunk under us has arrived
+  if (world.groundHeight(feet.x, feet.z) === null) { vel.set(0, 0, 0); return; }
   vel.y = onGround && keys.has('Space') ? 5 : vel.y - 20 * dt;
   const steps = 4;
   onGround = false;
@@ -74,7 +94,7 @@ function move(dt) {
     if (res.onGround) { onGround = true; vel.y = Math.max(0, vel.y); }
     else if (res.delta.y < -1e-4) vel.y = Math.min(0, vel.y);
   }
-  if (feet.y < -10) spawn('piloto');
+  if (feet.y < -12) spawn();
 }
 
 // --- interaction (demo only: the server decides in the real game) ----------
@@ -93,11 +113,11 @@ function findTarget() {
   }
   return best;
 }
-let hourglass = { fill: 0.7, running: true };
 function interact(o) {
   const { id, kind, label } = o.userData;
-  if (id === 'hourglass') { hourglass = { fill: 1, running: true }; return; }
-  if (kind === 'item') world.setEntityState(id, { visible: false });
+  // what the server would answer with an `entity` message
+  if (kind === 'hourglass') world.applyEntity(id, { emptyAt: Date.now() + 60000 });
+  if (kind === 'item') world.applyEntity(id, { holder: 'me' });
   console.info('[dev] interact', id, label);
 }
 
@@ -113,7 +133,8 @@ function updateBots(dt) {
   const list = [];
   for (let i = 0; i < bots; i++) {
     const a = botClock * 0.35 + i * 2.1, x = Math.cos(a) * 1.4, z = -3.2 + Math.sin(a) * 1.6;
-    list.push({ id: 'bot' + i, p: [x, 0, z], r: Math.PI - a, a: 'walk' });
+    const p = world.zone === 'ship' ? [x, 0, z] : [TOWN[0] + x * 3, fake.heightAt(TOWN[0] + x * 3, TOWN[1] - 6 + z * 3), TOWN[1] - 6 + z * 3];
+    list.push({ id: 'bot' + i, p, r: Math.PI - a, a: 'walk' });
   }
   world.players.snapshot(list, Date.now());
 }
@@ -132,10 +153,7 @@ function loop(now) {
     world.camera.position.set(feet.x, feet.y + EYE, feet.z);
     world.camera.rotation.set(pitch, yaw, 0, 'YXZ');
   }
-  if (hourglass.running) {
-    hourglass.fill = Math.max(0, hourglass.fill - dt / 60);
-    world.setEntityState('hourglass', { fill: hourglass.fill });
-  }
+  world.chunks.update(world.camera.position, dt);
   updateBots(dt);
   world.frame(dt);
   target = fixedCam ? null : findTarget();
@@ -144,7 +162,7 @@ function loop(now) {
   if (target) pr.textContent = `E — ${target.userData.label}`;
   if ($('stats').style.display === 'block') {
     const s = world.stats();
-    $('stats').textContent = `${s.fps.toFixed(0)} FPS · ${s.quality}\n${s.calls} draw calls · ${(s.triangles / 1000).toFixed(0)}k tris\ntod ${s.tod.toFixed(2)} · ${feet.x.toFixed(1)}, ${feet.y.toFixed(2)}, ${feet.z.toFixed(1)}\nМир: ${s.chunks.loaded}/${s.chunks.total} чанков (${s.chunks.pct.toFixed(1)}%)`;
+    $('stats').textContent = `${s.fps.toFixed(0)} FPS · ${s.quality}\n${s.calls} draw calls · ${(s.triangles / 1000).toFixed(0)}k tris\ntod ${s.tod.toFixed(2)} · ${feet.x.toFixed(1)}, ${feet.y.toFixed(2)}, ${feet.z.toFixed(1)}\nМир: ${s.chunks.loaded}/${s.chunks.total} чанков (${s.chunks.pct.toFixed(1)}%) · ${(s.chunks.bytes / 1024).toFixed(0)} КБ / ${(s.chunks.totalBytes / 1024).toFixed(0)} КБ`;
   }
   requestAnimationFrame(loop);
 }

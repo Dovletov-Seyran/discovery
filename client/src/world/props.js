@@ -85,7 +85,7 @@ function seaChart(ctx, S) {
   ctx.font = `italic ${S * 0.03}px serif`; ctx.fillText('Antillia', S * 0.2, S * 0.43); ctx.fillText('Insulae Canariae', S * 0.6, S * 0.7);
 }
 
-const MODELS = {
+export const MODELS = {
   barrel: (M) => ({ obj: barrelBody(M), col: [boxGeo(0.66, 0.95, 0.66, 0, 0.475, 0)] }),
   barrel_lying: (M) => {
     const b = barrelBody(M); b.rotation.x = Math.PI / 2; b.position.set(0, 0.33, -0.475);
@@ -246,6 +246,16 @@ const MODELS = {
     gun.rotation.x = -0.18; g.add(gun);
     return { obj: g };
   },
+  none: () => ({ obj: new THREE.Group() }),
+  cards: (M) => {
+    const g = new THREE.Group(), faces = [0xf2ead8, 0xf2ead8, 0x9a2a22, 0xf2ead8, 0x2a3f6a];
+    for (let i = 0; i < 9; i++) {
+      const c = boxGeo(0.07, 0.003, 0.1); c.rotateY(i * 0.7); c.translate(Math.sin(i * 2.4) * 0.16, 0.002 + i * 0.002, Math.cos(i * 1.7) * 0.12);
+      g.add(mesh(c, M.canvas('card' + (i % 5), 16, (x) => { x.fillStyle = '#' + faces[i % 5].toString(16).padStart(6, '0'); x.fillRect(0, 0, 16, 16); })));
+    }
+    for (let i = 0; i < 5; i++) g.add(mesh(cylGeo(0.016, 0.016, 0.004, 10).translate(0.2 + i * 0.012, 0.004 * i + 0.002, -0.1), M.get('brass')));
+    return { obj: g };
+  },
   lantern: (M) => {
     const g = new THREE.Group(), l = lanternHead(M);
     l.scale.setScalar(1.15); g.add(l);
@@ -253,14 +263,47 @@ const MODELS = {
   },
 };
 
-function place(o, { p, r = 0, s = 1 }) {
+// Entity state from the server: { holder } — somebody picked the item up; { emptyAt } — hourglass.
+export function applyState(obj, state = {}) {
+  obj.visible = !state.holder;
+  if (state.emptyAt && obj.userData.setFill) {
+    obj.userData.emptyAt = state.emptyAt;
+    obj.userData.turnSpan = Math.max(1000, state.emptyAt - Date.now());
+  }
+}
+
+export function place(o, { p, r = 0, s = 1 }) {
   o.position.fromArray(p); o.rotation.y = r; o.scale.setScalar(s);
   return o;
 }
 
-function colliderFor(local, item) {
+export function colliderFor(local, item) {
   const m = new THREE.Matrix4().compose(new V3().fromArray(item.p), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, item.r ?? 0, 0)), new V3().setScalar(item.s ?? 1));
   return local.map((g) => g.clone().applyMatrix4(m));
+}
+
+// One interactable object; `models` lets the island pass its own model set.
+export function buildInteract(M, item, models = MODELS) {
+  const make = models[item.m] ?? MODELS[item.m];
+  if (!make) { console.warn('[world] unknown model', item.m); return null; }
+  const { obj, col } = make(M);
+  place(obj, item);
+  const lamps = [];
+  obj.traverse((o) => { if (o.userData.lamp) lamps.push(o); });
+  bake(obj);
+  obj.userData = { ...obj.userData, id: item.id, kind: item.kind, item: item.item, label: item.label, period: item.period, noBake: true };
+  if (item.state) applyState(obj, item.state);
+  return { obj, col: col ? colliderFor(col, item) : [], lamps };
+}
+
+export function buildNpc(M, n) {
+  const rig = person(M.person, NPC_LOOK[n.id] ?? NPC_LOOK.sailor_1);
+  pose(rig, n.pose ?? 'stand');
+  const g = bake(rig.root);
+  place(g, n);
+  g.rotation.y += Math.PI; // r = camera-style yaw, the model faces +z
+  g.userData = { id: n.id, kind: 'npc', label: n.label, noBake: true, baseY: n.p[1] };
+  return { obj: g, col: colliderFor([new THREE.CylinderGeometry(0.3, 0.3, 1.7, 8).translate(0, 0.85, 0)], n) };
 }
 
 // Build everything a ship layout describes. Decor is baked into a few meshes; interactables and NPCs stay separate.
@@ -282,24 +325,14 @@ export function buildLayout(M, layout) {
   bake(decor);
   for (const l of lamps) decor.add(l);
 
-  for (const item of layout.interactables) {
-    const { obj, col: c } = MODELS[item.m](M);
-    obj.traverse((o) => { if (o.userData.lamp) lamps.push(o); });
-    place(obj, item);
-    bake(obj);
-    obj.userData = { ...obj.userData, id: item.id, kind: item.kind, label: item.label, noBake: true };
-    if (c) col.push(...colliderFor(c, item));
-    interactables.push(obj);
+  for (const item of layout.interact ?? layout.interactables ?? []) {
+    const built = buildInteract(M, item);
+    if (!built) continue;
+    interactables.push(built.obj); col.push(...built.col); lamps.push(...built.lamps);
   }
   for (const n of layout.npcs) {
-    const rig = person(M.person, NPC_LOOK[n.id] ?? NPC_LOOK.sailor_1);
-    pose(rig, n.pose ?? 'stand');
-    const g = bake(rig.root);
-    place(g, n);
-    g.rotation.y += Math.PI; // r = camera-style yaw, the model faces +z
-    g.userData = { id: n.id, kind: 'npc', label: n.label, noBake: true, baseY: n.p[1] };
-    npcs.push(g);
-    col.push(...colliderFor([new THREE.CylinderGeometry(0.3, 0.3, 1.7, 8).translate(0, 0.85, 0)], n));
+    const { obj, col: c } = buildNpc(M, n);
+    npcs.push(obj); col.push(...c);
   }
   return { decor, interactables, npcs, col, lamps, smoke };
 }

@@ -1,10 +1,19 @@
 {
-  "zone": "ship",
-  "note": "Ship-local metres = world of the ship zone: main deck y=0, quarterdeck y=1.95, forecastle y=1.6, bow toward -z, starboard +x. Characters' r is yaw like the camera: 0 = facing the bow (-z). Objects' r is plain rotation.y.",
+  "_comment": "Расстановка «Санта-Марии» (Фронт 1). Сервер отдаёт файл целиком в чанке ship 0,0. Координаты: главная палуба y=0, ют y=1.95, бак y=1.6, нос в сторону -z, правый борт +x. r персонажей и точек — yaw как у камеры (0 = лицом к носу), r объектов — rotation.y. objects — декор (только клиент), interact и npcs — id совпадают с content/quests.json и npcs.json.",
+  "spawns": {
+    "grumete": { "p": [1.7, 0, 2.4], "r": 0 },
+    "piloto": { "p": [-0.6, 1.95, 8.6], "r": 0 },
+    "lengua": { "p": [0.5, 1.95, 7.6], "r": 0 }
+  },
+  "seats": [
+    { "p": [1.5, 0, -4.6], "r": 1.5708 },
+    { "p": [0, 0, -3.1], "r": 0 },
+    { "p": [-1.5, 0, -4.6], "r": -1.5708 },
+    { "p": [0, 0, -6.1], "r": 3.1416 }
+  ],
   "objects": [
     { "id": "barrel_1", "m": "barrel", "p": [-2.45, 0, -6.95] },
     { "id": "barrel_2", "m": "barrel", "p": [-1.75, 0, -7.0] },
-    { "id": "barrel_3", "m": "barrel", "p": [-2.2, 0, -6.25] },
     { "id": "barrel_4", "m": "barrel", "p": [-2.05, 0.95, -6.65], "r": 0.4 },
     { "id": "barrel_5", "m": "barrel", "p": [2.55, 0, -1.9] },
     { "id": "barrel_6", "m": "barrel", "p": [2.65, 0, -2.65], "r": 0.7 },
@@ -29,15 +38,18 @@
     { "id": "seat_3", "m": "keg", "p": [-1.5, 0, -4.6] },
     { "id": "seat_4", "m": "keg", "p": [0, 0, -6.1] }
   ],
-  "interactables": [
-    { "id": "hourglass", "kind": "fixed", "m": "hourglass", "label": "Песочные часы", "p": [-0.95, 1.95, 6.75] },
-    { "id": "compass", "kind": "item", "m": "compass", "label": "Компас", "p": [1.55, 2.9, 6.45], "r": -0.15 },
-    { "id": "map", "kind": "item", "m": "map", "label": "Морская карта", "p": [1.25, 2.84, 8.7], "r": 0.1 },
-    { "id": "astrolabe", "kind": "item", "m": "astrolabe", "label": "Астролябия", "p": [-2.45, 2.67, 7.7], "r": 0.6 },
-    { "id": "sword", "kind": "item", "m": "sword", "label": "Меч", "p": [-2.3, 2.5, 9.4], "r": 1.2 },
-    { "id": "wine", "kind": "item", "m": "wine", "label": "Бурдюк вина", "p": [-2.05, 1.9, -6.65], "r": 0.5 },
-    { "id": "espingarda", "kind": "item", "m": "espingarda", "label": "Эспингарда", "p": [-3.35, 0, -1.4], "r": 1.5708 },
-    { "id": "lantern", "kind": "fixed", "m": "lantern", "label": "Фонарь", "p": [0, 0, -4.6] }
+  "interact": [
+    { "id": "hourglass", "m": "hourglass", "p": [-0.95, 1.95, 6.75], "kind": "hourglass", "label": "Песочные часы", "period": 120, "demoPeriod": 60 },
+    { "id": "compass", "m": "compass", "p": [1.55, 2.9, 6.45], "r": -0.15, "kind": "item", "item": "compass", "label": "Компас" },
+    { "id": "map", "m": "map", "p": [1.25, 2.84, 8.7], "r": 0.1, "kind": "item", "item": "map", "label": "Морская карта" },
+    { "id": "astrolabe", "m": "astrolabe", "p": [-2.45, 2.67, 7.7], "r": 0.6, "kind": "item", "item": "astrolabe", "label": "Астролябия" },
+    { "id": "sword", "m": "sword", "p": [-2.3, 2.5, 9.4], "r": 1.2, "kind": "item", "item": "sword", "label": "Меч" },
+    { "id": "wine", "m": "wine", "p": [-2.05, 1.9, -6.65], "r": 0.5, "kind": "item", "item": "wine", "label": "Бурдюк вина" },
+    { "id": "espingarda", "m": "espingarda", "p": [-3.35, 0, -1.4], "r": 1.5708, "kind": "item", "item": "espingarda", "label": "Эспингарда" },
+    { "id": "lantern", "m": "lantern", "p": [0, 0, -4.6], "kind": "lantern", "label": "Фонарь" },
+    { "id": "wine_barrel", "m": "barrel", "p": [-2.2, 0, -6.25], "kind": "wine_barrel", "label": "Бочка с вином" },
+    { "id": "cards", "m": "cards", "p": [2.6, 0.66, 3.0], "r": 0.3, "kind": "cards", "label": "Карты" },
+    { "id": "dance", "m": "none", "p": [0.4, 0, -1.9], "kind": "dance", "label": "Круг танцующих" }
   ],
   "npcs": [
     { "id": "columbus", "label": "Колумб", "pose": "admiral", "p": [2.55, 1.95, 5.75], "r": 0.25 },
@@ -46,17 +58,6 @@
     { "id": "sailor_1", "label": "Матрос", "pose": "kneel", "p": [-1.0, 0, -2.5], "r": 1.89 },
     { "id": "sailor_2", "label": "Матрос", "pose": "haul", "p": [-2.75, 0, 1.0], "r": -1.69 },
     { "id": "sailor_3", "label": "Матрос", "pose": "stand", "p": [1.3, 1.6, -9.2], "r": 3.14 },
-    { "id": "sailor_4", "label": "Матрос", "pose": "sit", "p": [2.6, 0.2, 3.0], "r": 1.5708 }
-  ],
-  "spawn": {
-    "grumete": [1.7, 0, 2.4, 0],
-    "piloto": [-0.6, 1.95, 8.6, 0],
-    "lengua": [0.5, 1.95, 7.6, 0]
-  },
-  "seats": [
-    [1.5, 0, -4.6, 1.5708],
-    [0, 0, -3.1, 0],
-    [-1.5, 0, -4.6, -1.5708],
-    [0, 0, -6.1, 3.1416]
+    { "id": "storyteller", "label": "Старый Хуан", "pose": "sit", "p": [-2.55, 0.2, -3.6], "r": -1.5708 }
   ]
 }

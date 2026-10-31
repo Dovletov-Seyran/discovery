@@ -48,6 +48,22 @@ const DEF = {
   flame: { color: 0xff9a30, emissive: 0xff8a20, ei: 6 },
   lampGlass: { color: 0xfff0c0, emissive: 0xffc870, ei: 0.3, rough: 0.2 },
   glass: { color: 0xdcecf5, rough: 0.05, transparent: 0.28 },
+  // island
+  plaster: { tex: 'plaster', rough: 0.92 },
+  roof: { tex: 'tiles', rough: 0.8 },
+  stone: { tex: 'stone', rough: 0.9 },
+  ground: { tex: 'ground', vertexColors: true, rough: 0.96 },
+  rock: { color: 0x5a534d, rough: 0.95, flat: true },
+  palmTrunk: { color: 0x7a6650, rough: 0.95 },
+  palmLeaf: { color: 0x4d7530, rough: 0.75, side: THREE.DoubleSide },
+  dragonTrunk: { color: 0x7f786c, rough: 0.9 },
+  dragonLeaf: { color: 0x5a7d52, rough: 0.8 },
+  bush: { color: 0x6b7a3a, rough: 0.9 },
+  darkWindow: { color: 0x1a1612, rough: 0.6 },
+  cheese: { color: 0xe3c46a, rough: 0.7 },
+  sack: { color: 0xb8a27a, rough: 0.95 },
+  tar: { color: 0x0e0b09, rough: 0.2 },
+  seaWater: { color: 0x2f5d68, rough: 0.1 },
 };
 
 export class Materials {
@@ -66,6 +82,7 @@ export class Materials {
       map: ts?.map ?? null, normalMap: ts?.normalMap ?? null, roughnessMap: ts?.roughnessMap ?? null,
       roughness: d.rough ?? (ts?.roughnessMap ? 1 : 0.85), metalness: d.metal ?? 0,
       side: d.sail ? THREE.DoubleSide : (d.side ?? THREE.FrontSide),
+      vertexColors: !!d.vertexColors, flatShading: !!d.flat,
     });
     if (d.sail) {
       // cheap translucency: the side away from the sun still glows a little

@@ -19,7 +19,13 @@ export const NPC_LOOK = {
   sailor_1: { shirt: 0xd9cdb3, pants: 0x5f5444, hatColor: 0xa02a22 },
   sailor_2: { shirt: 0xe0d5bd, pants: 0x6f6150, hatColor: 0xb3332a },
   sailor_3: { shirt: 0xc9bfa8, pants: 0x4a5560, hatColor: 0x8a2a24, skin: 0xb88660 },
-  sailor_4: { shirt: 0xd4c8ad, vest: 0x6a4a2c, pants: 0x5a4c3c, hat: 'none', hair: 0x4a3420 },
+  // La Gomera
+  trader: { shirt: 0x8a5a2c, sleeves: 0xd8ccb2, vest: 0x5a3a1e, pants: 0x3a3028, hat: 'brim', hatColor: 0x3a2a1a, hair: 0x2a1f16, skin: 0xc68a62 },
+  carpenter: { shirt: 0xcfc0a0, pants: 0x5a4a38, vest: 0x8a6a44, hat: 'none', hair: 0x6a5038, skin: 0xc08060 },
+  beatriz: { shirt: 0x5a1e2e, sleeves: 0x5a1e2e, pants: 0x3a1420, skirt: 0x6a2236, hat: 'none', hair: 0x2a160e, skin: 0xe2b494 },
+  town_1: { shirt: 0xc8b48c, pants: 0x6a5a44, hat: 'brim', hatColor: 0x8a7650, skin: 0xb07a52 },
+  town_2: { shirt: 0xe4dccb, sleeves: 0xe4dccb, skirt: 0x3f5a6e, pants: 0x3f5a6e, hat: 'none', hair: 0x1c140e, skin: 0xc48a64 },
+  town_3: { shirt: 0x9a8a70, pants: 0x4a4038, hat: 'none', hair: 0xd8d4cc, skin: 0xb88466 },
 };
 
 const tmpColor = new THREE.Color();
@@ -34,7 +40,7 @@ function paint(geo, hex) {
 export function person(mat, look) {
   const {
     shirt = 0xd8ccb2, sleeves = null, pants = 0x6b5c4a, vest = null, hat = 'cap', hatColor = 0xa62a20,
-    skin = 0xd29a74, hair = 0x3a2a1c, cloak = null,
+    skin = 0xd29a74, hair = 0x3a2a1c, cloak = null, skirt = null,
   } = look;
   const seg = 12;
   const part = (geo, hex, parent, x = 0, y = 0, z = 0) => {
@@ -80,6 +86,11 @@ export function person(mat, look) {
   if (cloak) {
     const c = new THREE.CylinderGeometry(0.25, 0.46, 1.2, seg * 2, 1, true); c.scale(1, 1, 0.8); c.translate(0, -0.05, -0.02);
     const m = part(c, cloak, torso);
+    m.material = mat.clone(); m.material.side = THREE.DoubleSide;
+  }
+  if (skirt) {
+    const g = new THREE.CylinderGeometry(0.2, 0.42, 0.98, seg * 2, 1, true); g.translate(0, -0.42, 0);
+    const m = part(g, skirt, hip);
     m.material = mat.clone(); m.material.side = THREE.DoubleSide;
   }
   const rig = { root, hip, torso, head, legs, arms };

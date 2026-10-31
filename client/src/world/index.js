@@ -3,12 +3,15 @@
 //   world.frame(dt)              — update and draw one frame (call from the game loop)
 //   world.loadLayout(layout)     — props, interactables and NPCs of the ship (chunk `ship 0,0`)
 //   world.entity(id) / world.setEntityState(id, { visible, fill })
+//   world.applyEntity(id, state) — server `entity` state: { holder } hides an item, { emptyAt } drives the hourglass
 //   world.layout                 — spawn points and night seats from the current layout
 //   world.stats()                — numbers for the F3 overlay
+// Chunk wiring for Фронт 2 is described at the top of chunks.js.
 import * as THREE from 'three';
 import { generateTextures, Materials } from './materials.js';
 import { buildShip } from './ship.js';
-import { buildLayout } from './props.js';
+import { buildLayout, applyState } from './props.js';
+import { Island } from './island.js';
 import { Environment } from './environment.js';
 import { Pipeline } from './pipeline.js';
 import { Players } from './players.js';
@@ -19,7 +22,7 @@ const SMOKE_PUFFS = 8;
 
 export const world = {
   camera: null, scene: null, renderer: null,
-  interactables: [], npcs: [], layout: null,
+  npcs: [], layout: null, shipInteractables: [],
   players: null, chunks: new Chunks(),
   quality: 'high', zone: 'ship',
 
@@ -56,6 +59,10 @@ export const world = {
     this.smokeMat = new THREE.SpriteMaterial({ map: tex.soft.map, color: 0xc9c4bc, transparent: true, depthWrite: false });
     this.scene.add(this.smoke);
 
+    this.island = new Island(this.scene, this.M);
+    this.chunks.setBuilder('ship', { add: (key, data) => this.loadLayout(data), remove: () => this.unloadLayout(), setVisible: () => {} });
+    this.chunks.setBuilder('canary', this.island);
+
     this.players = new Players(this.scene, this.M);
     this.env.mirrorHide.push(this.zoneRoot, this.smoke, this.players.group);
     this.pipeline = new Pipeline(r, this.scene, this.camera);
@@ -64,6 +71,7 @@ export const world = {
     addEventListener('resize', () => this.pipeline.resize());
 
     this.fps = { frames: 0, time: 0, value: 0, auto, probe: { from: 1, to: 4, frames: 0, time: 0 }, clock: 0 };
+    this.setZone(this.zone);
     return this;
   },
 
@@ -73,7 +81,7 @@ export const world = {
     this.smoke.clear();
     const built = buildLayout(this.M, layout);
     this.zoneRoot.add(built.decor, ...built.interactables, ...built.npcs);
-    this.interactables = [...built.interactables, ...built.npcs];
+    this.shipInteractables = [...built.interactables, ...built.npcs];
     this.npcs = built.npcs;
     this.env.lamps = [];
     this.env.addLamps(built.lamps);
@@ -83,10 +91,27 @@ export const world = {
       this.smoke.add(s);
     }
     this.collider = new Collider([...this.shipCollider, ...built.col]);
-    this.chunks.markLoaded('ship', '0,0', JSON.stringify(layout).length);
   },
 
-  entity(id) { return this.interactables.find((o) => o.userData.id === id) ?? null; },
+  unloadLayout() {
+    this.zoneRoot.clear();
+    this.smoke.clear();
+    this.shipInteractables = [];
+    this.env.lamps = [];
+    this.collider = new Collider(this.shipCollider);
+  },
+
+  // what the player can use right now: the ship's or the island's visible chunks'
+  get interactables() { return this.zone === 'ship' ? this.shipInteractables : this.island.interactables; },
+
+  entity(id) {
+    return this.shipInteractables.find((o) => o.userData.id === id) ?? this.island.interactables.find((o) => o.userData.id === id) ?? null;
+  },
+
+  applyEntity(id, state) {
+    const o = this.entity(id);
+    if (o) applyState(o, state);
+  },
 
   setEntityState(id, state) {
     const o = this.entity(id);
@@ -99,7 +124,9 @@ export const world = {
     this.zone = zone;
     const ship = zone === 'ship';
     this.ship.visible = ship; this.zoneRoot.visible = ship; this.smoke.visible = ship;
-    if (!ship) console.warn('[world] zone not built yet:', zone);
+    this.island.group.visible = zone === 'canary';
+    this.env.setZone(zone);
+    this.chunks.setZone(zone);
   },
 
   setTimeOfDay(t, immediate = false) { this.env.setTimeOfDay(t, immediate); },
@@ -111,13 +138,18 @@ export const world = {
     this.pipeline.build(q);
   },
 
-  collide(capsule) { return this.collider.collide(capsule); },
-  groundHeight(x, z, fromY) { return this.collider.groundHeight(x, z, fromY); },
+  collide(capsule) { return this.zone === 'canary' ? this.island.collide(capsule) : this.collider.collide(capsule); },
+  groundHeight(x, z, fromY) { return this.zone === 'canary' ? this.island.groundHeight(x, z, fromY) : this.collider.groundHeight(x, z, fromY); },
 
   frame(dt) {
     dt = Math.min(dt, 0.1);
-    this.env.update(dt);
+    this.env.update(dt, this.camera.position);
+    this.island.refresh();
     this.players.update(dt);
+    for (const o of this.interactables) {
+      const u = o.userData;
+      if (u.emptyAt) u.setFill(THREE.MathUtils.clamp((u.emptyAt - Date.now()) / u.turnSpan, 0, 1));
+    }
     this.updateSmoke(dt);
     this.renderer.info.reset();
     this.pipeline.render(this.env.bloom);

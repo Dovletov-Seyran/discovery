@@ -108,16 +108,39 @@ export class Environment {
     this.scene.fog = new THREE.FogExp2(0xb9cbd6, 0.0011);
 
 
-    // «Пинта» and «Нинья» keep station with us
+    // At sea «Пинта» and «Нинья» keep station with us; at La Gomera all three ride at anchor in the bay.
+    this.zone = 'ship';
     this.fleet = [];
-    for (const [opts, s, x, z, ry] of [[{}, 0.85, 62, -150, 0.06], [{ lateen: true }, 0.72, -120, -280, -0.05]]) {
-      const { group } = buildShip(M, { far: true, ...opts });
-      group.scale.setScalar(s); group.position.set(x, WATER_Y + 2.25 * s, z); group.rotation.y = ry;
-      group.userData.base = group.position.clone(); group.userData.phase = Math.random() * 10;
+    const FLEET = [
+      { opts: {}, s: 0.85, sea: [62, -150, 0.06], bay: [292, 412, 1.3] },
+      { opts: { lateen: true }, s: 0.72, sea: [-120, -280, -0.05], bay: [222, 420, -0.8] },
+      { opts: {}, s: 1, sea: null, bay: [258, 434, 0.25] }, // the Santa María herself, seen from the island
+    ];
+    for (const f of FLEET) {
+      const { group } = buildShip(M, { far: true, ...f.opts });
+      group.scale.setScalar(f.s);
+      group.userData = { ...f, phase: Math.random() * 10 };
       this.root.add(group); this.fleet.push(group);
     }
+    this.focus = new THREE.Vector3();
 
     this.setQuality(quality);
+    this.setZone('ship');
+  }
+
+  // 'ship' — open sea, the world is the deck; 'canary' — island coordinates, sea level 0.
+  setZone(zone) {
+    this.zone = zone;
+    const sea = zone === 'ship', waterY = sea ? WATER_Y : 0;
+    this.water.position.y = waterY;
+    for (const f of this.fleet) {
+      const at = sea ? f.userData.sea : f.userData.bay;
+      f.visible = !!at;
+      if (!at) continue;
+      f.position.set(at[0], waterY + 2.25 * f.userData.s, at[1]); f.rotation.set(0, at[2], 0);
+      f.userData.base = f.position.clone();
+    }
+    if (sea) this.light.target.position.set(0, 4, -1);
     this.apply(true);
   }
 
@@ -138,7 +161,7 @@ export class Environment {
       hidden.forEach((o) => (o.visible = true));
     };
     this.water.rotation.x = -Math.PI / 2;
-    this.water.position.y = WATER_Y;
+    this.water.position.y = this.zone === 'canary' ? 0 : WATER_Y;
     this.water.material.uniforms.size.value = 1.3;
     this.root.add(this.water);
     this.light.castShadow = q !== 'low';
@@ -165,7 +188,8 @@ export class Environment {
     this.light.position.copy(this.light.target.position).addScaledVector(this.lightDir, 50);
     this.light.color.copy(p.light); this.light.intensity = p.li;
     this.renderer.toneMappingExposure = p.exp;
-    this.scene.fog.color.copy(p.fog); this.scene.fog.density = p.fogD;
+    // on the island the haze hides the edge of the loaded chunks (~64 m)
+    this.scene.fog.color.copy(p.fog); this.scene.fog.density = this.zone === 'canary' ? Math.max(p.fogD, 0.012) : p.fogD;
     const du = this.dome.material.uniforms;
     du.color.value.copy(p.fog); du.aH.value = p.domeH; du.aT.value = p.domeT;
     this.dome.visible = p.domeH > 0.001;
@@ -191,23 +215,28 @@ export class Environment {
 
   get bloom() { return this.p.bloom; }
 
-  update(dt) {
+  // focus: where the player is — on the island the shadow map follows it
+  update(dt, focus) {
     this.time += dt;
     if (Math.abs(this.target - this.t) > 1e-4) this.t += (this.target - this.t) * Math.min(1, dt / 2);
-    // rocking: ≤ 1.5° roll, 6–8 s period, almost nothing at night
-    const a = this.p.rock, T = this.time;
+    if (this.zone === 'canary' && focus) {
+      // snapped to half a metre so the shadow edges do not crawl
+      this.light.target.position.set(Math.round(focus.x * 2) / 2, Math.round(focus.y * 2) / 2, Math.round(focus.z * 2) / 2);
+    }
+    // rocking: ≤ 1.5° roll, 6–8 s period, almost nothing at night; none on land
+    const sea = this.zone === 'ship', a = sea ? this.p.rock : 0, T = this.time, bob = sea ? a : 0.35;
     const roll = THREE.MathUtils.degToRad(1.2) * a * Math.sin(T * Math.PI * 2 / 7.2);
     const pitch = THREE.MathUtils.degToRad(0.45) * a * Math.sin(T * Math.PI * 2 / 9.4 + 1.3);
     this.root.rotation.set(-pitch, 0, -roll);
     this.root.position.y = -0.12 * a * Math.sin(T * Math.PI * 2 / 6.1);
     for (const f of this.fleet) {
       const ph = f.userData.phase;
-      f.rotation.z = THREE.MathUtils.degToRad(1.6) * a * Math.sin(T * 0.9 + ph);
-      f.rotation.x = THREE.MathUtils.degToRad(0.6) * a * Math.sin(T * 0.67 + ph);
-      f.position.y = f.userData.base.y + 0.15 * a * Math.sin(T * 1.03 + ph);
+      f.rotation.z = THREE.MathUtils.degToRad(1.6) * bob * Math.sin(T * 0.9 + ph);
+      f.rotation.x = THREE.MathUtils.degToRad(0.6) * bob * Math.sin(T * 0.67 + ph);
+      f.position.y = f.userData.base.y + 0.15 * bob * Math.sin(T * 1.03 + ph);
     }
     // the sea runs past the hull; the ship "moves" west
-    this.flowPos.y -= this.p.flow * dt;
+    if (sea) this.flowPos.y -= this.p.flow * dt;
     const wu = this.water.material.uniforms;
     wu.flow.value.copy(this.flowPos);
     wu.time.value += dt * (0.25 + 0.35 * a);
