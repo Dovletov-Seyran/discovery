@@ -22,7 +22,7 @@ export function makeHeightFn(layout) {
     const land = 1 - smoothstep(0.62, 1.0, e);
     const peak = Math.exp(-((x - 250) ** 2 + (z - 150) ** 2) / (2 * 75 * 75));
     const hills = (fbm(hillsNoise, x / 120, z / 120, 5) + 1) / 2;
-    let h = land * (2 + 30 * peak + 14 * hills * (0.4 + peak));
+    let h = land * (2 + 26 * peak + 12 * hills * (0.4 + peak)); // вершина ≤ 40 м
     h = lerp(-8, h, smoothstep(0, 0.35, land));
 
     // Бухта к югу от города

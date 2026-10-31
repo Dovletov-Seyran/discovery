@@ -72,6 +72,8 @@ export function sceneMessage(p, { withSpawn = false } = {}) {
   return msg;
 }
 
+export const persistNow = () => persist();
+
 function persist() {
   saveGameState({ scene: state.id, startAt: state.startAt, entities: entities.snapshot() });
 }
@@ -117,6 +119,7 @@ export function setScene(id) {
     p.zone = state.zone;
     const pos = s.seats ? s.seats[i % s.seats.length] : spawnFor(s, p.role);
     p.seat = s.seats ? [...pos] : null;
+    p.a = s.seats ? 'sit' : 'idle';
     if (pos) {
       p.p = [...pos];
       p.r = 0;
@@ -137,14 +140,15 @@ export function setScene(id) {
 // Переход дальше: onComplete → next
 async function complete(s, { forced }) {
   state.transitioning = true;
+  const key = sceneKey();
   if (forced) hooks.forceComplete(s, players.party());
   for (const action of s.onComplete ?? []) {
-    if (state.id !== s.id) return; // сцену сменили вручную (/scene)
+    if (sceneKey() !== key) return; // сцену сменили вручную (/scene)
     if (action.say) players.broadcast({ t: S2C.NPC_SAY, line: action.say, hints: [], ...ai.playLine(action.say) });
     if (action.notice) players.broadcast({ t: S2C.NOTICE, text: action.notice });
     if (action.wait) await new Promise((r) => setTimeout(r, action.wait));
   }
-  if (state.id !== s.id) return;
+  if (sceneKey() !== key) return;
   if (!setScene(s.next)) state.transitioning = false;
 }
 
@@ -284,6 +288,7 @@ export function seatOnJoin(p) {
   const free = s.seats.find((seat) => !taken.has(seat.join())) ?? s.seats[0];
   p.seat = [...free];
   p.p = [...free];
+  p.a = 'sit';
 }
 
 export function resetToStart() {

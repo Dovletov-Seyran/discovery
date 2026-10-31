@@ -20,7 +20,11 @@ function event(p, ev) {
   if (quests.onEvent(p, ev, sceneId())) director.onPartyChanged();
 }
 
-const broadcastEntity = (id) => players.broadcast({ t: S2C.ENTITY, id, state: entities.stateOf(id) ?? {} });
+// Объект изменился: сразу в БД (вместе с инвентарём игрока) и всем клиентам
+function broadcastEntity(id) {
+  director.persistNow();
+  players.broadcast({ t: S2C.ENTITY, id, state: entities.stateOf(id) ?? {} });
+}
 
 function sayLine(lineId, to) {
   const msg = { t: S2C.NPC_SAY, line: lineId, hints: [], ...ai.playLine(lineId) };
@@ -51,7 +55,7 @@ export function pickup(p, msg) {
   p.inventory.push(d.item);
   players.sendInventory(p);
   broadcastEntity(id);
-  players.save(p);
+  players.save(p, { now: true });
   event(p, { type: 'pickup', item: d.item });
 }
 
@@ -61,7 +65,7 @@ function deliver(p, item, target) {
   if (!quests.wantsDelivery(p, sceneId(), item, target)) return false;
   removeItem(p, item);
   players.sendInventory(p);
-  players.save(p);
+  players.save(p, { now: true });
   event(p, { type: 'deliver', item, target });
   return true;
 }
@@ -101,7 +105,7 @@ export function interact(p, msg) {
       if (!p.inventory.includes('barrel')) return notice(p, 'Нужен пустой бочонок');
       p.inventory[p.inventory.indexOf('barrel')] = 'barrel_full';
       players.sendInventory(p);
-      players.save(p);
+      players.save(p, { now: true });
       break;
     case 'npc':
       if (id === 'trader') players.send(p, tradeState(p, id));
@@ -158,8 +162,10 @@ async function askAi(p, npc, req) {
   }
 }
 
+// На LLM говорят только Колумб, Старый Хуан и Торговец; остальные NPC — готовые реплики на клиенте
 async function npcRequest(p, npc, req) {
-  if (typeof npc !== 'string' || !NPCS.has(npc)) return;
+  if (typeof npc !== 'string' || NPCS.get(npc)?.type !== 'llm' || !playable()) return;
+  if (entities.def(npc)?.zone !== p.zone) return;
   const now = Date.now();
   if (now - p.lastNpcTalkAt < CONFIG.NPC_TALK_COOLDOWN_MS) return;
   p.lastNpcTalkAt = now;
@@ -228,7 +234,7 @@ export async function trade(p, msg) {
   players.send(p, tradeState(p, npc));
   if (outcome === 'sold') {
     players.sendInventory(p);
-    players.save(p);
+    players.save(p, { now: true });
     event(p, { type: 'trade_complete', item: good.item });
   }
   p.lastNpcTalkAt = now;
@@ -267,6 +273,7 @@ export function onSceneStart(scene, party) {
       owner.money += g.money ?? 0;
     }
     players.sendInventory(owner);
+    players.save(owner, { now: true });
   }
   quests.onSceneStart(scene, party);
 }

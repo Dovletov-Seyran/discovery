@@ -128,7 +128,7 @@ export function onEvent(p, ev, sceneId) {
     notify(q, r, p);
     if (r.shared) entities.markDirty();
   }
-  if (any) players.save(p);
+  if (any) players.save(p, { now: true });
   return any;
 }
 

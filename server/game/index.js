@@ -69,8 +69,7 @@ export function leave(p, ws) {
   if (p.ws !== ws) return; // это старая вкладка, игрок уже переподключился
   p.ws = null;
   p.connected = false;
-  p.disconnectedAt = Date.now();
-  p.ready = false;
+  p.disconnectedAt = Date.now(); // готовность сохраняем: 60 с игрок остаётся в партии
   players.save(p, { now: true });
   players.broadcast({ t: S2C.PLAYER_LEAVE, ...players.publicInfo(p) });
   director.onPartyChanged();

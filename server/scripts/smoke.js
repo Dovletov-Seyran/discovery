@@ -146,6 +146,11 @@ check(!!(await l.wait('chat', (m) => m.text === 'Земля!' && m.from === g.id
 l.send('npc_talk', { npc: 'columbus', text: 'Куда мы плывём?' });
 check(!!(await l.wait('npc_thinking')), 'npc_talk → npc_thinking');
 check(!!(await l.wait('npc_say')), 'npc_talk → npc_say');
+await sleep(2100);
+l.clear();
+l.send('npc_talk', { npc: 'boatswain', text: 'Эй' });
+await sleep(300);
+check(!l.msgs.some((m) => m.t === 'npc_thinking'), 'боцман не на LLM → npc_talk игнорируется');
 
 // --- Вторая вкладка и переподключение ---
 const g2 = new Bot('grum-2');
@@ -314,6 +319,12 @@ for (const b of [g3, p, l]) b.clear();
 g3.send('chat', { text: '/scene night_story' });
 const seat = await p.wait('scene', (m) => m.id === 'night_story');
 check(Array.isArray(seat?.seat), `ночь: место у фонаря ${JSON.stringify(seat?.seat)}`);
+const sitSnap = await p.wait('snapshot', (m) => m.players.some((x) => x.id === g3.id));
+check(sitSnap?.players.every((x) => x.a === 'sit'), 'ночью все сидят (a: sit)');
+g3.send('move', { p: [50, 1.6, 50], r: 1.2, a: 'run' });
+await sleep(200);
+const turned = p.msgs.findLast((m) => m.t === 'snapshot')?.players.find((x) => x.id === g3.id);
+check(turned?.r === 1.2 && turned.p[0] !== 50 && turned.a === 'sit', 'ночью можно только крутить головой');
 g3.send('scare', { target: p.id });
 check(!!(await p.wait('scared', (m) => m.by === g3.id && m.target === p.id)), '«Бу!» дошло');
 p.clear();

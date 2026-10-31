@@ -36,7 +36,13 @@ function readJson(req) {
     const chunks = [];
     req.on('data', (c) => {
       size += c.length;
-      if (size > MAX_BODY) { reject(new Error('too_large')); req.destroy(); return; }
+      if (size > MAX_BODY) {
+        // Дальше не копим, остаток дочитываем вхолостую, чтобы клиент получил ответ 413
+        req.removeAllListeners('data');
+        req.resume();
+        reject(new Error('too_large'));
+        return;
+      }
       chunks.push(c);
     });
     req.on('end', () => {
@@ -80,7 +86,8 @@ async function handleApi(req, res, path) {
   }
   if (req.method === 'POST' && (path === '/api/register' || path === '/api/login')) {
     let body;
-    try { body = await readJson(req); } catch {
+    try { body = await readJson(req); } catch (e) {
+      if (e.message === 'too_large') return sendJson(res, 413, { error: 'too_large', message: 'Слишком большой запрос' });
       return sendJson(res, 400, { error: 'bad_request', message: 'Некорректный запрос' });
     }
     const result = path === '/api/register' ? await auth.register(body) : await auth.login(body);
