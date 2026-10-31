@@ -9,6 +9,7 @@ import {shellView,loginView,lobbyView} from './ui/views.js';
 import {VoiceLibrary} from './ui/voice.js';
 import {narrativeContent,INTRO_TITLES} from './ui/narrative.js';
 import {NarrativePlayer} from './ui/timeline.js';
+import {WorldAudio} from './audio/world-audio.js';
 
 const $ = selector => document.querySelector(selector);
 const root = $('#ui');
@@ -164,7 +165,7 @@ function bindNetwork(client){
   client.on('player_join',message=>gameEvents.emit('player_join',message));
   client.on('player_leave',message=>gameEvents.emit('player_leave',message));
   client.on('tod',message=>{scene.tod=message.value;world?.setTimeOfDay?.(message.value);gameEvents.emit('tod',message);});
-  for(const type of ['chunk','chunk_denied','entity','scared'])client.on(type,message=>gameEvents.emit(type,message));
+  for(const type of ['chunk','chunk_denied','entity','scared','inventory','quest','npc_say','trade_state'])client.on(type,message=>gameEvents.emit(type,message));
 }
 function renderLobby(){
   $('#screen').innerHTML=lobbyView(players,you,connected);
@@ -322,6 +323,7 @@ function interact(){
 }
 
 root.innerHTML=shellView();
+if(!preview)new WorldAudio(gameEvents);
 if(!preview)new WorldConnection({
   events:gameEvents,send:sendGameMessage,attach:attachWorld,canvas,
   onStatus:status=>{
