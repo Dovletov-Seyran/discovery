@@ -18,8 +18,11 @@ export const CONFIG = {
   AUTH_TIMEOUT_MS: 3000,       // нет auth за это время — закрываем
   PING_INTERVAL_MS: 10000,
   MAX_MSG_BYTES: 4096,
+  MAX_MSG_PER_SEC: 60,         // с одного соединения; move идёт 15 раз/с
   CHAT_MAX_LEN: 300,
   NPC_TALK_COOLDOWN_MS: 2000,
+  TRADE_COOLDOWN_MS: 1000,
+  SCARE_COOLDOWN_MS: 20000,    // «Бу!»
   MAX_CHUNK_KEYS: 30,          // ключей в одном chunk_req
 
   // Игроки и сохранение

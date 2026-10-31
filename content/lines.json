@@ -1,0 +1,66 @@
+[
+  { "id": "intro_1", "npc": "narrator", "en": "For two hundred years, Europe read the book of the Venetian Marco Polo: tales of China, of the Great Khan, and of Japan, where palace roofs were covered in gold.", "ru": "Двести лет Европа зачитывалась книгой венецианца Марко Поло: о Китае, о Великом хане и о Японии, где крыши дворцов покрыты золотом." },
+  { "id": "intro_2", "npc": "narrator", "en": "Silk and spices travelled from the East along endless roads, through countless hands, and were worth more than gold.", "ru": "Шёлк и пряности шли с Востока бесконечными дорогами, через множество рук, и стоили дороже золота." },
+  { "id": "intro_3", "npc": "narrator", "en": "In 1453 the Turks took Constantinople. The road to the East grew even harder.", "ru": "В 1453 году турки взяли Константинополь. Путь на Восток стал ещё труднее." },
+  { "id": "intro_4", "npc": "narrator", "en": "A Genoese sailor named Christopher Columbus had a bold idea. If the Earth is round, one can reach Asia by sailing west. By his calculations, it was only a few weeks away.", "ru": "У генуэзского моряка Христофора Колумба была дерзкая идея. Если Земля — шар, до Азии можно доплыть на запад. По его расчётам — всего несколько недель пути." },
+  { "id": "intro_5", "npc": "narrator", "en": "He was wrong by more than four times. And he did not know that between Europe and Asia lay an entire unknown world.", "ru": "Он ошибся больше чем в четыре раза. И не знал, что между Европой и Азией лежит целый неизвестный мир." },
+  { "id": "intro_6", "npc": "narrator", "en": "The third of August, 1492. The port of Palos. Three ships, the Santa Maria, the Pinta and the Nina, set sail to the west.", "ru": "3 августа 1492 года. Порт Палос. Три корабля — «Санта-Мария», «Пинта» и «Нинья» — уходят на запад." },
+
+  { "id": "boatswain_welcome", "npc": "boatswain", "en": "Wake up, you dogs! Every man to his work, the Admiral is watching.", "ru": "Подъём, собаки! Все за работу, адмирал смотрит." },
+  { "id": "boatswain_hint_grumete", "npc": "boatswain", "en": "Boy! Keep an eye on the sand glass at the stern. When the sand runs out, turn it and sing.", "ru": "Юнга! Следи за песочными часами на корме. Как песок кончится — переверни и пой." },
+  { "id": "boatswain_hint_piloto", "npc": "boatswain", "en": "Pilot, the Admiral wants our latitude at noon. Your astrolabe is in the chest at the stern.", "ru": "Штурман, адмирал хочет знать широту к полудню. Твоя астролябия в сундуке на корме." },
+  { "id": "boatswain_hint_lengua", "npc": "boatswain", "en": "Interpreter, the Admiral asked for you. Go to the stern, and mind your manners.", "ru": "Переводчик, тебя звал адмирал. Иди на корму, и будь повежливее." },
+  { "id": "boatswain_hourglass", "npc": "boatswain", "en": "Boy! The sand has run out! Turn the glass!", "ru": "Юнга! Песок кончился! Переверни часы!" },
+  { "id": "boatswain_idle_1", "npc": "boatswain", "en": "Pull that rope tighter, or the sail will flap like a wet hen.", "ru": "Тяни канат крепче, а то парус хлопает, как мокрая курица." },
+  { "id": "boatswain_idle_2", "npc": "boatswain", "en": "A clean deck is a happy ship. Scrub, lads, scrub!", "ru": "Чистая палуба — счастливый корабль. Драйте, ребята, драйте!" },
+
+  { "id": "grumete_song", "npc": "grumete_npc", "en": "Blessed be the hour our Lord was born, and holy Mary who bore Him. One glass is gone, another is filling. Good voyage, if God wills!", "ru": "Благословен час, когда родился Господь, и святая Мария, что родила Его. Одна склянка прошла, другая наполняется. Доброго пути, если Бог даст!" },
+
+  { "id": "rudder_alarm", "npc": "boatswain", "en": "Admiral! The Pinta is firing a gun and raising a flag! Her rudder has come loose!", "ru": "Адмирал! «Пинта» стреляет из пушки и поднимает флаг! У неё соскочил руль!" },
+  { "id": "columbus_rudder", "npc": "columbus", "en": "Again! I swear someone on the Pinta does not wish to sail. Change course! We make for the Canary Islands to repair her.", "ru": "Опять! Клянусь, кому-то на «Пинте» не хочется плыть. Меняем курс! Идём на Канарские острова чинить её." },
+
+  { "id": "cook_1", "npc": "cook", "en": "Beans and salted sardines again. Do not complain, in a month you will dream of them.", "ru": "Опять бобы и солёные сардины. Не жалуйся, через месяц будешь видеть их во сне." },
+  { "id": "cook_2", "npc": "cook", "en": "Careful near the fire box. One spark and we all swim home.", "ru": "Осторожнее у очага. Одна искра — и все поплывём домой вплавь." },
+  { "id": "cook_3", "npc": "cook", "en": "The biscuit is baked twice so it does not rot. Well, not too fast.", "ru": "Сухари пекут дважды, чтобы не гнили. Ну, хотя бы не слишком быстро." },
+
+  { "id": "sailor_1_a", "npc": "sailor_1", "en": "They say the Admiral is a foreigner who has never sailed this far. God help us.", "ru": "Говорят, адмирал — чужеземец, который никогда так далеко не плавал. Помоги нам Бог." },
+  { "id": "sailor_1_b", "npc": "sailor_1", "en": "My wife cried for three days when I signed on. I told her I would bring back gold.", "ru": "Жена три дня плакала, когда я нанялся. Я сказал ей, что привезу золото." },
+  { "id": "sailor_2_a", "npc": "sailor_2", "en": "I sleep right here, on the deck. If it rains, I sleep wet. Such is the sea.", "ru": "Я сплю прямо здесь, на палубе. Если дождь — сплю мокрым. Такое оно, море." },
+  { "id": "sailor_2_b", "npc": "sailor_2", "en": "Look at the Nina, how fast she runs. Our Santa Maria is a fat old cow next to her.", "ru": "Глянь на «Нинью», как бежит. Наша «Санта-Мария» рядом с ней — толстая старая корова." },
+  { "id": "sailor_3_a", "npc": "sailor_3", "en": "Some of the men here were let out of prison to sail with us. Watch your purse.", "ru": "Кое-кого из наших выпустили из тюрьмы, чтобы плыть с нами. Береги кошелёк." },
+  { "id": "sailor_3_b", "npc": "sailor_3", "en": "The compass never lies. The men who read it, they lie.", "ru": "Компас никогда не врёт. Врут те, кто по нему читает." },
+
+  { "id": "canary_title", "npc": "narrator", "en": "La Gomera, the Canary Islands. August 1492.", "ru": "Ла-Гомера, Канарские острова. Август 1492 года." },
+  { "id": "carpenter_task", "npc": "carpenter", "en": "The Pinta's rudder? I can fix it, but I need good planks and a bucket of tar. The planks are by the shipyard, the tar is in the shed.", "ru": "Руль «Пинты»? Починю, но мне нужны хорошие доски и ведро смолы. Доски у верфи, смола в сарае." },
+  { "id": "carpenter_wait", "npc": "carpenter", "en": "No planks, no tar, no rudder. That is how carpentry works, friend.", "ru": "Нет досок, нет смолы — нет руля. Так уж устроено плотницкое дело, друг." },
+  { "id": "carpenter_done", "npc": "carpenter", "en": "Good wood, good tar. Your Pinta will steer straight all the way to the end of the world.", "ru": "Хорошее дерево, хорошая смола. Твоя «Пинта» пойдёт прямо до самого края света." },
+  { "id": "carpenter_nina", "npc": "carpenter", "en": "And your Nina? We gave her square sails instead of the triangle ones. Better for a long run with the wind behind.", "ru": "А вашей «Нинье» мы поставили прямые паруса вместо треугольных. Так лучше для долгого пути с попутным ветром." },
+  { "id": "beatriz_1", "npc": "beatriz", "en": "So you sail with the Genoese. Tell your Admiral that La Gomera welcomes him, and that I expect him to return.", "ru": "Значит, ты плывёшь с генуэзцем. Передай своему адмиралу, что Ла-Гомера ему рада и что я жду его обратно." },
+  { "id": "beatriz_2", "npc": "beatriz", "en": "This island is the last Christian land before the open sea. After us, only God knows.", "ru": "Этот остров — последняя христианская земля перед открытым морем. Дальше — одному Богу известно." },
+  { "id": "town_1_a", "npc": "town_1", "en": "You hear that whistle? That is my brother on the other mountain. He says your ships are very ugly.", "ru": "Слышишь свист? Это мой брат с другой горы. Говорит, корабли у вас очень некрасивые." },
+  { "id": "town_2_a", "npc": "town_2", "en": "Fill your barrels at the well by the harbour. Every ship that goes west drinks our water.", "ru": "Наберите воды в колодце у гавани. Каждый корабль, что идёт на запад, пьёт нашу воду." },
+  { "id": "town_3_a", "npc": "town_3", "en": "I am from El Hierro. Every year, on clear days, we see land to the west. Mountains, I swear it. Then they vanish.", "ru": "Я с острова Иерро. Каждый год в ясные дни мы видим землю на западе. Горы, клянусь. А потом они исчезают." },
+  { "id": "town_3_b", "npc": "town_3", "en": "San Borondon, we call it. An island that does not want to be found.", "ru": "Сан-Борондон, так мы его зовём. Остров, который не хочет, чтобы его нашли." },
+  { "id": "boat_wait", "npc": "boatswain", "en": "Into the boat! We wait for the others, then back to the ship.", "ru": "В шлюпку! Ждём остальных — и обратно на корабль." },
+
+  { "id": "feast_toast_1", "npc": "sailor_1", "en": "To the Admiral, to the Queen, and to the gold of the Khan!", "ru": "За адмирала, за королеву и за золото хана!" },
+  { "id": "feast_toast_2", "npc": "sailor_2", "en": "Drink, lads! Tomorrow there is nothing but water and sky.", "ru": "Пейте, ребята! Завтра — только вода да небо." },
+  { "id": "feast_dance", "npc": "sailor_3", "en": "Come on, dance! Even the fish are dancing tonight!", "ru": "Давай, пляши! Сегодня даже рыбы пляшут!" },
+  { "id": "feast_cards_win", "npc": "sailor_3", "en": "Ha! The swords never fail me.", "ru": "Ха! Мечи меня никогда не подводят." },
+  { "id": "feast_cards_lose", "npc": "sailor_3", "en": "Cursed coins! You have the devil's luck.", "ru": "Проклятые монеты! Тебе везёт, как чёрту." },
+
+  { "id": "story_1", "npc": "storyteller", "en": "Do you know what the Moors call this ocean, lads? The Sea of Darkness. Those who sailed too far west never came back.", "ru": "Знаете, как мавры зовут этот океан, ребята? Море Мрака. Кто уплывал слишком далеко на запад, тот не возвращался." },
+  { "id": "story_2", "npc": "storyteller", "en": "On El Hierro I knew a fisherman. He swore he saw an island to the west, with black mountains. He saw it many times. But every time he sailed toward it, it moved away, like a mirage.", "ru": "На Иерро я знал одного рыбака. Он клялся, что видел на западе остров с чёрными горами. Видел много раз. Но каждый раз, когда плыл к нему, остров уходил, как мираж." },
+  { "id": "story_3", "npc": "storyteller", "en": "Once, a ship did reach it. The men went ashore. No grass, no birds. Only smooth black stone, cold and wet. They made a fire to warm themselves.", "ru": "Однажды корабль всё-таки дошёл. Люди сошли на берег. Ни травы, ни птиц. Только гладкий чёрный камень, холодный и мокрый. Они развели костёр, чтобы согреться." },
+  { "id": "story_4", "npc": "storyteller", "en": "And then the ground beneath them breathed.", "ru": "И тут земля под ними вздохнула." },
+  { "id": "story_5", "npc": "storyteller", "en": "The island sank into the sea. It was the back of a beast. Those who reached the boat lived. The others were pulled down into the dark.", "ru": "Остров ушёл под воду. Это была спина зверя. Кто добежал до шлюпки — выжил. Остальных утянуло вниз, во тьму." },
+  { "id": "story_6", "npc": "storyteller", "en": "The survivors drifted in the fog for days. And at night they heard something knocking on the hull. From below. Three times.", "ru": "Выжившие много дней дрейфовали в тумане. А ночью слышали, как что-то стучит в днище. Снизу. Три раза." },
+  { "id": "story_7", "npc": "storyteller", "en": "In the morning they found wet footprints on the deck. Footprints coming out of the sea. And going back in.", "ru": "А утром нашли на палубе мокрые следы. Следы, которые выходили из моря. И уходили обратно." },
+  { "id": "story_8", "npc": "storyteller", "en": "Ha! Look at your faces! Tales, lads, only tales. Go to sleep. Tomorrow, the wind will come.", "ru": "Ха! Видели бы вы свои лица! Сказки, ребята, просто сказки. Спите. Завтра будет ветер." },
+  { "id": "scare_laugh_1", "npc": "sailor_2", "en": "Ha! Look at him jump!", "ru": "Ха! Гляди, как подскочил!" },
+  { "id": "scare_laugh_2", "npc": "sailor_1", "en": "Quiet, you fools, you will wake the Admiral!", "ru": "Тише, дурни, адмирала разбудите!" },
+
+  { "id": "sleep_title_1", "npc": "narrator", "en": "The twelfth of October, 1492. Two o'clock in the morning.", "ru": "12 октября 1492 года. Два часа ночи." },
+  { "id": "sleep_title_2", "npc": "sailor_1", "en": "Land! Land!", "ru": "Земля! Земля!" },
+  { "id": "part2_title", "npc": "narrator", "en": "Part two. Those who stood on the shore.", "ru": "Часть вторая. Те, кто стоял на берегу." }
+]

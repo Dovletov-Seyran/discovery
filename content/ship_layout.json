@@ -1,5 +1,11 @@
 {
-  "_comment": "Черновик расстановки на «Санта-Марии» (Бэк 1). Координаты [x, y, z], корма (ют) — -z, нос — +z. Фронт 1 правит по модели корабля, затем npm run seed.",
+  "_comment": "Черновик Бэка 1 — заменяется раскладкой Фронта 1. Сервер отдаёт файл целиком в чанке ship 0,0. spawns — точки появления по ролям (или по сценам: { ship_day: {...} }), seats — места у фонаря в night_story. Точка: [x, y, z] или { p: [x, y, z], r } (r как у камеры: 0 — лицом к носу). id в interact/npcs должны совпадать с content/quests.json.",
+  "spawns": {
+    "grumete": [0, 1.6, 8],
+    "piloto": { "p": [0, 3.2, -9], "r": 3.14 },
+    "lengua": [1, 1.6, 0]
+  },
+  "seats": [[2, 1.6, 3], [-2, 1.6, 3], [0, 1.6, 5]],
   "objects": [
     { "id": "mainmast", "m": "mast", "p": [0, 1.6, 0], "r": 0 },
     { "id": "hearth", "m": "hearth", "p": [0.8, 1.6, 9.5], "r": 0 },
@@ -11,7 +17,7 @@
     { "id": "dance_circle", "m": "none", "p": [0, 1.6, 2], "r": 0 }
   ],
   "interact": [
-    { "id": "hourglass", "m": "hourglass", "p": [1.2, 3.2, -9], "kind": "hourglass", "label": "Песочные часы" },
+    { "id": "hourglass", "m": "hourglass", "p": [1.2, 3.2, -9], "kind": "hourglass", "label": "Песочные часы", "period": 120, "demoPeriod": 60 },
     { "id": "compass", "m": "compass", "p": [0.4, 3.2, -11], "kind": "item", "item": "compass", "label": "Компас" },
     { "id": "astrolabe", "m": "chest", "p": [-1.5, 3.2, -9.5], "kind": "item", "item": "astrolabe", "label": "Сундук штурмана" },
     { "id": "map", "m": "map_table", "p": [1.5, 3.2, -10.5], "kind": "item", "item": "map", "label": "Морская карта" },
