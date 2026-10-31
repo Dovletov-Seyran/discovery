@@ -111,7 +111,7 @@ export class WorldConnection {
       if(this.scene?.zone&&this.scene.zone!=='ship')this.world.chunks?.update?.(this.world.camera.position,dt);
       this.gameplay.update(dt,ms/1000);
       for(const [id,clock] of this.hourglasses)this.world.setEntityState?.(id,{fill:Math.min(1,Math.max(0,(clock.emptyAt-Date.now())/(clock.period*1000)))});
-      this.world.frame(dt);this.frameId=requestAnimationFrame(loop);
+      this.world.frame(dt);this.gameplay.renderOverlay?.();this.frameId=requestAnimationFrame(loop);
     };
     this.frameId=requestAnimationFrame(loop);
   }

@@ -93,6 +93,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
         }
       }
     },
+    renderOverlay(){if(runtime===attachedRuntime)equipment?.render();},
     dispose(){if(runtime===attachedRuntime){runtime.dispose();runtime=null;world=null;currentTarget=null;$('#world-status').hidden=false;syncInput();}},
   };
 }
@@ -203,6 +204,7 @@ function renderLobby(){
 function applyScene(message){
   narrative.stop();
   scene=message;
+  document.body.dataset.sceneType=message.type||'';
   if(Number.isFinite(message.r))savedYaw=message.r;
   if(message.spawn){savedPosition=message.spawn;runtime?.teleport(savedPosition,savedYaw);}
   if(message.seat){savedPosition=message.seat;runtime?.teleport(savedPosition,savedYaw);}
@@ -408,6 +410,11 @@ function interact(){
 }
 
 root.innerHTML=shellView();
+// Layout follows actual wrapped text height instead of guessed fixed offsets.
+if(typeof ResizeObserver!=='undefined'){
+  new ResizeObserver(entries=>{document.documentElement.style.setProperty('--hud-dock-height',`${entries[0].contentRect.height}px`);}).observe($('#hud-dock'));
+  new ResizeObserver(entries=>{document.documentElement.style.setProperty('--quest-height',`${entries[0].contentRect.height}px`);}).observe($('#quest'));
+}
 if(!preview)new WorldAudio(gameEvents);
 if(!preview)new WorldConnection({
   events:gameEvents,send:sendGameMessage,attach:attachWorld,canvas,
