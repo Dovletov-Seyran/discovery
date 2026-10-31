@@ -152,15 +152,27 @@ export function wantsDelivery(p, sceneId, item, target) {
 }
 
 // Начало сцены: задания отсутствующих ролей становятся общими; всем — их задания
-export function onSceneStart(scene, party) {
-  const roles = new Set(party.map((p) => p.role).filter(Boolean));
-  const shared = entities.shared();
-  for (const q of sceneQuests(scene.id)) {
-    if (q.role !== 'all' && !roles.has(q.role) && !shared[q.id]) {
-      shared[q.id] = fresh();
-      entities.markDirty();
-    }
+function shareMissingRoles(scene,party,departed=[]) {
+  const roles=new Set(party.map(p=>p.role).filter(Boolean)),shared=entities.shared();
+  let changed=false;
+  for(const q of sceneQuests(scene.id)){
+    if(q.role==='all'||roles.has(q.role)||shared[q.id])continue;
+    const previous=departed.find(p=>p.role===q.role)?.quests[q.id];
+    shared[q.id]=previous?structuredClone(previous):fresh();
+    changed=true;entities.markDirty();
   }
+  return changed;
+}
+
+// After a reconnect/server restart, or expiry of a disconnected role, its tasks become shared.
+// In-progress tasks survive the handover instead of leaving an ownerless required objective.
+export function refreshParty(scene,party,departed=[]) {
+  if(!shareMissingRoles(scene,party,departed))return;
+  for(const p of party)sendAll(p,scene.id);
+}
+
+export function onSceneStart(scene, party) {
+  shareMissingRoles(scene,party);
   for (const p of party) {
     for (const q of sceneQuests(scene.id)) {
       const r = ref(q, p);

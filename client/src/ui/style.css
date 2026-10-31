@@ -353,3 +353,16 @@ body[data-scene-type="cutscene"] #hud { display:none; }
  .hud-dock .control-hint { padding:3px 8px; }
  .hud-dock .equipment img { display:none; }
 }
+
+/* Readable over white sails and bright sky; preserve the world's lighting. */
+.quest { background:#101511ed; border:1px solid #c4b59170; padding:14px 16px; color:#fff3d9; text-shadow:none; text-align:left; }
+.quest h3 { font-size:25px; font-weight:600; line-height:1.2; }
+.quest p { color:#f0e7d2; font-size:20px; font-weight:600; line-height:1.35; margin-top:8px; }
+.quest small { color:#cfbea0; font-size:17px; font-weight:600; }
+.party { background:#101511ed; color:#f0e7d2; border:1px solid #c4b59150; padding:8px 12px; line-height:1.35; font-size:18px; text-shadow:none; }
+.party:empty { display:none; }
+.hud-header { text-shadow:none; }
+.hud-header .wordmark { opacity:1; color:#f5ecd7; padding:5px 9px; background:#101511dd; font-size:23px; }
+.hud-header .quiet-button { color:#fff3d9; font-size:20px; font-weight:600; padding:7px 12px; background:#101511ed; border:1px solid #c4b59150; }
+.hud-header kbd { color:#fff3d9; border-color:#c4b59180; }
+@media(max-width:760px){.quest{padding:11px 13px;}.quest h3{font-size:23px;}.quest p{font-size:18px;}.quest small{font-size:16px;}}

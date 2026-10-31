@@ -230,6 +230,7 @@ export function broadcastTod() {
 // --- Партия, готовность, лобби ---
 
 export function partyMessage() {
+  const s=scene();
   const party = players.party();
   const ready = {};
   const done = {}; // свои обязательные задания сцены выполнены
@@ -242,7 +243,7 @@ export function partyMessage() {
     scene: state.id,
     ready,
     done,
-    waitingFor: party.filter((p) => !p.ready).map((p) => ({ ...players.publicInfo(p), connected: p.connected })),
+    waitingFor: party.filter((p) => s.advance === 'all_ready' && !p.ready).map((p) => ({ ...players.publicInfo(p), connected: p.connected })),
     skip: { votes: party.filter((p) => state.skip.has(p.id)).length, total: party.length },
   };
 }

@@ -98,3 +98,17 @@ test('server repairs an old underground save before movement validation can retu
   p.p[1]=-6;director.placeOnJoin(p);assert.ok(p.p[1]>0);
   p.p=spawn.p;
 });
+test('quest scenes do not display an irrelevant ready wait for other accounts',()=>{
+  director.setScene('ship_day');p.ready=false;
+  assert.equal(director.partyMessage().waitingFor.length,0);
+  director.setScene('canary');assert.equal(director.partyMessage().waitingFor.length,1);
+});
+test('missing roles after restart get shared tasks; expired roles retain their progress',()=>{
+  director.setScene('ship_day');entities.reset();p.role='piloto';p.quests={};
+  const departed={role:'lengua',quests:{q_ask_columbus:{status:'active',step:0,count:0,sub:[],got:['why_west']}}};
+  quests.refreshParty(director.scene(),[p],[departed]);
+  assert.equal(entities.shared().q_hourglass.status,'active');
+  assert.deepEqual(entities.shared().q_ask_columbus.got,['why_west']);
+  quests.onEvent(p,{type:'topics',npc:'columbus',topics:['reward']},'ship_day');
+  assert.equal(entities.shared().q_ask_columbus.status,'done');
+});

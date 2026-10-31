@@ -74,6 +74,7 @@ export function join(session, ws) {
   }
   if (!wasConnected) players.broadcast({ t: S2C.PLAYER_JOIN, ...players.publicInfo(p) }, (x) => x !== p);
   players.send(p, director.lobbyMessage());
+  quests.refreshParty(scene,players.party());
   quests.sendAll(p, scene.id);
   director.onPartyChanged();
   players.save(p, { now: true });
@@ -242,7 +243,10 @@ export function start() {
     setInterval(() => players.saveAll(), CONFIG.SAVE_INTERVAL_MS),
     setInterval(() => {
       const gone = players.expire();
-      if (gone.length) director.onPartyChanged();
+      if (gone.length) {
+        quests.refreshParty(director.scene(),players.party(),gone);
+        director.onPartyChanged();
+      }
     }, 5000),
   ];
   return () => timers.forEach(clearInterval);

@@ -6,7 +6,24 @@ import {HELD_MODELS,hand,releaseModel} from './held-models.js';
 
 const aliases={barrel_full:'barrel',planks:'planks',tar:'tar_bucket'};
 const builder=id=>HELD_MODELS[id]||MODELS[aliases[id]||id]||ISLAND_MODELS[aliases[id]||id];
-const makeObject=(make,M)=>{const built=make(M);built.col?.forEach(geometry=>geometry.dispose());return built.obj;};
+const makeObject=(make,M)=>{
+ const built=make(M);built.col?.forEach(geometry=>geometry.dispose());
+ // World metals rely on environment reflections. Give the held copy a diffuse component too.
+ const copies=new Map();
+ built.obj.traverse(mesh=>{
+  if(!mesh.isMesh)return;
+  const readable=material=>{
+   if(!(material.metalness>.6)||material.userData.equipmentOwned)return material;
+   if(!copies.has(material)){
+    const copy=material.clone();copy.metalness=.48;copy.roughness=Math.max(.32,copy.roughness);
+    copy.emissive.copy(copy.color).multiplyScalar(.04);copy.userData.equipmentOwned=true;copies.set(material,copy);
+   }
+   return copies.get(material);
+  };
+  mesh.material=Array.isArray(mesh.material)?mesh.material.map(readable):readable(mesh.material);
+ });
+ return built.obj;
+};
 // Sizes in metres, measured on the long edge. Each tool gets a readable pose.
 export const HOLD_POSES={
  sword:{size:1.2,rotation:[-.24,-.12,-.18],depth:.95},
