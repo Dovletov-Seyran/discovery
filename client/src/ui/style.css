@@ -273,3 +273,9 @@ h3 { font-weight: 500; }
 .trade-row button { font-size: 17px; }
 @media(max-width:700px) { .login-screen { gap: 34px; padding-block: 45px 90px; } h1 { font-size: 112px; } .quill-title { font-size: 28px; } .role-info strong { font-size: 28px; } .subtitles { font-size: 21px; left: 7%; right: 7%; } }
 @media(max-height:780px) and (min-width:701px) { .login-screen { grid-template-columns: 1fr 1fr; gap: 8vw; padding: 65px 12vw; } .login-form h2 { text-align: left; } }
+
+/* 3D-интро (Фронт 1) рисует сам канвас: панель Фронта 2 прозрачная, название — наверху, субтитры и «Пропустить» поверх картинки */
+body.cinematic .intro-screen { background: linear-gradient(180deg, #000a 0%, transparent 22%, transparent 70%, #000c 100%); align-content: start; padding-top: 7vh; gap: 10px; }
+body.cinematic .intro-screen::before, body.cinematic .intro-screen::after { display: none; }
+body.cinematic .intro-screen h2 { font-size: clamp(26px, 3vw, 40px); text-shadow: 0 2px 10px #000; }
+body.cinematic #hud { visibility: hidden; }
