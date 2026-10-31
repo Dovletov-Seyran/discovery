@@ -26,7 +26,7 @@ export function generateShip() {
 }
 
 // Меняется при правке раскладок или генератора → сервер перегенерирует мир при старте
-const GENERATOR_VERSION = 3;
+const GENERATOR_VERSION = 4;
 export function layoutHash() {
   const h = createHash('sha1').update(String(GENERATOR_VERSION));
   for (const name of ['canary_layout.json', 'ship_layout.json']) h.update(JSON.stringify(loadContent(name, null)));

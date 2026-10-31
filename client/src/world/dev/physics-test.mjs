@@ -28,7 +28,9 @@ class Player {
   step(dir, { run = true, jump = false } = {}) {
     const offset = new THREE.Vector3(dir[0], 0, dir[1]);
     if (offset.lengthSq()) offset.normalize().multiplyScalar(run ? 6 : 3);
-    if (jump && this.onGround) { this.vy = 5.5; this.onGround = false; }
+    const wasGrounded = this.onGround;
+    let jumped = false;
+    if (jump && this.onGround) { this.vy = 5.5; this.onGround = false; jumped = true; }
     this.vy -= 20 * DT;
     const step = DT / 4;
     let grounded = false;
@@ -40,7 +42,14 @@ class Player {
       c.end.set(this.pos.x, this.pos.y + 1.7 - RADIUS, this.pos.z);
       const r = this.collide(c);
       this.pos.set(c.start.x, c.start.y - RADIUS, c.start.z);
-      if (r?.onGround) { grounded = true; this.vy = Math.max(0, this.vy); } else if (r?.delta?.y < 0) this.vy = Math.min(0, this.vy);
+      if (r?.onGround) { grounded = true; this.vy = Math.max(0, this.vy); } else if (r?.delta && r.delta.y < -1e-3 && -r.delta.y > Math.hypot(r.delta.x, r.delta.z)) this.vy = Math.min(0, this.vy);
+    }
+    // stick to the ground going down a slope or a step, as in the controller
+    if (!grounded && wasGrounded && !jumped && this.vy <= 0) {
+      const c = this.cap, snap = 0.1 + offset.length() * DT * 1.5;
+      c.start.set(this.pos.x, this.pos.y - snap + RADIUS, this.pos.z);
+      c.end.set(this.pos.x, this.pos.y - snap + 1.7 - RADIUS, this.pos.z);
+      if (this.collide(c)?.onGround && c.start.y - RADIUS <= this.pos.y + 0.02) { this.pos.y = c.start.y - RADIUS; grounded = true; this.vy = 0; }
     }
     this.onGround = grounded;
   }
@@ -56,6 +65,18 @@ function stuckAt(collide, p) {
     if (Math.hypot(pl.pos.x - from.x, pl.pos.z - from.z) > 0.4) return false;
   }
   return true;
+}
+
+// Pressed against something (a wall, the bulwark, a trunk) the player must still be able to jump:
+// walk at it for a second, then press Space. Returns the height of the jump (under a low deck edge it is
+// lower than the full 0.75 m, so the checks only ask that the jump happened: 0.3 m+).
+function jumpAgainst(collide, p, dir) {
+  const pl = new Player(collide, p).settle();
+  for (let f = 0; f < 60 || (!pl.onGround && f < 120); f++) pl.step(dir, { run: false }); // walked off a keg: land first
+  const y0 = pl.pos.y;
+  let apex = y0;
+  for (let f = 0; f < 40; f++) { pl.step(dir, { run: false, jump: f === 0 }); apex = Math.max(apex, pl.pos.y); }
+  return apex - y0;
 }
 
 let failures = 0;
@@ -95,6 +116,14 @@ if (!only || only === 'ship') {
     }
   }
   report(escapes === 0, `корабль: ${runs} забегов с прыжками от ${starts.length} точек (палубы и верх реквизита) — за бортом ${escapes}${worst.length ? `, например от ${JSON.stringify(worst)}` : ''}`);
+  const walls = [];
+  let wallRuns = 0;
+  for (const st of starts.filter((p, i) => i % 3 === 0)) for (const dir of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    wallRuns++;
+    const h = jumpAgainst(collide, st, dir);
+    if (h < 0.3) walls.push([...st.map((v) => +v.toFixed(1)), dir.join(','), +h.toFixed(2)]);
+  }
+  report(walls.length === 0, `корабль: прыжок, упёршись в борт или реквизит — ${wallRuns} попыток${walls.length ? `, не прыгнул ${walls.length}: ${JSON.stringify(walls.slice(0, 4))}` : ''}`);
   const stuck = starts.filter((s, i) => i % 2 === 0 && stuckAt(collide, s));
   report(stuck.length === 0, `корабль: застреваний ${stuck.length} из ${Math.ceil(starts.length / 2)} проверенных точек${stuck.length ? ` ${JSON.stringify(stuck.slice(0, 5).map((p) => p.map((v) => +v.toFixed(1))))}` : ''}`);
   console.log(`  (${((Date.now() - t0) / 1000).toFixed(1)} с)`);
@@ -126,6 +155,38 @@ if (!only || only === 'island') {
     }
   }
   report(falls === 0, `остров: ${runs} забегов по суше — провалов под рельеф ${falls}${fallAt.length ? ` ${JSON.stringify(fallAt)}` : ''}`);
+
+  // 1b. jumps: from a standstill anywhere walkable the jump works and lands where it started;
+  // running (also downhill) the player keeps touching the ground, so Space works at any moment
+  const slope = (x, z) => Math.atan(Math.hypot(heightAt(x + 0.5, z) - heightAt(x - 0.5, z), heightAt(x, z + 0.5) - heightAt(x, z - 0.5))) * 180 / Math.PI;
+  let jumps = 0, badJump = [];
+  for (let x = 122; x <= 390; x += 6) for (let z = 142; z <= 348; z += 6) {
+    const h = heightAt(x, z);
+    if (h < 0.3 || slope(x, z) > 45) continue;
+    const pl = new Player(collide, [x, h + 0.05, z]).settle();
+    if (Math.hypot(pl.pos.x - x, pl.pos.z - z) > 0.12 || pl.pos.y > h + 0.3) continue; // inside or on top of a prop
+    jumps++;
+    const y0 = pl.pos.y;
+    let apex = y0;
+    pl.step([0, 0], { jump: true });
+    for (let f = 0; f < 90; f++) { pl.step([0, 0]); apex = Math.max(apex, pl.pos.y); }
+    if (apex - y0 < 0.6 || Math.abs(pl.pos.y - y0) > 0.1 || !pl.onGround) badJump.push([x, z, +(apex - y0).toFixed(2)]);
+  }
+  report(badJump.length === 0, `остров: прыжок с места в ${jumps} точках${badJump.length ? ` — не вышло ${badJump.length}: ${JSON.stringify(badJump.slice(0, 5))}` : ''}`);
+  let frames = 0, air = 0;
+  for (let x = 124; x <= 388; x += 12) for (let z = 144; z <= 346; z += 12) {
+    if (heightAt(x, z) < 0.5) continue;
+    for (let d = 0; d < 16; d += 2) {
+      const pl = new Player(collide, [x, heightAt(x, z) + 0.05, z]).settle();
+      for (let f = 0; f < 90; f++) {
+        pl.step(DIRS[d]);
+        if (heightAt(pl.pos.x, pl.pos.z) < 0.5 || slope(pl.pos.x, pl.pos.z) > 40) continue; // cliffs and the sea
+        frames++;
+        if (!pl.onGround) air++;
+      }
+    }
+  }
+  report(air / frames < 0.02, `остров: на бегу по склонам до 40° игрок на земле ${(100 - 100 * air / frames).toFixed(1)}% кадров (нужно 98%+)`);
 
   // 2. stuck spots: around every building and prop with a collider, and on a grid in town
   const probes = [];
@@ -171,6 +232,17 @@ if (!only || only === 'island') {
     const door = [o.p[0] + Math.sin(o.r) * depth, o.p[2] + Math.cos(o.r) * depth];
     if (!walk(plaza, door, 25).ok) blocked.push(o.id);
   }
+  const noJump = [];
+  for (const o of [...layout.objects, ...layout.interact, ...layout.npcs]) {
+    if (o.m === 'pier' || o.m === 'boat') continue;
+    for (let a = 0; a < 8; a++) {
+      const R = { church: 13, house_governor: 9, warehouse: 9, shipyard: 10, house: 6.5, market_stall: 4 }[o.m] ?? 2.5;
+      const x = o.p[0] + Math.sin(a * Math.PI / 4) * R, z = o.p[2] + Math.cos(a * Math.PI / 4) * R, h = heightAt(x, z);
+      if (h < 0.3 || slope(x, z) > 30) continue;
+      if (jumpAgainst(collide, [x, h + 0.05, z], [-Math.sin(a * Math.PI / 4), -Math.cos(a * Math.PI / 4)]) < 0.3) noJump.push(`${o.id}@${a}`);
+    }
+  }
+  report(noJump.length === 0, `город: прыжок, упёршись в стену дома, лоток, бочку или жителя${noJump.length ? ` — не прыгнул у ${[...new Set(noJump)].join(', ')}` : ''}`);
   report(blocked.length === 0, `город: от площади до дверей ${doors.length} построек${blocked.length ? ` — не дойти: ${blocked.join(', ')}` : ''}`);
   console.log(`  (${((Date.now() - t0) / 1000).toFixed(1)} с)`);
 }

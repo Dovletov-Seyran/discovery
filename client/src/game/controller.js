@@ -73,7 +73,9 @@ export class Controller {
       const offset=new Vector3(x,0,z);
       if(moving)offset.normalize().applyAxisAngle(UP,this.yaw).multiplyScalar(running?6:3);
       // Прыжок — пробел, только стоя на палубе или земле (onGround с прошлого кадра)
-      if(this.keys.has('Space')&&this.onGround&&document.pointerLockElement===this.canvas){this.velocityY=5.5;this.onGround=false;}
+      const wasGrounded=this.onGround;
+      let jumped=false;
+      if(this.keys.has('Space')&&this.onGround&&document.pointerLockElement===this.canvas){this.velocityY=5.5;this.onGround=false;jumped=true;}
       this.velocityY-=20*dt;
       const step=dt/4;
       let grounded=false;
@@ -86,7 +88,21 @@ export class Controller {
         const result=this.world.collide(capsule);
         this.position.set(capsule.start.x,capsule.start.y-capsule.radius,capsule.start.z);
         if(result?.onGround){grounded=true;this.velocityY=Math.max(0,this.velocityY);}
-        else if(result?.delta?.y<0)this.velocityY=Math.min(0,this.velocityY);
+        // удар головой — только толчок в основном вниз (потолок, край палубы над головой); прижавшись
+        // к жителю или стене, столкновение толкает вбок и чуть вниз, и раньше прыжок гас на первом кадре
+        else if(result?.delta&&result.delta.y<-1e-3&&-result.delta.y>Math.hypot(result.delta.x,result.delta.z))this.velocityY=Math.min(0,this.velocityY);
+      }
+      // Спуск по склону или ступеньке: без этого на бегу вниз игрок отрывается от земли
+      // и пробел не срабатывает. Опускаем капсулу на высоту шага и оставляем, только если она встала на опору;
+      // берём только высоту — боковой толчок от склона разгонял бы под гору.
+      if(!grounded&&wasGrounded&&!jumped&&this.velocityY<=0){
+        const capsule=this.capsule, snap=0.1+offset.length()*dt*1.5;
+        capsule.start.set(this.position.x,this.position.y-snap+capsule.radius,this.position.z);
+        capsule.end.set(this.position.x,this.position.y-snap+1.7-capsule.radius,this.position.z);
+        if(this.world.collide(capsule)?.onGround&&capsule.start.y-capsule.radius<=this.position.y+0.02){
+          this.position.y=capsule.start.y-capsule.radius;
+          grounded=true;this.velocityY=0;
+        }
       }
       this.onGround=grounded;
     }
