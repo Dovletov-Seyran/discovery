@@ -218,7 +218,7 @@ export function guitarist(mat, look) {
 // Two-bone reach: point the upper arm and the forearm so the hand lands on `target` (world), the elbow bending
 // towards `pole` (torso space). Arm bones hang along −y; upper arm 0.31 m, forearm to the hand 0.30 m.
 const DOWN = new THREE.Vector3(0, -1, 0), _S = new THREE.Vector3(), _T = new THREE.Vector3(), _E = new THREE.Vector3(), _P = new THREE.Vector3(), _q = new THREE.Quaternion();
-function reach(rig, arm, target, pole) {
+export function reach(rig, arm, target, pole) {
   const A = 0.31, B = 0.3;
   _S.copy(arm.ua.position);
   _T.copy(target); rig.torso.worldToLocal(_T);

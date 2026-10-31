@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { furlSails } from './ship.js';
 import { ISLAND_MODELS } from './islandModels.js';
-import { person, pose, NPC_LOOK } from './people.js';
+import { person, pose, reach, NPC_LOOK } from './people.js';
 import CUTSCENES from '../../../content/cutscenes.json';
 
 // 3D cutscenes (F1.8). The camera flies along CatmullRom curves through the key points of content/cutscenes.json
@@ -23,7 +23,7 @@ const track = (list, t) => {
 };
 const curve = (pts) => new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p)), false, 'centripetal');
 
-const SPLASH = 18;
+const SPLASH = 18, X = new THREE.Vector3(1, 0, 0);
 
 export class Cutscenes {
   constructor(world) {
@@ -146,38 +146,60 @@ export class Cutscenes {
     env.lampScale = env.lamps.map((_, i) => clamp01((t - l.from - i * l.step) / 0.35));
   }
 
-  // the landing party rows ashore and ties up where the game's boat waits (that one is hidden meanwhile)
+  // The rowboat: one oarsman on the middle thwart facing aft, a passenger in the stern. The oars swing on
+  // their oarlocks in a real stroke (catch → drive with the blades in the water → recovery in the air) and
+  // the oarsman's hands stay on the handles (people.reach), leaning into each pull.
+  // `entity` — the game's own boat, hidden while this one is about.
   rowboat(def, t) {
     const b = def.boat;
     if (!b) return;
     if (!this.boat) this.boat = this.buildRowboat();
     const u = clamp01((t - b.t[0]) / (b.t[1] - b.t[0])), k = u < 0.85 ? u / 0.85 * 0.92 : 0.92 + EASE.out((u - 0.85) / 0.15) * 0.08;
-    const g = this.boat.group, stroke = t * 2.6;
+    const { group: g, oars, rower } = this.boat, rowing = u < 0.97;
+    const ph = ((t - b.t[0]) * 0.8) % 1, drive = ph < 0.55, q = drive ? ph / 0.55 : (ph - 0.55) / 0.45;
+    // blade angle along the hull (−: towards the bow) and how far it dips
+    const alpha = rowing ? (drive ? -0.55 + 1.0 * EASE.inOut(q) : 0.45 - 1.0 * EASE.inOut(q)) : 0.05;
+    const dip = rowing ? (drive ? 0.33 : 0.33 - 0.2 * Math.sin(Math.PI * q)) : 0.08;
     g.visible = true;
-    g.position.set(b.from[0] + (b.to[0] - b.from[0]) * k, b.y + 0.04 * Math.sin(stroke), b.from[1] + (b.to[1] - b.from[1]) * k);
-    g.rotation.set(0.03 * Math.sin(stroke + 1), Math.atan2(b.from[0] - b.to[0], b.from[1] - b.to[1]), 0);
-    const pull = u < 0.95 ? Math.sin(stroke) : 0; // oars rest once alongside
-    for (const r of this.boat.rowers) {
-      r.torso.rotation.x = 0.28 * pull;
-      for (const { ua, fa } of r.arms) { ua.rotation.x = -1.15 + 0.45 * pull; fa.rotation.x = -0.35; }
+    g.position.set(b.from[0] + (b.to[0] - b.from[0]) * k, b.y + (rowing && drive ? 0.02 : -0.01), b.from[1] + (b.to[1] - b.from[1]) * k);
+    g.rotation.set(rowing ? 0.02 * Math.sin(ph * Math.PI * 2) : 0, Math.atan2(b.from[0] - b.to[0], b.from[1] - b.to[1]), 0);
+    g.updateMatrixWorld(true);
+    const lean = rowing ? (drive ? 0.35 - 0.5 * EASE.inOut(q) : -0.15 + 0.5 * EASE.inOut(q)) : 0.05;
+    rower.torso.rotation.set(lean, 0, 0);
+    for (const o of oars) {
+      const d = this.v.set(o.s * Math.cos(alpha) * Math.cos(dip), -Math.sin(dip), Math.sin(alpha) * Math.cos(dip));
+      o.pivot.quaternion.setFromUnitVectors(X, d);
+      const handle = g.localToWorld(d.multiplyScalar(-0.62).add(o.pivot.position));
+      reach(rower, rower.arms.find((a) => a.s === o.s), handle, o.pole);
     }
     if (b.entity) this.w.setEntityState(b.entity, { visible: false });
   }
 
   buildRowboat() {
-    const M = this.w.M, group = new THREE.Group(), rowers = [];
-    group.add(ISLAND_MODELS.boat(M).obj);
-    // two sailors on the thwarts, facing aft as rowers do (the model faces +z, the boat moves towards −z)
-    for (const [z, look] of [[-0.6, NPC_LOOK.sailor_1], [0.7, NPC_LOOK.sailor_2]]) {
-      const rig = person(M.person, look);
-      pose(rig, 'sit');
-      rig.root.position.set(0, -0.3, z);
-      group.add(rig.root);
-      rowers.push(rig);
-    }
+    const M = this.w.M, group = new THREE.Group(), model = ISLAND_MODELS.boat(M).obj;
+    model.children.slice(-2).forEach((o) => o.removeFromParent()); // the model's resting oars: ours move
+    group.add(model);
+    const oars = [-1, 1].map((s) => {
+      const pivot = new THREE.Group();
+      pivot.position.set(s * 0.8, 0.3, 0.05);
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 2.37, 6).rotateZ(Math.PI / 2).translate(0.565, 0, 0), M.get('wood'));
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.02, 0.13).translate(1.55, 0, 0), M.get('wood'));
+      pivot.add(shaft, blade);
+      group.add(pivot);
+      return { s, pivot, pole: new THREE.Vector3(s, -1, -0.3) };
+    });
+    // oarsman faces aft (+z, the model's own front) as rowers do; the boat moves towards −z
+    const rower = person(M.person, NPC_LOOK.sailor_1);
+    pose(rower, 'sit');
+    rower.root.position.set(0, -0.3, -0.5);
+    const passenger = person(M.person, NPC_LOOK.sailor_2);
+    pose(passenger, 'sit');
+    passenger.root.position.set(0, -0.3, 1.35);
+    passenger.root.rotation.y = Math.PI; // looks ahead, at the ship
+    group.add(rower.root, passenger.root);
     group.visible = false;
     this.w.scene.add(group);
-    return { group, rowers };
+    return { group, oars, rower };
   }
 
   // deterministic in t: every player sees the same drops
