@@ -30,6 +30,7 @@ export const HOLD_POSES={
  compass:{size:.34,rotation:[1.10,0,0],depth:.72},
  astrolabe:{size:.40,rotation:[1.40,0,0],depth:.78},
  map:{size:.68,rotation:[1.05,0,-.10],depth:.88},
+ rum:{size:.46,rotation:[.15,-.15,-.12],depth:.75},
  wine:{size:.40,rotation:[.75,0,-.15],depth:.72},
  espingarda:{size:1.05,rotation:[-.70,.12,-.12],depth:1.0},
  barrel:{size:.55,rotation:[.05,-.25,0],depth:.92},
@@ -44,7 +45,7 @@ export const HOLD_POSES={
 
 export class Equipment {
  constructor(world){
-  this.world=world;this.item=null;this.action=0;this.drunk=0;
+  this.world=world;this.item=null;this.action=0;this.drunkUntil=0;this.drunkStrength=0;this.flashUntil=0;
   // Independent view-model pass: no walls through the blade, no tiny dark prop in the distance.
   this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(60,1,.01,10);
   this.root=new THREE.Group();this.scene.add(this.root);
@@ -67,24 +68,35 @@ export class Equipment {
   this.object=new THREE.Group();this.object.add(model);
   this.heldModel=model;
   const grip=hand();if(['map','planks'].includes(id))grip.position.set(-.13,-.04,.04);
-  this.object.add(grip);this.root.add(this.object);
+  this.object.add(grip);
+  if(id==='espingarda'){
+   const material=new THREE.MeshBasicMaterial({color:0xffdd91,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false});material.userData.equipmentOwned=true;
+   this.flash=new THREE.Mesh(new THREE.ConeGeometry(.09,.24,7),material);this.flash.position.set(0,.84,0);this.flash.visible=false;this.object.add(this.flash);
+  }else this.flash=null;
+  this.root.add(this.object);
  }
- use(){if(this.action>0)return false;this.action=this.item==='sword' ? 0.58 : 0.9;return true;}
- drink(){this.drunk=10;}
+ use(){if(this.action>0)return false;this.action=this.item==='sword'?0.58:this.item==='espingarda'?0.35:0.9;return true;}
+ drink(until,strength=.35,serverNow=Date.now()){this.drunkUntil=Date.now()+Math.max(0,until-serverNow);this.drunkStrength=strength;}
+ fire(){this.flashUntil=Date.now()+120;}
  update(dt,time,visible){
   this.root.visible=visible&&!!this.object;
-  this.action=Math.max(0,this.action-dt);this.drunk=Math.max(0,this.drunk-dt);
+  this.action=Math.max(0,this.action-dt);
+  if(this.flash)this.flash.visible=Date.now()<this.flashUntil;
   this.camera.aspect=this.world.camera.aspect||1;this.camera.updateProjectionMatrix();
   const pose=HOLD_POSES[this.item]||{rotation:[0,0,0],depth:.8};
   const halfHeight=pose.depth*Math.tan(Math.PI/6),halfWidth=halfHeight*this.camera.aspect;
-  const sword=this.item==='sword',wave=this.action?Math.sin((1-this.action/(sword ? 0.58 : 0.9))*Math.PI):0;
+  const sword=this.item==='sword',wave=this.action?Math.sin((1-this.action/(sword ? 0.58 : this.item==='espingarda'?0.35:0.9))*Math.PI):0;
   this.root.position.set(Math.min(.38,halfWidth*.48),-halfHeight*(sword ? 0.82 : 0.70),-pose.depth);
   this.root.rotation.set(...pose.rotation);
   if(sword){this.root.rotation.z-=wave*1.45;this.root.rotation.x-=wave*.35;this.root.position.x-=wave*.30;}
-  else if(this.item==='wine'){this.root.position.x-=wave*.22;this.root.position.y+=wave*.26;this.root.rotation.x-=wave*.85;}
+  else if(this.item==='wine'||this.item==='rum'){this.root.position.x-=wave*.22;this.root.position.y+=wave*.26;this.root.rotation.x-=wave*.85;}
+  else if(['cheese','meat','biscuit','barrel_full'].includes(this.item)){this.root.position.x-=wave*.18;this.root.position.y+=wave*.22;}
+  else if(this.item==='espingarda'){this.root.position.z+=wave*.12;this.root.rotation.x-=wave*.12;}
   else this.root.position.y+=wave*.05;
   if(this.item==='compass'&&this.heldModel)this.heldModel.rotation.y=-this.world.camera.rotation.y;
-  this.world.camera.rotation.z=this.drunk?Math.sin(time*1.8)*.018*Math.min(1,this.drunk/3):0;
+  const left=Math.max(0,(this.drunkUntil-Date.now())/1000),sway=this.drunkStrength*Math.min(1,left/4);
+  this.world.camera.rotation.z=Math.sin(time*1.7)*.055*sway;
+
  }
  render(){
   const r=this.world.renderer;if(!this.root.visible||!r)return;

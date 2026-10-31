@@ -182,7 +182,10 @@ export function refreshParty(scene,party,departed=[]) {
     const items=(gone.inventory??[]).filter(item=>needed.has(item));
     const money=steps.some(step=>step.type==='trade_complete')?(gone.money??0):0;
     if(!items.length&&!money)continue;
-    for(const item of items){gone.inventory.splice(gone.inventory.indexOf(item),1);recipient.inventory.push(item);}
+    for(const item of items){
+      gone.inventory.splice(gone.inventory.indexOf(item),1);recipient.inventory.push(item);
+      if(gone.itemUses?.[item]!=null){recipient.itemUses??={};recipient.itemUses[item]=gone.itemUses[item];delete gone.itemUses[item];}
+    }
     gone.money=(gone.money??0)-money;recipient.money+=money;
     for(const id of entities.ownedItemIds(gone.id,items)){
       entities.setState(id,{holder:recipient.id});players.broadcast({t:S2C.ENTITY,id,state:entities.stateOf(id)});

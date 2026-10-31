@@ -45,6 +45,7 @@
     { "id": "astrolabe", "m": "astrolabe", "p": [-2.45, 2.67, 7.7], "r": 0.6, "kind": "item", "item": "astrolabe", "label": "Астролябия" },
     { "id": "sword", "m": "sword", "p": [-2.3, 2.5, 9.4], "r": 1.2, "kind": "item", "item": "sword", "label": "Меч" },
     { "id": "wine", "m": "wine", "p": [-2.05, 1.9, -6.65], "r": 0.5, "kind": "item", "item": "wine", "label": "Бурдюк вина" },
+    { "id": "rum", "m": "wine", "p": [-1.9, 2.5, 9.2], "r": 0.4, "kind": "item", "item": "rum", "label": "Бутылка рома" },
     { "id": "espingarda", "m": "espingarda", "p": [-3.35, 0, -1.4], "r": 1.5708, "kind": "item", "item": "espingarda", "label": "Эспингарда" },
     { "id": "lantern", "m": "lantern", "p": [0, 0, -4.6], "kind": "lantern", "label": "Фонарь" },
     { "id": "wine_barrel", "m": "barrel", "p": [-2.2, 0, -6.25], "kind": "wine_barrel", "label": "Бочка с вином" },

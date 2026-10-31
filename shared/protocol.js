@@ -35,6 +35,8 @@ export const S2C = {
   CHUNK: 'chunk',               // { zone, key, data }
   CHUNK_DENIED: 'chunk_denied', // { zone, key, reason }
   ENTITY: 'entity',             // { id, state }
+  VITALS: 'vitals',            // {stamina, drunkUntil, drunkStrength, serverNow}
+  ITEM_USED: 'item_used',       // {item,effect,cooldownUntil,serverNow,vitals,uses?,money}
   INVENTORY: 'inventory',       // { items: [...] }
   QUEST: 'quest',               // { id, status, progress, total }
   PARTY: 'party',               // { ready: {id: bool}, waitingFor: [{id, name, role}], skip: {votes, total} }

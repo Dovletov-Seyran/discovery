@@ -1,4 +1,6 @@
 import './ui/style.css';
+import {drawLocalMap,unlockItemAudio,playShot} from './ui/item-feedback.js';
+import {ITEM_RULES,freshVitals} from '../../shared/item-actions.js';
 import {sceneProgressView} from './ui/scene-progress.js';
 import {Equipment,itemPictures} from './game/equipment.js';
 import {itemIcon,ITEM_ACTIONS} from './ui/item-icons.js';
@@ -33,7 +35,8 @@ let screen='login', modal='', connected=false, chatOpen=false;
 let you={}, scene={id:'lobby',type:'lobby'}, players=[], inventory=[], quests={};
 let savedPosition, savedYaw=0, currentTarget, activeNpc;
 let noticeTimer, npcAudio, waitingForReply=false, frameCount=0, fpsAt=0, dialogueTimer;
-let sceneProgress=null,serverOffset=0;
+let sceneProgress=null,serverOffset=0,vitals=freshVitals(),itemUses={},money=0,pendingUnequip=null;
+const itemCooldowns=new Map();
 let scriptIndex=0,scriptLines=[],tradeState=null,partyReady={},serverBuild=null;
 const knownCards=new Set();
 const settings={quality:'high',sensitivity:2,voices:0.8};
@@ -53,7 +56,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
   equipment?.dispose();
   runtime?.dispose();
   world=nextWorld;
-  equipment=new Equipment(world);equipment.equip(equipped);
+  equipment=new Equipment(world);equipment.equip(equipped);applyVitals(vitals);
   try{pictures=itemPictures(world,Object.keys(ITEMS));}catch(error){console.warn("[items] thumbnails unavailable",error);}
   runtime=new GameplayRuntime(world,targetCanvas,{
     ...options,
@@ -79,7 +82,8 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
       if(runtime!==attachedRuntime)return;
       attachedRuntime.update(delta,time);
       equipment?.update(delta,time,screen==='game'&&!modal&&!chatOpen&&PLAY_SCENES.has(scene.id));
-      updateInstrument();
+      if(pendingUnequip&&equipment.action<=0){if(equipped===pendingUnequip)equipItem(null);pendingUnequip=null;}
+      updateInstrument();renderVitals();
       const hint=$('#control-hint');
       if(hint){
         hint.hidden=screen!=='game'||!!modal||chatOpen||!connected||!PLAY_SCENES.has(scene.id)||document.pointerLockElement===canvas;
@@ -158,6 +162,7 @@ function bindNetwork(client){
     if(serverBuild&&message.build&&message.build!=='dev'&&message.build!==serverBuild){location.reload();return;}
     serverBuild=message.build;
     you=message.you;inventory=message.state?.inventory||[];quests=message.state?.quests||{};
+    itemUses=message.state?.itemUses||{};money=message.state?.money||0;applyVitals(message.state?.vitals||freshVitals());
     savedPosition=message.state?.p;savedYaw=message.state?.r??0;
     inventory.forEach(item=>knownCards.add(itemId(item)));
     if(savedPosition)runtime?.teleport(savedPosition,savedYaw);
@@ -171,11 +176,14 @@ function bindNetwork(client){
   client.on('pos_correct',message=>{savedPosition=message.p;savedYaw=message.r??savedYaw;runtime?.teleport(savedPosition,savedYaw);gameEvents.emit('pos_correct',message);});
   client.on('inventory',message=>{
     const old=new Set(inventory.map(itemId));inventory=message.items||[];
-    if(equipped&&!inventory.some(item=>itemId(item)===equipped))equipItem(null);
+    itemUses=message.itemUses||{};money=message.money??money;if(message.vitals)applyVitals(message.vitals);
+    if(equipped&&!inventory.some(item=>itemId(item)===equipped)){if(equipment?.action>0)pendingUnequip=equipped;else equipItem(null);}
     updateInventoryCount();
     const added=inventory.find(item=>!old.has(itemId(item)));
     if(added&&!modal&&!knownCards.has(itemId(added))){knownCards.add(itemId(added));openKnowledge(itemId(added));}else if(modal==='inventory')openInventory();
   });
+  client.on('vitals',message=>applyVitals(message,message.serverNow));
+  client.on('item_used',receiveItemUse);
   client.on('quest',message=>{quests[message.id]=message;renderQuest();if(modal==='journal')openJournal();});
   client.on('party',message=>{
     $('#party').textContent=message.waitingFor?.length?`Ждём: ${message.waitingFor.map(player=>player.name).join(', ')}`:'';
@@ -281,11 +289,11 @@ function openKnowledge(id){
   showModal('knowledge',`<section class="menu-panel knowledge">${closeButton()}<span class="overline">ПРЕДМЕТ ПОЛУЧЕН</span><h2>${escape(data.name)}</h2>${data.text?`<p>${escape(data.text)}</p>`:''}<button class="primary" data-close>Продолжить</button></section>`);
 }
 function picture(id){return pictures[id]||itemIcon(id);}
-function equipItem(id){equipped=id;equipment?.equip(id);renderEquipment();}
+function equipItem(id){pendingUnequip=null;equipped=id;equipment?.equip(id);renderEquipment();}
 function renderEquipment(){
   const hud=$('#equipment');if(!hud)return;
   hud.hidden=!equipped||!PLAY_SCENES.has(scene.id);
-  hud.innerHTML=equipped?`<img src="${picture(equipped)}" alt=""><span>${escape(ITEMS[equipped]?.name||equipped)}<small>${escape(ITEM_ACTIONS[equipped]||'В руке')} · ЛКМ</small></span><output id="instrument"></output>`:'';
+  hud.innerHTML=equipped?`<img src="${picture(equipped)}" alt=""><span>${escape(ITEMS[equipped]?.name||equipped)}<small>${escape(ITEM_ACTIONS[equipped]||'В руке')} · ЛКМ${itemUses[equipped]!=null?` · ${itemUses[equipped]} ост.`:''}</small></span><output id="instrument"></output>`:'';
 }
 function updateInstrument(){
   const output=$('#instrument');if(!output||!runtime)return;
@@ -293,7 +301,8 @@ function updateInstrument(){
     const degrees=(( -runtime.controller.yaw*180/Math.PI)%360+360)%360;
     const heading=['С','СВ','В','ЮВ','Ю','ЮЗ','З','СЗ'][Math.round(degrees/45)%8];
     output.textContent=`${heading} ${Math.round(degrees)%360}°`;
-  } else if(equipped==='astrolabe')output.textContent=`${Math.round(Math.max(0,runtime.controller.pitch)*180/Math.PI)}°`;
+  } else if(equipped==='espingarda'){const left=Math.max(0,Math.ceil(((itemCooldowns.get(equipped)||0)-Date.now())/1000));output.textContent=left?`${left} с`:'Готово';}
+  else if(equipped==='astrolabe')output.textContent=`${Math.round(Math.max(0,runtime.controller.pitch)*180/Math.PI)}°`;
 }
 function openInventory(){
   const ids=inventory.map(itemId);
@@ -313,15 +322,42 @@ function openJournal(){
     return `<article class="journal-quest"><h3>${escape(q.title)} <small>${q.status==='done'?'Выполнено':q.shared?'Общее':q.optional?'Необязательно':''}</small></h3><ol>${(def?.steps||[{text:q.text}]).map((step,i)=>`<li class="${i<progress?'done':i===progress?'current':''}">${escape(step.text||'Задание')}${i===progress&&q.need?` <small>${q.count||0}/${q.need}</small>`:''}</li>`).join('')}</ol></article>`;
   }).join(''):'<p>В этой сцене заданий нет.</p>'}<small>J — закрыть</small></section>`);
 }
+function applyVitals(next,serverNow=Date.now()+serverOffset){
+  vitals={...vitals,...next};
+  if(runtime)runtime.controller.stamina=vitals.stamina;
+  equipment?.drink(vitals.drunkUntil,vitals.drunkStrength,serverNow);
+  renderVitals();
+}
+function renderVitals(){
+  const el=$('#vitals');if(!el)return;
+  const energy=Math.round(runtime?.controller.stamina??vitals.stamina),left=Math.max(0,Math.ceil((vitals.drunkUntil-Date.now()-serverOffset)/1000));
+  el.hidden=energy>=99&&!left;
+  const html=`<span>Силы <progress max="100" value="${energy}" aria-label="Запас сил"></progress> ${energy}</span>${left?`<span>Опьянение ${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}</span>`:''}`;
+  if(el.innerHTML!==html)el.innerHTML=html;
+}
+function receiveItemUse(message){
+  const left=Math.max(0,message.cooldownUntil-message.serverNow);itemCooldowns.set(message.item,Date.now()+left);
+  if(message.vitals)applyVitals(message.vitals,message.serverNow);
+  if(equipped===message.item)equipment?.use();
+  if(message.effect==='drink')notify(message.item==='rum'?'Глоток рома.':'Глоток вина.');
+  if(message.effect==='food')notify(`Запас сил: ${Math.round(vitals.stamina)} / 100`);
+  if(message.effect==='water')notify('Глоток воды.');
+  if(message.effect==='shot'){equipment?.fire();playShot();notify('Выстрел · перезарядка 2,5 с');}
+  if(message.effect==='map')openMap();
+  if(message.effect==='astrolabe')openAstrolabe();
+  if(message.effect==='compass')notify('Север — 0°. Курс указан на приборе.');
+  if(message.effect==='wallet')showModal('wallet',`<section class="menu-panel">${closeButton()}<h2>Кошель</h2><p>${message.money} мараведи</p><small>Припасы можно купить у торговца на Канарах.</small></section>`);
+}
+function openMap(){
+  const position=runtime?.controller.position.toArray()||savedPosition||[0,0,0],yaw=runtime?.controller.yaw||0;
+  showModal('map',`<section class="menu-panel map-panel">${closeButton()}<h2>Морская карта</h2><canvas id="local-map" width="540" height="380" aria-label="Карта загруженных окрестностей"></canvas><small>Координаты: ${position[0].toFixed(0)}, ${position[2].toFixed(0)} · север наверху</small></section>`);
+  drawLocalMap($('#local-map'),world,position,yaw,scene.zone);
+}
 function useEquipped(){
-  if(!equipped||!connected||modal||chatOpen||!PLAY_SCENES.has(scene.id))return;
-  if(equipment&&!equipment.use())return;
-  if(equipped==='astrolabe'){net.send('use',{item:equipped});openAstrolabe();return;}
-  if(equipped==='map'){net.send('use',{item:equipped});openKnowledge('map');return;}
-  if(!net.send('use',{item:equipped}))return;
-  if(equipped==='wine'){equipment?.drink();notify('Глоток за команду.');}
-  else if(equipped==='compass')notify('Север — 0°. Стрелка сохраняет направление.');
-  else if(ITEM_ACTIONS[equipped]&&!['sword','espingarda'].includes(equipped))notify(ITEM_ACTIONS[equipped]);
+  if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!PLAY_SCENES.has(scene.id)||sceneProgress?.phase==='departing')return;
+  if((itemCooldowns.get(equipped)||0)>Date.now())return;
+  const target=ITEM_RULES[equipped]?.target===currentTarget?.id?currentTarget.id:undefined;
+  net.send('use',{item:equipped,...(target?{target}:{})});
 }
 function openAstrolabe(){
   showModal('astrolabe',`<section class="menu-panel astrolabe-panel">${closeButton()}<h2>Астролябия</h2><div class="astrolabe-dial"><div id="alidade"></div><output id="angle-output">45°</output></div><label for="angle-input">Высота Солнца</label><input id="angle-input" type="range" min="0" max="90" value="45"><p id="alignment">Совместите с Солнцем: 73° ± 2°.</p><div id="latitude-question" hidden><p>Широта = 90° − 73° + 16°</p><div class="answers">${[17,33,49].map(value=>`<button data-answer="${value}" class="option-button">${value}°</button>`).join('')}</div></div><p id="answer-feedback" role="status"></p></section>`);
@@ -415,7 +451,7 @@ function openMenu(){
   $('#leave').onclick=logout;
 }
 function closeChat(){chatOpen=false;$('#chat-form').hidden=true;syncInput();}
-function logout(){sceneProgress=null;renderSceneProgress();closeModal();equipItem(null);narrative.stop();gameEvents.emit('logout',{});knownCards.clear();net?.disconnect();connected=false;scene={id:'lobby'};savedPosition=null;localStorage.removeItem('discovery.token');closeModal();closeChat();$('#chat-log').innerHTML='';$('#party').textContent='';login();}
+function logout(){vitals=freshVitals();itemUses={};money=0;itemCooldowns.clear();sceneProgress=null;renderSceneProgress();closeModal();equipItem(null);narrative.stop();gameEvents.emit('logout',{});knownCards.clear();net?.disconnect();connected=false;scene={id:'lobby'};savedPosition=null;localStorage.removeItem('discovery.token');closeModal();closeChat();$('#chat-log').innerHTML='';$('#party').textContent='';login();}
 function interact(){
   if(!currentTarget||modal||!connected)return;
   if(sceneProgress?.phase==='departing'){notify('Готовимся к переходу.');return;}
@@ -451,7 +487,7 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
   if(type==='astrolabe')openAstrolabe();
   if(type==='quest')net.emit('quest',{id:'q_astrolabe',title:'Определить широту',step:'Измерьте высоту Солнца.',status:'active',progress:0,total:1});
 });
-canvas.addEventListener('click',()=>{if(screen==='game'&&!modal&&!chatOpen&&connected){if(runtime?.controller.hasControl)useEquipped();runtime?.controller.lock();}});
+canvas.addEventListener('click',()=>{unlockItemAudio();if(screen==='game'&&!modal&&!chatOpen&&connected){if(runtime?.controller.hasControl)useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);

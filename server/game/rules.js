@@ -1,5 +1,7 @@
 // Действия игрока в мире: подбор, взаимодействие, передача предметов, мини-игры, торговля, «Бу!», разговор с NPC.
 // Сервер решает всё сам; клиент присылает только намерения.
+import {applyItemUse,advanceStamina} from './item-actions.js';
+import {ITEM_RULES} from '../../shared/item-actions.js';
 import { CONFIG } from '../../shared/config.js';
 import { S2C } from '../../shared/protocol.js';
 import { loadContent } from '../content.js';
@@ -44,6 +46,7 @@ function removeItem(p, item) {
   const i = p.inventory.indexOf(item);
   if (i < 0) return false;
   p.inventory.splice(i, 1);
+  if(!p.inventory.includes(item)&&p.itemUses)delete p.itemUses[item];
   return true;
 }
 
@@ -77,14 +80,26 @@ function deliver(p, item, target) {
 }
 
 export function use(p, msg) {
-  const item = msg.item;
-  if (!playable() || typeof item !== 'string' || !p.inventory.includes(item)) return;
-  if (msg.target) {
-    if (!deliver(p, item, msg.target)) notice(p, 'Это здесь не нужно');
-    return;
+  const item=msg.item,rule=ITEM_RULES[item];
+  if(!playable()||typeof item!=='string'||!p.inventory.includes(item))return;
+  if(msg.target){
+    if(rule?.target!==msg.target)return notice(p,'Этот предмет здесь не нужен.');
+    if(!entities.isNear(p,msg.target))return notice(p,'Подойди ближе.');
+    return interact(p,{id:msg.target});
   }
-  if (item === 'wine') event(p, { type: 'interact', target: 'wine_barrel' }); // глоток из бурдюка = выпить с командой
-  event(p, { type: 'use', item });
+  const result=applyItemUse(p,item);
+  if(result.error)return notice(p,result.error);
+  players.send(p,{t:S2C.ITEM_USED,...result});
+  players.sendInventory(p);players.save(p,{now:true});
+  if(item==='wine'||item==='rum')event(p,{type:'interact',target:'wine_barrel'});
+  event(p,{type:'use',item});
+}
+export function tickVitals(now=Date.now()){
+  for(const p of players.connected()){
+    const before=JSON.stringify(p.vitals);
+    advanceStamina(p,(now-(p.lastVitalsAt??now))/1000,now);p.lastVitalsAt=now;
+    if(JSON.stringify(p.vitals)!==before){players.send(p,{t:S2C.VITALS,...p.vitals,serverNow:now});players.save(p);}
+  }
 }
 
 // --- Взаимодействие (E) ---
@@ -110,6 +125,7 @@ export function interact(p, msg) {
     case 'well':
       if (!p.inventory.includes('barrel')) return notice(p, 'Нужен пустой бочонок');
       p.inventory[p.inventory.indexOf('barrel')] = 'barrel_full';
+      p.itemUses??={};p.itemUses.barrel_full=3;
       players.sendInventory(p);
       players.save(p, { now: true });
       break;
@@ -236,7 +252,7 @@ function tradeState(p, npc) {
     t: S2C.TRADE_STATE, npc, money: p.money,
     goods: goods.map((g) => {
       const t = p.trade[`${npc}:${g.item}`];
-      return { item: g.item, price: t?.price ?? g.basePrice, sold: !!t?.sold };
+      return { item: g.item, price: t?.price ?? g.basePrice, sold: !!t?.sold||p.inventory.includes(g.item) };
     }),
   };
 }
@@ -255,8 +271,13 @@ export async function trade(p, msg) {
   p.lastTradeAt = now;
 
   const t = (p.trade[`${npc}:${good.item}`] ??= { price: good.basePrice, low: 0, sold: false });
-  if (t.sold) return replyError(p,npc,requestTags(msg),'Это уже куплено');
+  if (t.sold||p.inventory.includes(good.item)) return replyError(p,npc,requestTags(msg),'Это уже куплено');
 
+  const task=quests.stateOf(p,sceneId(),'q_trade');
+  if(task&&task.status!=='done'&&offer>=good.minPrice&&offer<=p.money){
+    const reserve=NPCS.get(npc).goods.filter(g=>g.item!==good.item&&!p.inventory.includes(g.item)&&!p.trade[`${npc}:${g.item}`]?.sold).reduce((sum,g)=>sum+g.minPrice,0);
+    if(p.money-offer<reserve)return replyError(p,npc,requestTags(msg),`Оставь деньги на остальные припасы. За этот товар — не больше ${p.money-reserve} м.`);
+  }
   let outcome;
   if (offer > p.money) {
     outcome = 'no_money';

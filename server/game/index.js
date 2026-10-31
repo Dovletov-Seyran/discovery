@@ -62,7 +62,7 @@ export function join(session, ws) {
     you: players.publicInfo(p),
     state: {
       role: p.role, scene: scene.id, zone: p.zone, p: p.p, r: p.r,
-      inventory: p.inventory, money: p.money, quests: p.quests, log: p.log,
+      inventory: p.inventory, money: p.money,itemUses:p.itemUses,vitals:p.vitals, quests: p.quests, log: p.log,
     },
     world: worldMeta(),
     scene: director.sceneMessage(p),
@@ -193,7 +193,7 @@ function devCommand(p, text) {
       resetProgress();
       for (const x of players.all()) {
         if (!x.connected) { players.remove(x.id); continue; } // без ожидания grace
-        x.inventory = []; x.money = 0; x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
+        x.inventory = []; x.money = 0;x.itemUses={};x.vitals={stamina:100,drunkUntil:0,drunkStrength:0}; x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
         players.sendInventory(x);
       }
       director.resetToStart();
@@ -241,6 +241,7 @@ export function start() {
     setInterval(() => director.tick(), 250),
     setInterval(() => director.broadcastTod(), CONFIG.TOD_INTERVAL_MS),
     setInterval(() => players.saveAll(), CONFIG.SAVE_INTERVAL_MS),
+    setInterval(()=>rules.tickVitals(),1000),
     setInterval(() => {
       const gone = players.expire();
       if (gone.length) {

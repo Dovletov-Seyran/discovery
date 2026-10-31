@@ -150,3 +150,12 @@ test('restart recovers an astrolabe held by an account absent from this scene pa
 test('two immediate restarts of the same scene have different request/transition keys',()=>{
  director.setScene('ship_day');const first=director.startAt();director.setScene('ship_day');assert.ok(director.startAt()>first);
 });
+test('provision purchases reserve enough money for the rest and cannot be bought twice after reconnect',async()=>{
+ director.setScene('canary');entities.reset();p.role='lengua';p.inventory=[];p.quests={};p.money=100;p.trade={};p.npcRequest=null;
+ quests.onSceneStart(director.scene(),[p]);approach('trader');
+ p.lastTradeAt=0;await rules.trade(p,{npc:'trader',item:'cheese',offer:40});assert.equal(p.money,60);
+ p.lastTradeAt=0;await rules.trade(p,{npc:'trader',item:'meat',offer:40});assert.equal(p.money,60);assert.ok(!p.inventory.includes('meat'));
+ p.lastTradeAt=0;await rules.trade(p,{npc:'trader',item:'meat',offer:35});assert.equal(p.money,25);
+ p.lastTradeAt=0;await rules.trade(p,{npc:'trader',item:'biscuit',offer:25});assert.equal(p.money,0);assert.equal(p.quests.q_trade.status,'done');
+ p.trade={};p.money=100;p.lastTradeAt=0;await rules.trade(p,{npc:'trader',item:'cheese',offer:30});assert.equal(p.money,100);assert.equal(p.inventory.filter(i=>i==='cheese').length,1);
+});

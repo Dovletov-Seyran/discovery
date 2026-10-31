@@ -16,14 +16,14 @@ export const NPC_LOOK = {
   boatswain: { shirt: 0xcfc2a5, vest: 0x5a3a22, pants: 0x3e4a5c, hatColor: 0x7a2a20, hair: 0x2a1f16 },
   cook: { shirt: 0xe8e0cc, pants: 0x5b4f40, hat: 'none', hair: 0x1f1810, vest: 0x8a7a5e },
   storyteller: { shirt: 0xb8ab90, vest: 0x4a3a2a, pants: 0x4a4038, hatColor: 0x6a2a22, hair: 0xd0ccc4, skin: 0xc08a68 },
-  sailor_1: { shirt: 0xd9cdb3, pants: 0x5f5444, hatColor: 0xa02a22 },
-  sailor_2: { shirt: 0xe0d5bd, pants: 0x6f6150, hatColor: 0xb3332a },
+  sailor_1: { shirt: 0xd9cdb3, pants: 0x354638, hatColor: 0xa02a22 },
+  sailor_2: { shirt: 0xe0d5bd, pants: 0x354257, hatColor: 0xb3332a },
   sailor_3: { shirt: 0xc9bfa8, pants: 0x4a5560, hatColor: 0x8a2a24, skin: 0xb88660 },
   // La Gomera
   trader: { shirt: 0x8a5a2c, sleeves: 0xd8ccb2, vest: 0x5a3a1e, pants: 0x3a3028, hat: 'brim', hatColor: 0x3a2a1a, hair: 0x2a1f16, skin: 0xc68a62 },
-  carpenter: { shirt: 0xcfc0a0, pants: 0x5a4a38, vest: 0x8a6a44, hat: 'none', hair: 0x6a5038, skin: 0xc08060 },
+  carpenter: { shirt: 0xcfc0a0, pants: 0x3d4648, vest: 0x8a6a44, hat: 'none', hair: 0x6a5038, skin: 0xc08060 },
   beatriz: { shirt: 0x5a1e2e, sleeves: 0x5a1e2e, pants: 0x3a1420, skirt: 0x6a2236, hat: 'none', hair: 0x2a160e, skin: 0xe2b494 },
-  town_1: { shirt: 0xc8b48c, pants: 0x6a5a44, hat: 'brim', hatColor: 0x8a7650, skin: 0xb07a52 },
+  town_1: { shirt: 0xc8b48c, pants: 0x364653, hat: 'brim', hatColor: 0x8a7650, skin: 0xb07a52 },
   town_2: { shirt: 0xe4dccb, sleeves: 0xe4dccb, skirt: 0x3f5a6e, pants: 0x3f5a6e, hat: 'none', hair: 0x1c140e, skin: 0xc48a64 },
   town_3: { shirt: 0x9a8a70, pants: 0x4a4038, hat: 'none', hair: 0xd8d4cc, skin: 0xb88466 },
 };
@@ -55,11 +55,16 @@ export function person(mat, look) {
   };
   const root = new THREE.Group();
   const hip = new THREE.Group(); hip.position.y = 0.95; root.add(hip);
+  const pelvis=new THREE.SphereGeometry(.19,seg,8);pelvis.scale(1,.65,.75);
+  const trousers=part(pelvis,pants,hip,0,-.03,0);trousers.userData.clothing='trousers';
   const legs = [];
   for (const s of [-1, 1]) {
-    const th = limb(0.4, 0.08, pants, hip); th.position.x = s * 0.1;
-    const sh = limb(0.4, 0.066, pants, th); sh.position.y = -0.46;
-    part(new THREE.BoxGeometry(0.1, 0.07, 0.22), 0x2a1d14, sh, 0, -0.47, 0.04);
+    const th = limb(0.4, 0.105, pants, hip); th.position.x = s * 0.1;
+    const sh = limb(0.4, 0.080, pants, th); sh.position.y = -0.46;
+    th.children[0].userData.clothing='trousers';sh.children[0].userData.clothing='trousers';
+    const seam=new THREE.BoxGeometry(.005,.34,.008);part(seam,new THREE.Color(pants).multiplyScalar(.65).getHex(),sh,s*.069,-.20,.035);
+    part(new THREE.CylinderGeometry(.083,.085,.19,seg),0x30251e,sh,0,-.35,0);
+    part(new THREE.BoxGeometry(.15,.08,.25),0x2a1d14,sh,0,-.47,.04);
     legs.push({ th, sh });
   }
   const torso = new THREE.Group(); hip.add(torso);
