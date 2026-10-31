@@ -230,6 +230,7 @@ export class Environment {
     this.root.rotation.set(-pitch, 0, -roll);
     this.root.position.y = -0.12 * a * Math.sin(T * Math.PI * 2 / 6.1);
     for (const f of this.fleet) {
+      if (!f.visible) continue; // the Santa María copy exists only for the view from the island
       const ph = f.userData.phase;
       f.rotation.z = THREE.MathUtils.degToRad(1.6) * bob * Math.sin(T * 0.9 + ph);
       f.rotation.x = THREE.MathUtils.degToRad(0.6) * bob * Math.sin(T * 0.67 + ph);
