@@ -11,7 +11,7 @@
     { "id": "dance_circle", "m": "none", "p": [0, 1.6, 2], "r": 0 }
   ],
   "interact": [
-    { "id": "hourglass", "m": "hourglass", "p": [1.2, 3.2, -9], "kind": "hourglass", "label": "Песочные часы" },
+    { "id": "hourglass", "m": "hourglass", "p": [1.2, 3.2, -9], "kind": "hourglass", "label": "Песочные часы", "period": 120, "demoPeriod": 60 },
     { "id": "compass", "m": "compass", "p": [0.4, 3.2, -11], "kind": "item", "item": "compass", "label": "Компас" },
     { "id": "astrolabe", "m": "chest", "p": [-1.5, 3.2, -9.5], "kind": "item", "item": "astrolabe", "label": "Сундук штурмана" },
     { "id": "map", "m": "map_table", "p": [1.5, 3.2, -10.5], "kind": "item", "item": "map", "label": "Морская карта" },

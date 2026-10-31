@@ -5,6 +5,7 @@ import { loadContent } from '../content.js';
 import { loadGameState, saveGameState } from '../db.js';
 import { players } from './players.js';
 import * as ai from './ai-bridge.js';
+import * as entities from './entities.js';
 
 const scenes = new Map(loadContent('scenes.json', []).map((s) => [s.id, s]));
 const FIRST = 'lobby';
@@ -15,20 +16,23 @@ const state = {
   startAt: 0,
   zone: 'ship',
   tod: 0.4,
-  entities: {},
   transitioning: false,
   skip: new Set(),
 };
 
-// Задания подключит движок заданий (B1.10)
-let questHooks = { isSceneComplete: () => false, forceComplete: () => {} };
-export const setQuestHooks = (h) => { questHooks = { ...questHooks, ...h }; };
+// Правила и задания подключает game/index.js (чтобы не было циклических импортов)
+let hooks = {
+  onSceneStart: () => {},                // (scene, party)
+  isSceneComplete: () => false,          // (scene, party)
+  forceComplete: () => {},               // (scene, party)
+  playerDone: () => false,               // (player, sceneId)
+};
+export const setHooks = (h) => { hooks = { ...hooks, ...h }; };
 
 export const scene = () => scenes.get(state.id) ?? { id: state.id, type: 'end' };
 export const getScene = (id) => scenes.get(id);
 export const zone = () => state.zone;
 export const startAt = () => state.startAt;
-export const entities = () => state.entities;
 
 const sceneType = () => scene().type;
 export const acceptsMove = () => sceneType() === 'play';
@@ -67,7 +71,7 @@ export function sceneMessage(p, { withSpawn = false } = {}) {
 }
 
 function persist() {
-  saveGameState({ scene: state.id, startAt: state.startAt, entities: state.entities });
+  saveGameState({ scene: state.id, startAt: state.startAt, entities: entities.snapshot() });
 }
 
 export function init() {
@@ -75,7 +79,7 @@ export function init() {
   if (saved && scenes.has(saved.scene)) {
     state.id = saved.scene;
     state.startAt = saved.startAt ?? Date.now();
-    state.entities = saved.entities ?? {};
+    entities.load(saved.entities);
     console.log(`[director] продолжаем со сцены ${state.id}`);
   } else {
     state.id = FIRST;
@@ -119,6 +123,7 @@ export function setScene(id) {
     players.send(p, sceneMessage(p, { withSpawn: true }));
   });
 
+  hooks.onSceneStart(s, party);
   persist();
   console.log(`[director] сцена ${id}`);
   broadcastParty();
@@ -129,10 +134,10 @@ export function setScene(id) {
 // Переход дальше: onComplete → next
 async function complete(s, { forced }) {
   state.transitioning = true;
-  if (forced) questHooks.forceComplete(s);
+  if (forced) hooks.forceComplete(s, players.party());
   for (const action of s.onComplete ?? []) {
     if (state.id !== s.id) return; // сцену сменили вручную (/scene)
-    if (action.say) players.broadcast({ t: S2C.NPC_SAY, hints: [], ...ai.playLine(action.say) });
+    if (action.say) players.broadcast({ t: S2C.NPC_SAY, line: action.say, hints: [], ...ai.playLine(action.say) });
     if (action.notice) players.broadcast({ t: S2C.NOTICE, text: action.notice });
     if (action.wait) await new Promise((r) => setTimeout(r, action.wait));
   }
@@ -146,6 +151,7 @@ function allReady(party, s) {
 
 // Вызывается часто (раз в 250 мс)
 export function tick(now = Date.now()) {
+  if (entities.takeDirty()) persist();
   const s = scene();
   if (state.transitioning || !s.next || now < state.startAt) return;
   const party = players.party();
@@ -156,8 +162,8 @@ export function tick(now = Date.now()) {
   let done = false;
   switch (s.advance ?? 'timer') {
     case 'all_ready': done = allReady(party, s); break;
-    case 'quests': done = questHooks.isSceneComplete(s); break;
-    case 'quests_and_ready': done = questHooks.isSceneComplete(s) && allReady(party, s); break;
+    case 'quests': done = hooks.isSceneComplete(s, party); break;
+    case 'quests_and_ready': done = hooks.isSceneComplete(s, party) && allReady(party, s); break;
     case 'timer': done = timeUp; break;
     case 'timer_or_skip': done = timeUp || party.every((p) => state.skip.has(p.id)); break;
   }
@@ -175,11 +181,16 @@ export function broadcastTod() {
 export function partyMessage() {
   const party = players.party();
   const ready = {};
-  for (const p of party) ready[p.id] = p.ready;
+  const done = {}; // свои обязательные задания сцены выполнены
+  for (const p of party) {
+    ready[p.id] = p.ready;
+    done[p.id] = hooks.playerDone(p, state.id);
+  }
   return {
     t: S2C.PARTY,
     scene: state.id,
     ready,
+    done,
     waitingFor: party.filter((p) => !p.ready).map((p) => ({ ...players.publicInfo(p), connected: p.connected })),
     skip: { votes: party.filter((p) => state.skip.has(p.id)).length, total: party.length },
   };
@@ -270,6 +281,6 @@ export function seatOnJoin(p) {
 }
 
 export function resetToStart() {
-  state.entities = {};
+  entities.reset();
   setScene(FIRST);
 }

@@ -1,6 +1,7 @@
 // Игроки в памяти: Map<userId, player>. Отключённый игрок остаётся в партии DISCONNECT_GRACE_MS.
 import { WebSocket } from 'ws';
 import { CONFIG } from '../../shared/config.js';
+import { S2C } from '../../shared/protocol.js';
 import { loadPlayer, savePlayer } from '../db.js';
 
 const map = new Map();
@@ -19,20 +20,24 @@ function create(userId, name) {
     r: saved?.r ?? 0,
     a: 'idle',
     inventory: saved?.inventory ?? [],
+    money: saved?.money ?? 0,
     quests: saved?.quests ?? {},
     log: saved?.log ?? [],
+    trade: {},           // торговля: item → { price, low } (только в памяти)
     ready: false,
     seat: null,
     lastMoveAt: 0,
     lastCorrectAt: 0,
     lastNpcTalkAt: 0,
+    lastTradeAt: 0,
+    lastScareAt: 0,
   };
   map.set(userId, p);
   return p;
 }
 
 const serialize = (p) => ({
-  role: p.role, zone: p.zone, p: p.p, r: p.r, inventory: p.inventory, quests: p.quests, log: p.log,
+  role: p.role, zone: p.zone, p: p.p, r: p.r, inventory: p.inventory, money: p.money, quests: p.quests, log: p.log,
 });
 
 export const players = {
@@ -51,6 +56,12 @@ export const players = {
   },
 
   publicInfo: (p) => ({ id: p.id, name: p.name, role: p.role }),
+
+  sendInventory(p) { players.send(p, { t: S2C.INVENTORY, items: p.inventory, money: p.money }); },
+
+  addLog(p, code) {
+    if (code && !p.log.includes(code)) p.log.push(code);
+  },
 
   send(p, msg) {
     if (p.ws?.readyState === WebSocket.OPEN) p.ws.send(typeof msg === 'string' ? msg : JSON.stringify(msg));

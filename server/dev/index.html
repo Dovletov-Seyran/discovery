@@ -26,6 +26,9 @@
   #log div { white-space: pre-wrap; word-break: break-word; border-bottom: 1px solid #2a231b; padding: 2px 0; }
   #log .out { color: #8fb3d9; } #log .err { color: var(--red); } #log .npc { color: var(--gold); }
   .hidden { display: none !important; }
+  #quests div { padding: 3px 0; border-bottom: 1px solid #2a231b; }
+  #quests .done { color: var(--muted); text-decoration: line-through; }
+  #quests small { color: var(--muted); display: block; }
   @media (max-width: 800px) {
     body { flex-direction: column; height: auto; min-height: 100vh; }
     #map-wrap { height: 60vh; flex: none; }
@@ -57,6 +60,13 @@
     <div class="row"><input id="chat" placeholder="/scene ship_day, /scene canary, /reset, /give map"><button id="btn-chat">→</button></div>
     <h3>Разговор с NPC</h3>
     <div class="row"><select id="npc"><option>columbus</option><option>storyteller</option><option>trader</option></select><input id="npc-text" placeholder="Куда мы плывём?"><button id="btn-npc">→</button></div>
+    <div class="row" id="hints" style="margin-top:6px"></div>
+    <h3>Торговля, мини-игры, «Бу!»</h3>
+    <div class="row" id="trade-row"><select id="trade-item"><option value="cheese">Сыр</option><option value="meat">Солонина</option><option value="biscuit">Сухари</option></select><button data-offer="20">20</button><button data-offer="25">25</button><button data-offer="30">30</button><button data-offer="35">35</button></div>
+    <div class="row" style="margin-top:6px"><button id="btn-astro">Астролябия: 33°</button><button id="btn-cards">Карты</button><button id="btn-scare">Б — Бу!</button></div>
+    <h3>Инвентарь и задания</h3>
+    <div id="inv" class="muted"></div>
+    <div id="quests"></div>
   </div>
   <h3>Сообщения</h3>
   <div id="log"></div>
@@ -78,6 +88,7 @@ const S = {
   denied: 0, bytes: 0,
   keys: new Set(), scale: 2, lobby: [], party: null, tod: null,
   lastSent: '', counters: {},
+  inventory: [], money: 0, quests: new Map(), hints: [], trade: null,
 };
 
 // --- Журнал ---
@@ -135,6 +146,7 @@ function setScene(sc) {
     S.pending.clear();
     for (const o of S.others.values()) delete o.p; // их позиции придут в snapshot новой зоны
     S.zone = sc.zone;
+    S.scale = sc.zone === 'ship' ? 18 : 2;
   }
   if (sc.spawn) S.pos = [...sc.spawn];
   if (sc.seat) S.pos = [...sc.seat];
@@ -148,6 +160,8 @@ function handle(m) {
     case S2C.AUTH_OK:
       S.me = m.you; S.role = m.you.role; S.world = m.world;
       S.pos = m.state.p ?? S.pos; S.r = m.state.r ?? 0; S.zone = m.state.zone;
+      S.inventory = m.state.inventory ?? []; S.money = m.state.money ?? 0;
+      S.scale = S.zone === 'ship' ? 18 : 2;
       setScene(m.scene);
       $('login-box').classList.add('hidden'); $('game-box').classList.remove('hidden');
       canvas.focus();
@@ -166,6 +180,13 @@ function handle(m) {
       for (const p of m.players) S.others.set(p.id, { ...S.others.get(p.id), ...p, seenAt: performance.now() });
       break;
     case S2C.POS_CORRECT: S.pos = m.p; break;
+    case S2C.INVENTORY: S.inventory = m.items; S.money = m.money ?? 0; break;
+    case S2C.QUEST: S.quests.set(m.id, m); break;
+    case S2C.NPC_SAY: S.hints = (m.hints ?? []).map((h) => ({ ...h, npc: m.npc })); break;
+    case S2C.TRADE_STATE: S.trade = m; break;
+    case S2C.ENTITY:
+      for (const c of S.chunks.values()) for (const o of c.data.interact) if (o.id === m.id) o.state = m.state;
+      break;
     case S2C.CHUNK: {
       const k = `${m.zone}:${m.key}`;
       S.pending.delete(k);
@@ -192,7 +213,23 @@ function renderPanel() {
   const meReady = S.party?.ready?.[S.me?.id];
   $('btn-ready').textContent = meReady ? 'Не готов' : 'Готов';
   $('btn-ready').className = meReady ? 'on' : '';
-  $('status').textContent = S.me ? `${S.me.name} (${ROLE_NAMES[S.role] ?? 'без роли'}) · сцена ${S.scene?.id} [${S.scene?.type}] · зона ${S.zone}` : $('status').textContent;
+  $('inv').textContent = `Инвентарь: ${S.inventory.join(', ') || 'пусто'} · ${S.money} мараведи` +
+    (S.trade ? ` · у торговца: ${S.trade.goods.map((g) => `${g.item} ${g.sold ? '✓' : g.price}`).join(', ')}` : '');
+  $('quests').replaceChildren(...[...S.quests.values()].map((q) => {
+    const el = document.createElement('div');
+    el.className = q.status === 'done' ? 'done' : '';
+    const counter = q.need ? ` (${q.count}/${q.need})` : '';
+    el.innerHTML = `${q.title}${q.shared ? ' · общее' : ''}${q.optional ? ' · необяз.' : ''} — ${q.progress}/${q.total}<small></small>`;
+    el.querySelector('small').textContent = q.text ? q.text + counter : 'выполнено';
+    return el;
+  }));
+  $('hints').replaceChildren(...S.hints.map((h) => {
+    const b = document.createElement('button');
+    b.textContent = h.ru;
+    b.onclick = () => send(C2S.NPC_HINT, { npc: h.npc, hint: h.id });
+    return b;
+  }));
+  $('status').textContent = S.me ?`${S.me.name} (${ROLE_NAMES[S.role] ?? 'без роли'}) · сцена ${S.scene?.id} [${S.scene?.type}] · зона ${S.zone}` : $('status').textContent;
 }
 $('btn-ready').onclick = () => send(C2S.READY, { value: !S.party?.ready?.[S.me?.id] });
 $('btn-skip').onclick = () => send(C2S.SKIP_VOTE);
@@ -204,6 +241,22 @@ $('btn-interact').onclick = () => {
   const near = nearestInteract();
   if (near) send(near.kind === 'item' ? C2S.PICKUP : C2S.INTERACT, { id: near.id });
   else log('рядом нет объектов', 'err');
+};
+
+for (const b of document.querySelectorAll('#trade-row [data-offer]')) {
+  b.onclick = () => send(C2S.TRADE, { npc: 'trader', item: $('trade-item').value, offer: Number(b.dataset.offer) });
+}
+$('btn-astro').onclick = () => send(C2S.MINIGAME, { game: 'astrolabe', result: { angle: 73, answer: 33 } });
+$('btn-cards').onclick = () => send(C2S.MINIGAME, { game: 'cards', result: { success: true } });
+$('btn-scare').onclick = () => {
+  let best = null, bestD = Infinity;
+  for (const [id, o] of S.others) {
+    if (!o.p) continue;
+    const d = Math.hypot(o.p[0] - S.pos[0], o.p[2] - S.pos[2]);
+    if (d < bestD) { best = id; bestD = d; }
+  }
+  if (best != null) send(C2S.SCARE, { target: best });
+  else log('рядом никого', 'err');
 };
 
 function nearestInteract() {
@@ -269,7 +322,7 @@ function groundAt(x, z) {
 addEventListener('keydown', (e) => { if (document.activeElement === canvas) { S.keys.add(e.code); if (e.code === 'KeyE') $('btn-interact').onclick(); } });
 addEventListener('keyup', (e) => S.keys.delete(e.code));
 canvas.addEventListener('blur', () => S.keys.clear());
-canvas.addEventListener('wheel', (e) => { e.preventDefault(); S.scale = Math.min(12, Math.max(0.5, S.scale * (e.deltaY < 0 ? 1.2 : 1 / 1.2))); }, { passive: false });
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); S.scale = Math.min(40, Math.max(0.5, S.scale * (e.deltaY < 0 ? 1.2 : 1 / 1.2))); }, { passive: false });
 
 // Движение — по таймеру, а не в requestAnimationFrame: rAF в фоне и в превью-панелях почти не вызывается
 let last = performance.now();
@@ -331,7 +384,8 @@ function draw() {
     }
     for (const o of c.data.interact) {
       const [x, y] = toScreen(o.p[0], o.p[2]);
-      ctx.fillStyle = o.state ? '#888' : '#f0c040'; ctx.fillRect(x - 4, y - 4, 8, 8);
+      if (o.state?.holder) continue; // предмет уже у кого-то
+      ctx.fillStyle = '#f0c040'; ctx.fillRect(x - 4, y - 4, 8, 8);
       ctx.fillStyle = '#f5e7c0'; ctx.fillText(o.label ?? o.id, x + 7, y + 4);
     }
     for (const o of c.data.npcs) {

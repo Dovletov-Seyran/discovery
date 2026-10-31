@@ -20,6 +20,8 @@ export const CONFIG = {
   MAX_MSG_BYTES: 4096,
   CHAT_MAX_LEN: 300,
   NPC_TALK_COOLDOWN_MS: 2000,
+  TRADE_COOLDOWN_MS: 1000,
+  SCARE_COOLDOWN_MS: 20000,    // «Бу!»
   MAX_CHUNK_KEYS: 30,          // ключей в одном chunk_req
 
   // Игроки и сохранение

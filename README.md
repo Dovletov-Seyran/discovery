@@ -40,6 +40,21 @@ Dev-команды в чате (только `DEV=1`): `/scene <id>`, `/reset`, 
 
 Корабль — один чанк `ship 0,0` с `h: null`. Сервер отдаёт чанки только своей зоны и не дальше 3 чанков от позиции игрока, иначе `chunk_denied { reason: 'too_far' | 'wrong_zone' | 'not_found' | ... }`. В `auth_ok.world`: `totalChunks`, `totalBytes`, `cacheLimit`, `zones`.
 
+## Дополнения к протоколу (сверх docs/README.md §6)
+
+| Сообщение | Поля | Зачем |
+|---|---|---|
+| `pos_correct` | `p, r` | Сервер отклонил `move` (слишком быстро) — клиент обязан поставить игрока в `p` |
+| `trade_state` | `npc, money, goods: [{item, price, sold}]` | При E у торговца и после каждого `trade` — цены и остаток денег |
+| `inventory` | `items, money` | У инвентаря есть деньги (мараведи) |
+| `quest` | `id, title, status, progress, total, text, shared, optional, count?, need?, options?` | `text` — текущий шаг; `count/need` — счётчик шага («1/2»); `shared` — общее задание роли, которой нет |
+| `party` | `+ done: {id: bool}` | Игрок закончил свои обязательные задания сцены (HUD «Юнга ✓») |
+| `npc_say` | `+ line?` | id готовой реплики из `content/lines.json` (по нему можно запускать звук события) |
+| `scared` | `by, target` | Рассылается всем: напуганный — тот, у кого `target` = он сам, остальные смеются |
+| закрытие WS | `4001` / `4002` | Неверный токен / вошли с другой вкладки (не переподключаться) |
+
+Задания — `content/quests.json`, предметы — `content/items.json` (карточки знаний), NPC и цены торговца — `content/npcs.json`. E у объекта: `interact {id}` (для предмета сервер сам сделает `pickup`, у NPC и шлюпки сам отдаст то, что ждёт задание).
+
 ## Папки
 
 - `shared/` — протокол и настройки (меняем, договорившись в чате)

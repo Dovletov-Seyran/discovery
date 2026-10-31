@@ -42,6 +42,7 @@ export const S2C = {
   SCARED: 'scared',             // { by }
   NOTICE: 'notice',             // { text }
   POS_CORRECT: 'pos_correct',   // { p, r } — сервер отклонил move (слишком быстро), вернуть игрока сюда
+  TRADE_STATE: 'trade_state',   // { npc, money, goods: [{item, price, sold}] } — при E у торговца и после каждого trade
 };
 
 // Коды закрытия WebSocket

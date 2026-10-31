@@ -73,16 +73,19 @@ const qSavePlayer = db.prepare(`
     inventory = excluded.inventory, quests = excluded.quests, log = excluded.log,
     updated_at = excluded.updated_at`);
 
-// → { role, zone, p, r, inventory, quests, log } или null
+// → { role, zone, p, r, inventory: [itemId...], money, quests, log } или null
+// В колонке inventory хранится { items, money }.
 export function loadPlayer(userId) {
   const row = qLoadPlayer.get(userId);
   if (!row) return null;
+  const inv = parse(row.inventory, {});
   return {
     role: row.role ?? null,
     zone: row.zone ?? null,
     p: row.x == null ? null : [row.x, row.y, row.z],
     r: row.ry ?? 0,
-    inventory: parse(row.inventory, []),
+    inventory: Array.isArray(inv) ? inv : inv.items ?? [],
+    money: inv.money ?? 0,
     quests: parse(row.quests, {}),
     log: parse(row.log, []),
   };
@@ -91,8 +94,8 @@ export function loadPlayer(userId) {
 function writePlayer(userId, s) {
   const p = s.p ?? [null, null, null];
   qSavePlayer.run(userId, s.role ?? null, s.zone ?? null, p[0], p[1], p[2], s.r ?? 0,
-    JSON.stringify(s.inventory ?? []), JSON.stringify(s.quests ?? {}), JSON.stringify(s.log ?? []),
-    Date.now());
+    JSON.stringify({ items: s.inventory ?? [], money: s.money ?? 0 }), JSON.stringify(s.quests ?? {}),
+    JSON.stringify(s.log ?? []), Date.now());
 }
 
 // Отложенная запись: копим последнее состояние, пишем раз в SAVE_DELAY_MS.

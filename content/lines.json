@@ -1,0 +1,8 @@
+[
+  { "id": "boatswain_pinta", "npc": "boatswain", "en": "A shot from the Pinta! They raise the flag, Admiral! Her rudder has broken loose!", "ru": "Выстрел с «Пинты»! Поднимают флаг, адмирал! У неё сорвало руль!" },
+  { "id": "columbus_rudder", "npc": "columbus", "en": "Sabotage, or bad luck. Either way, we sail for the Canaries to mend her.", "ru": "Саботаж или невезение. Так или иначе, идём на Канары чинить её." },
+  { "id": "hourglass_prayer", "npc": "boatswain", "en": "Blessed be the hour, and the holy cross. One glass is gone, another fills.", "ru": "Благословен час и святой крест. Одна склянка прошла, другая наполняется." },
+  { "id": "boatswain_hint_hourglass", "npc": "boatswain", "en": "Boy! The sand's run out, turn the glass!", "ru": "Юнга! Песок кончился, переверни часы!" },
+  { "id": "carpenter_ask", "npc": "carpenter", "en": "The Pinta's rudder? Bring me planks and a bucket of tar from the yard, and I'll make her whole.", "ru": "Руль «Пинты»? Принеси мне доски и ведро смолы со склада — и я его починю." },
+  { "id": "carpenter_thanks", "npc": "carpenter", "en": "Good wood, good tar. She'll steer true again.", "ru": "Хорошее дерево, хорошая смола. Снова будет слушаться руля." }
+]
