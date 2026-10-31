@@ -78,6 +78,12 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
       attachedRuntime.update(delta,time);
       equipment?.update(delta,time,screen==='game'&&!modal&&!chatOpen&&PLAY_SCENES.has(scene.id));
       updateInstrument();
+      const hint=$('#control-hint');
+      if(hint){
+        hint.hidden=screen!=='game'||!!modal||chatOpen||!connected||!PLAY_SCENES.has(scene.id)||document.pointerLockElement===canvas;
+        const text=runtime.controller.hasControl?'WASD — ходить · зажмите ПКМ — осмотреться · E — действие':'Щёлкните по игре, чтобы управлять';
+        if(hint.textContent!==text)hint.textContent=text;
+      }
       if(!$('#debug').hidden){
         frameCount++;
         if(time-fpsAt>=0.7){
@@ -94,6 +100,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
 function syncInput(){
   const blocked=screen!=='game'||modal||chatOpen||!connected;
   runtime?.setMode(blocked?'blocked':scene.id==='night_story'?'seated':PLAY_SCENES.has(scene.id)?'play':'blocked');
+  if($('#control-hint'))$('#control-hint').hidden=!!blocked;
   $('#crosshair').hidden=blocked||!runtime||!PLAY_SCENES.has(scene.id);
   if(blocked){$('#prompt').hidden=true;currentTarget=null;}
 }
@@ -420,7 +427,7 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
   if(type==='astrolabe')openAstrolabe();
   if(type==='quest')net.emit('quest',{id:'q_astrolabe',title:'Определить широту',step:'Измерьте высоту Солнца.',status:'active',progress:0,total:1});
 });
-canvas.addEventListener('click',()=>{if(screen==='game'&&!modal&&!chatOpen&&connected){if(document.pointerLockElement===canvas)useEquipped();else runtime?.controller.lock();}});
+canvas.addEventListener('click',()=>{if(screen==='game'&&!modal&&!chatOpen&&connected){if(runtime?.controller.hasControl)useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);

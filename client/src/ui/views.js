@@ -38,7 +38,7 @@ export function shellView() {
     <div id="hud" hidden>
       <header class="hud-header"><span class="wordmark">1492</span><button id="menu-button" class="quiet-button">Меню <kbd>Esc</kbd></button></header>
       <aside id="quest" class="quest" hidden></aside><div id="party" class="party"></div>
-      <div id="crosshair" class="crosshair" hidden></div><div id="prompt" class="interact-prompt" hidden></div>
+      <div id="control-hint" class="control-hint" hidden></div><div id="crosshair" class="crosshair" hidden></div><div id="prompt" class="interact-prompt" hidden></div>
       <div id="world-status" class="world-status">Мир не подключён</div>
       <div id="preview-controls" class="preview-controls" hidden><span class="overline">ПРОВЕРКА UI</span><button data-preview="pickup">Предмет</button><button data-preview="dialogue">Диалог</button><button data-preview="astrolabe">Астролябия</button><button data-preview="quest">Задание</button></div>
       <footer class="hud-footer"><button id="inventory-button" class="quiet-button">Снаряжение <span id="item-count">0</span><kbd>Tab</kbd></button><button id="journal-button" class="quiet-button">Журнал <kbd>J</kbd></button><span><kbd>Enter</kbd> Чат</span></footer>

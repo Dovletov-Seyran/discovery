@@ -1,0 +1,29 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {PerspectiveCamera} from 'three';
+import {Controller} from '../src/game/controller.js';
+function event(type,data={}){const event=new Event(type,{cancelable:true});for(const [key,value]of Object.entries(data))Object.defineProperty(event,key,{value});return event;}
+function setup(request){
+ globalThis.window=new EventTarget();globalThis.document=new EventTarget();
+ document.pointerLockElement=null;document.exitPointerLock=()=>{document.pointerLockElement=null;};
+ const canvas=new EventTarget();canvas.focus=()=>{};canvas.requestPointerLock=request;
+ const world={camera:new PerspectiveCamera(),groundHeight:()=>0,collide:()=>({onGround:false})};
+ const c=new Controller(world,canvas);c.setMode('play');return {c,canvas};
+}
+test('missing Pointer Lock: click enables WASD; blur and modal stop movement',()=>{
+ const {c,canvas}=setup();window.dispatchEvent(event('keydown',{code:'KeyW'}));c.update(.05,0);assert.equal(c.position.z,0);
+ c.lock();window.dispatchEvent(event('keydown',{code:'KeyW'}));c.update(.05,1);assert.ok(c.position.z<0);
+ canvas.dispatchEvent(event('blur'));assert.equal(c.hasControl,false);assert.equal(c.keys.size,0);
+ c.lock();c.setMode('blocked');assert.equal(c.hasControl,false);c.dispose();
+});
+test('denied Pointer Lock still allows movement and right-drag looking',async()=>{
+ const {c,canvas}=setup(()=>Promise.reject(new Error('not supported')));c.lock();await Promise.resolve();assert.equal(c.hasControl,true);
+ const yaw=c.yaw;document.dispatchEvent(event('mousemove',{movementX:20,movementY:5}));assert.equal(c.yaw,yaw);
+ canvas.dispatchEvent(event('mousedown',{button:2}));document.dispatchEvent(event('mousemove',{movementX:20,movementY:5}));assert.ok(c.yaw<yaw);assert.ok(c.pitch<0);
+ window.dispatchEvent(event('mouseup'));const stopped=c.yaw;document.dispatchEvent(event('mousemove',{movementX:20,movementY:5}));assert.equal(c.yaw,stopped);c.dispose();
+});
+test('synchronous Pointer Lock rejection is handled; leaving a successful lock pauses input',()=>{
+ const {c,canvas}=setup(()=>{throw new Error('blocked frame');});assert.doesNotThrow(()=>c.lock());assert.equal(c.hasControl,true);
+ document.pointerLockElement=canvas;document.dispatchEvent(event('pointerlockchange'));
+ document.pointerLockElement=null;document.dispatchEvent(event('pointerlockchange'));assert.equal(c.hasControl,false);c.dispose();
+});
