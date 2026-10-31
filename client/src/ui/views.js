@@ -2,7 +2,7 @@ import {ROLES,escape} from './content.js';
 
 export function loginView(preview) {
   return `<main class="login-screen">
-    <div class="title-block"><span class="quill-title">За горизонтом</span><h1>1492</h1><div class="title-rule"><i></i></div><span class="title-seal">Часть первая</span></div>
+    <div class="title-block"><span class="quill-title">За горизонтом</span><h1><span class="title-word">Открытие</span>1492</h1><div class="title-rule"><i></i></div><span class="title-seal">Часть первая</span></div>
     <form id="login-form" class="login-form">
       <h2>${preview?'Проверка интерфейса':'Вход'}</h2>
       <label for="login-name">Имя</label><input id="login-name" name="login" autocomplete="username" minlength="3" maxlength="20" required>
@@ -18,7 +18,7 @@ export function loginView(preview) {
 export function lobbyView(players, you, connected) {
   const local=players.find(player=>player.id===you.id);
   return `<main class="lobby-screen">
-    <header class="screen-header"><span class="wordmark">1492</span><button id="logout" class="quiet-button">Выйти</button></header>
+    <header class="screen-header"><span class="wordmark">Открытие 1492</span><button id="logout" class="quiet-button">Выйти</button></header>
     <section class="lobby-content"><span class="overline">ЭКИПАЖ</span><h2>Выберите роль</h2>
       <div class="role-list">${ROLES.map((role,index)=>{
         const owner=players.find(player=>player.role===role.id&&player.id!==you.id);
@@ -36,7 +36,7 @@ export function lobbyView(players, you, connected) {
 export function shellView() {
   return `<div id="connection" class="connection" role="status" hidden></div><div id="screen"></div>
     <div id="hud" hidden>
-      <header class="hud-header"><span class="wordmark">1492</span><button id="menu-button" class="quiet-button">Меню <kbd>Esc</kbd></button></header>
+      <header class="hud-header"><span class="wordmark">Открытие 1492</span><button id="menu-button" class="quiet-button">Меню <kbd>Esc</kbd></button></header>
       <aside id="quest" class="quest" hidden></aside><div id="party" class="party"></div>
       <div id="crosshair" class="crosshair" hidden></div><div id="prompt" class="interact-prompt" hidden></div>
       <div id="world-status" class="world-status">Мир не подключён</div>
