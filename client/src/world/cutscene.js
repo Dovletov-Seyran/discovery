@@ -30,6 +30,8 @@ export class Cutscenes {
     this.w = world;
     this.cur = null;
     this.look = new THREE.Vector3();
+    this.gamePos = new THREE.Vector3();
+    this.gameQuat = new THREE.Quaternion();
     this.v = new THREE.Vector3();
     // the anchor's splash: a few soft sprites thrown up from the bow, then falling back
     this.splash = new THREE.Group();
@@ -48,8 +50,10 @@ export class Cutscenes {
     this.stop();
     if (!def) { console.warn('[world] no cutscene', id); return Promise.resolve(); }
     const shots = def.shots.map((s) => ({ ...s, cam: curve(s.cam), look: curve(s.look), end: new THREE.Vector3(...s.cam.at(-1)), ease: EASE[s.ease ?? 'inOut'] }));
+    // zone / time-of-day switches, each behind a dip to black; a single one may be given as zone/tod/switchAt
+    const switches = def.switch ?? [{ at: def.switchAt ?? 0, zone: def.zone, tod: def.tod, focus: def.focus }];
     return new Promise((done) => {
-      this.cur = { id, def, shots, startAt: startAt ?? Date.now(), done, switched: false, fov: this.w.camera.fov };
+      this.cur = { id, def, shots, switches, next: 0, startAt: startAt ?? Date.now(), done, switched: false, fov: this.w.camera.fov };
       this.setTitle(def);
       this.overlay().root.style.display = 'block';
       document.body.classList.add('cinematic');
@@ -64,16 +68,20 @@ export class Cutscenes {
     const c = this.cur;
     if (!c) return;
     const { def } = c, w = this.w, cam = w.camera, t = (Date.now() - c.startAt) / 1000;
+    // where the game put its camera this frame (the player's eyes) — the last shot lands there
+    this.gamePos.copy(cam.position); this.gameQuat.copy(cam.quaternion);
     if (t >= def.duration) { this.handOver(); return; }
 
     // behind the black: new zone and time of day, chunks load around the shots, not around the player
-    if (!c.switched && t >= (def.switchAt ?? 0)) {
+    while (c.next < c.switches.length && t >= c.switches[c.next].at) {
+      const sw = c.switches[c.next++];
       c.switched = true;
-      if (def.zone && w.zone !== def.zone) w.setZone(def.zone);
-      if (def.tod != null) w.setTimeOfDay(def.tod, true);
-      if (def.focus) w.chunks.focus = new THREE.Vector3(def.focus[0], 0, def.focus[1]);
+      if (sw.zone && w.zone !== sw.zone) w.setZone(sw.zone);
+      if (sw.tod != null) w.setTimeOfDay(sw.tod, true);
+      w.chunks.focus = sw.focus ? new THREE.Vector3(sw.focus[0], 0, sw.focus[1]) : null;
     }
     if (c.switched && w.chunks.focus) w.chunks.update(w.chunks.focus, dt);
+    if (def.todTrack && c.switched) w.setTimeOfDay(track(def.todTrack, t), true);
 
     const shot = def.shots.findIndex((s) => t >= s.from && t < s.to);
     if (shot >= 0) {
@@ -85,10 +93,18 @@ export class Cutscenes {
       // fov keys may end on "game": back to the player's own lens, so the hand-over does not zoom
       const fov = def.fov ? track(def.fov.map(([k, v]) => [k, v === 'game' ? c.fov : v]), t) : c.fov;
       if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
+      // the last `blend` seconds glide into each player's own eyes (spawns differ by role); only when the
+      // game camera is already near the end of the shot — a player not yet moved there gets the hold instead
+      const b = def.blend ?? 0, wgt = EASE.inOut(clamp01((t - (def.duration - b)) / b));
+      if (b && wgt > 0 && this.gamePos.distanceTo(c.shots.at(-1).end) < 10) {
+        cam.position.lerp(this.gamePos, wgt);
+        cam.quaternion.slerp(this.gameQuat, wgt);
+      }
     }
 
     if (c.switched) { this.fleet(def, t); this.rowboat(def, t); }
     this.anchor(def, t);
+    this.lamps(def, t);
 
     const o = this.overlay();
     o.fade.style.opacity = def.fade ? track(def.fade, t) : 0;
@@ -99,18 +115,35 @@ export class Cutscenes {
     o.title.style.opacity = tt ? Math.min(clamp01((t - tt.from) / 0.8), clamp01((tt.to - t) / 0.8)) : 0;
   }
 
-  // Ships make way bow first along their heading and glide to a stop (no sideways drift):
-  // `run` metres astern of the anchorage at t[0], at the anchorage at t[1].
+  // Ships always make way bow first (no sideways drift). Two kinds of moves:
+  //   { run, t } — come to the anchorage: `run` metres astern of it at t[0], there at t[1], gliding to a stop;
+  //   { from, to, t } — sail a straight leg [x, z] → [x, z] at an even pace, heading along it.
+  // A move only drives its ship between its own t (several per ship are fine).
   fleet(def, t) {
     const env = this.w.env;
     for (const f of def.fleet ?? []) {
-      const [x, z, h] = env.fleet[f.ship].userData.bay, left = f.run * (1 - EASE.out(clamp01((t - f.t[0]) / (f.t[1] - f.t[0]))));
-      env.placeShip(f.ship, x + Math.sin(h) * left, z + Math.cos(h) * left, h);
+      if (t < f.t[0] || (t > f.t[1] && f.until !== 'end')) continue;
+      const u = clamp01((t - f.t[0]) / (f.t[1] - f.t[0]));
+      if (f.run != null) {
+        const [x, z, h] = env.fleet[f.ship].userData.bay, left = f.run * (1 - EASE.out(u));
+        env.placeShip(f.ship, x + Math.sin(h) * left, z + Math.cos(h) * left, h);
+      } else {
+        const dx = f.to[0] - f.from[0], dz = f.to[1] - f.from[1];
+        env.placeShip(f.ship, f.from[0] + dx * u, f.from[1] + dz * u, Math.atan2(-dx, -dz));
+      }
     }
+    // furl: [t0, t1] — furl them; or keys [[t, k], …] with k 1 furled, 0 set
     if (def.furl) {
-      const k = EASE.inOut(clamp01((t - def.furl[0]) / (def.furl[1] - def.furl[0])));
+      const k = typeof def.furl[0] === 'number' ? EASE.inOut(clamp01((t - def.furl[0]) / (def.furl[1] - def.furl[0]))) : EASE.inOut(track(def.furl, t));
       for (const ship of env.fleet) furlSails(ship.userData.sails, k);
     }
+  }
+
+  // lanterns lit one after another: { from, step } — lamp i comes up at from + i·step
+  lamps(def, t) {
+    const l = def.lamps, env = this.w.env;
+    if (!l) return;
+    env.lampScale = env.lamps.map((_, i) => clamp01((t - l.from - i * l.step) / 0.35));
   }
 
   // the landing party rows ashore and ties up where the game's boat waits (that one is hidden meanwhile)
@@ -128,7 +161,7 @@ export class Cutscenes {
       r.torso.rotation.x = 0.28 * pull;
       for (const { ua, fa } of r.arms) { ua.rotation.x = -1.15 + 0.45 * pull; fa.rotation.x = -0.35; }
     }
-    this.w.setEntityState(b.entity, { visible: false });
+    if (b.entity) this.w.setEntityState(b.entity, { visible: false });
   }
 
   buildRowboat() {
@@ -169,12 +202,14 @@ export class Cutscenes {
     const c = this.cur, cam = this.w.camera, last = c.shots.at(-1);
     if (!c.ended) {
       c.ended = performance.now();
-      const env = this.w.env;
-      for (const f of c.def.fleet ?? []) { const b = env.fleet[f.ship].userData.bay; env.placeShip(f.ship, b[0], b[1], b[2]); }
-      if (c.def.furl) for (const ship of env.fleet) furlSails(ship.userData.sails, 1);
+      // the fleet as the game expects it: at anchor in the bay, or under sail at sea (setZone placed those)
+      const env = this.w.env, f = c.def.furl;
+      if (this.w.zone === 'canary') for (const m of c.def.fleet ?? []) if (m.run != null) { const b = env.fleet[m.ship].userData.bay; env.placeShip(m.ship, b[0], b[1], b[2]); }
+      if (f) for (const ship of env.fleet) furlSails(ship.userData.sails, typeof f[0] === 'number' ? 1 : f.at(-1)[1]);
       c.done();
     }
-    if (cam.position.distanceTo(last.end) < 4 || performance.now() - c.ended > 2500) { this.stop(); return; }
+    const near = c.def.blend ? 10 : 4; // with a blend the game camera only has to be close to the shot's end
+    if (cam.position.distanceTo(last.end) < near || performance.now() - c.ended > 2500) { this.stop(); return; }
     if (this.w.chunks.focus) this.w.chunks.update(this.w.chunks.focus, 1 / 60);
     cam.position.copy(last.end);
     cam.lookAt(last.look.getPoint(1, this.look));
@@ -190,7 +225,8 @@ export class Cutscenes {
     w.chunks.focus = null;
     this.shadowFocus = null;
     if (this.boat) this.boat.group.visible = false;
-    if (c.def.boat) w.setEntityState(c.def.boat.entity, { visible: true });
+    if (c.def.boat?.entity) w.setEntityState(c.def.boat.entity, { visible: true });
+    w.env.lampScale = null;
     if (w.camera.fov !== c.fov) { w.camera.fov = c.fov; w.camera.updateProjectionMatrix(); }
     w.players.group.visible = true;
     this.splash.visible = false;

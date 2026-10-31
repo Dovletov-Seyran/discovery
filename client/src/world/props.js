@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { V3, mesh, cylGeo, lenUV, boxGeo, lathe, bake } from './geom.js';
-import { person, pose, NPC_LOOK } from './people.js';
+import { person, pose, guitarist, NPC_LOOK } from './people.js';
 
 // Builders for every model id (`m`) that content/ship_layout.json may use.
 // Each returns { obj, col?: BufferGeometry[] (local space) }.
@@ -297,12 +297,14 @@ export function buildInteract(M, item, models = MODELS) {
 }
 
 export function buildNpc(M, n) {
-  const rig = person(M.person, NPC_LOOK[n.id] ?? NPC_LOOK.sailor_1);
-  pose(rig, n.pose ?? 'stand');
-  const g = bake(rig.root);
+  const look = NPC_LOOK[n.id] ?? NPC_LOOK.sailor_1;
+  // the guitarist keeps his limbs to play (world.frame → strum); everybody else is baked still
+  const rig = n.pose === 'guitar' ? guitarist(M.person, look) : person(M.person, look);
+  if (n.pose !== 'guitar') pose(rig, n.pose ?? 'stand');
+  const g = n.pose === 'guitar' ? rig.root : bake(rig.root);
   place(g, n);
   g.rotation.y += Math.PI; // r = camera-style yaw, the model faces +z
-  g.userData = { id: n.id, kind: 'npc', label: n.label, noBake: true, baseY: n.p[1] };
+  g.userData = { id: n.id, kind: 'npc', label: n.label, noBake: true, baseY: n.p[1], rig: n.pose === 'guitar' ? rig : null };
   return { obj: g, col: colliderFor([new THREE.CylinderGeometry(0.3, 0.3, 1.7, 8).translate(0, 0.85, 0)], n) };
 }
 
