@@ -16,7 +16,10 @@ export class WorldConnection {
     });
     events.on('scene',scene=>{this.scene=scene;this.active=true;if(scene.id!=='lobby')this.ensure();if(this.world)this.applyScene();});
     events.on('chunk',message=>{
-      if(!this.world||message.zone!=='ship'||message.key!=='0,0')return;
+      if(!this.world)return;
+      // Остров и другие зоны — через менеджер чанков мира (кеш ≤ 10%); корабль — раскладкой ниже
+      if(message.zone!=='ship'){this.world.chunks?.receive?.(message.zone,message.key,message.data);return;}
+      if(message.key!=='0,0')return;
       const layout=layoutForWorld(message.data);
       this.world.loadLayout(layout);
       this.hourglasses.clear();
@@ -26,6 +29,7 @@ export class WorldConnection {
       }
       this.onStatus('ready');
     });
+    events.on('chunk_denied',message=>{if(message.zone!=='ship')this.world?.chunks?.denied?.(message.zone,message.key,message.reason);});
     events.on('entity',message=>this.applyEntity(message.id,message.state));
     events.on('player_join',player=>{
       if(player.id===this.you?.id)return;
@@ -47,6 +51,7 @@ export class WorldConnection {
       await world.init(this.canvas,'high');
       this.world=world;
       world.chunks?.setWorldMeta?.(this.meta);
+      world.chunks?.setSender?.(({t,...payload})=>this.send(t,payload));
       for(const [id,player] of this.remotePlayers)world.players?.upsert?.(id,player);
       this.gameplay=this.attach(world,this.canvas);
       this.applyScene();this.requestShip();this.startLoop();return world;
@@ -74,6 +79,7 @@ export class WorldConnection {
       if(!this.active)return;
       const dt=this.previous===null||this.previous===undefined?0:Math.min((ms-this.previous)/1000,0.05);
       this.previous=ms;this.gameplay.update(dt,ms/1000);
+      if(this.scene?.zone&&this.scene.zone!=='ship')this.world.chunks?.update?.(this.world.camera.position,dt);
       for(const [id,clock] of this.hourglasses)this.world.setEntityState?.(id,{fill:Math.min(1,Math.max(0,(clock.emptyAt-Date.now())/(clock.period*1000)))});
       this.world.frame(dt);this.frameId=requestAnimationFrame(loop);
     };

@@ -262,6 +262,8 @@ function openDialogue(npc){
   $('#npc-form').onsubmit=event=>{event.preventDefault();const input=$('#npc-form input'),text=input.value.trim();if(text&&!waitingForReply){if(net.send('npc_talk',{npc,text})){input.value='';beginDialogueWait();}}};
   if(npc==='trader'&&tradeState?.npc===npc)renderTrade();
   $('#npc-form input').focus();
+  // Пустой npc_talk = игрок подошёл: агент здоровается с учётом прошлых разговоров и даёт подсказки
+  if(NPCS[npc]?.type==='llm'&&net.send('npc_talk',{npc,text:''}))beginDialogueWait();
 }
 function nextScriptLine(){
   const line=scriptLines[scriptIndex++];
