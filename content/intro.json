@@ -1,0 +1,12 @@
+{
+  "comment": "Длительность панели = длительность аудио line + pause (с). Картинки — в client/public/intro/. kenburns: from/to = [масштаб, сдвиг x %, сдвиг y %].",
+  "music": "amb_intro_lute",
+  "panels": [
+    { "line": "intro_1", "image": "intro/book.jpg", "pause": 0.6, "kenburns": { "from": [1.0, 0, 0], "to": [1.12, -2, -1] } },
+    { "line": "intro_2", "image": "intro/silk_road.jpg", "pause": 0.6, "kenburns": { "from": [1.1, 3, 0], "to": [1.0, -3, 0] } },
+    { "line": "intro_3", "image": "intro/constantinople.jpg", "pause": 0.8, "kenburns": { "from": [1.0, 0, 2], "to": [1.15, 0, -2] }, "sfx": [{ "at": 0.3, "id": "sfx_cannon_far" }] },
+    { "line": "intro_4", "image": "intro/columbus_map.jpg", "pause": 0.6, "kenburns": { "from": [1.15, 0, 0], "to": [1.0, 0, 0] } },
+    { "line": "intro_5", "image": "intro/map_unknown.jpg", "pause": 1.0, "kenburns": { "from": [1.0, 0, 0], "to": [1.2, 6, 0] } },
+    { "line": "intro_6", "image": "intro/palos.jpg", "pause": 1.5, "kenburns": { "from": [1.0, 0, 0], "to": [1.1, 0, -3] }, "sfx": [{ "at": 0.0, "id": "amb_harbour" }, { "at": 2.0, "id": "sfx_ship_bell" }] }
+  ]
+}

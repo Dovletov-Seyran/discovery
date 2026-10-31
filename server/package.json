@@ -5,9 +5,17 @@
   "main": "index.js",
   "scripts": {
     "dev": "cross-env DEV=1 node --watch-path=. --watch-path=../shared --watch-path=../content index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "agent-cli": "node ai/cli.js",
+    "bench": "node ai/bench.js",
+    "tts-test": "node ai/tts-test.js",
+    "voices": "node ai/gen-voices.js",
+    "playground": "node ai/playground.js",
+    "ollama": "sh ai/start-ollama.sh",
+    "test:ai": "node --test ai/test/*.test.js"
   },
   "dependencies": {
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "kokoro-js": "^1.2.1"
   }
 }

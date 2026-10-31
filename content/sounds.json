@@ -1,0 +1,382 @@
+{
+  "comment": "Звуки мира. Скачиваются scripts/fetch-sounds.mjs с Freesound (только CC0) в client/public/audio/{amb,sfx}/<id>.mp3. Чтобы заменить звук — поставить другой freesoundId (номер из адреса freesound.org/people/<автор>/sounds/<номер>/) и запустить скрипт с --force <id>.",
+  "amb": [
+    {
+      "id": "amb_sea_ship",
+      "where": "день на корабле: волны о борт",
+      "q": [
+        "sailboat sailing waves",
+        "sailing boat water",
+        "boat hull water"
+      ],
+      "skip": [
+        457565
+      ],
+      "freesoundId": 252670
+    },
+    {
+      "id": "amb_ship_creak",
+      "where": "корабль: скрип дерева, фон",
+      "q": "wooden ship creaking",
+      "freesoundId": 31574
+    },
+    {
+      "id": "amb_wind_sails",
+      "where": "корабль: ветер в парусах и снастях",
+      "q": "wind rigging sails",
+      "freesoundId": 360633
+    },
+    {
+      "id": "amb_gulls",
+      "where": "корабль и Канары: чайки",
+      "q": "seagulls",
+      "freesoundId": 353416
+    },
+    {
+      "id": "amb_harbour",
+      "where": "интро (Палос), пристань Канар",
+      "q": [
+        "harbor seagulls water",
+        "harbour ambience",
+        "port seagulls"
+      ],
+      "skip": [
+        339440
+      ],
+      "freesoundId": 619078
+    },
+    {
+      "id": "amb_shore",
+      "where": "Канары: прибой",
+      "q": "waves beach surf",
+      "freesoundId": 412308
+    },
+    {
+      "id": "amb_island_birds",
+      "where": "Канары: птицы",
+      "q": [
+        "birds morning",
+        "birds chirping",
+        "birdsong"
+      ],
+      "skip": [
+        468242
+      ],
+      "freesoundId": 364663
+    },
+    {
+      "id": "amb_market",
+      "where": "Канары: рынок",
+      "q": [
+        "medieval market crowd",
+        "market crowd",
+        "crowd outdoor"
+      ],
+      "freesoundId": 173013
+    },
+    {
+      "id": "amb_feast_music",
+      "where": "вечер: музыка праздника",
+      "q": [
+        "spanish guitar",
+        "guitar folk",
+        "acoustic guitar"
+      ],
+      "freesoundId": 261608
+    },
+    {
+      "id": "amb_tavern_crowd",
+      "where": "вечер: гул и смех команды",
+      "q": [
+        "tavern crowd",
+        "pub crowd",
+        "crowd laughing"
+      ],
+      "freesoundId": 212096
+    },
+    {
+      "id": "amb_fire",
+      "where": "очаг кока, костёр",
+      "q": "fire crackling",
+      "freesoundId": 532191
+    },
+    {
+      "id": "amb_night_calm",
+      "where": "ночь: штиль, тихая вода",
+      "q": [
+        "water lapping",
+        "calm lake water",
+        "gentle waves"
+      ],
+      "skip": [
+        384360
+      ],
+      "freesoundId": 59564
+    },
+    {
+      "id": "amb_night_drone",
+      "where": "ночь: тревожный гул под историю",
+      "q": "dark ambient drone",
+      "freesoundId": 397091
+    },
+    {
+      "id": "amb_intro_lute",
+      "where": "интро: музыка",
+      "q": [
+        "lute",
+        "medieval music",
+        "harp"
+      ],
+      "freesoundId": 160461
+    }
+  ],
+  "sfx": [
+    {
+      "id": "sfx_cannon_far",
+      "where": "интро; сигнал «Пинты»",
+      "q": "cannon shot distant",
+      "freesoundId": 565794
+    },
+    {
+      "id": "sfx_ship_bell",
+      "where": "интро, смена вахты",
+      "q": "ship bell",
+      "freesoundId": 353232
+    },
+    {
+      "id": "sfx_mast_creak",
+      "where": "ночь 1: скрип мачты",
+      "q": [
+        "wood creak",
+        "creak",
+        "wooden creak"
+      ],
+      "freesoundId": 377552
+    },
+    {
+      "id": "sfx_wind_dies",
+      "where": "ночь 1: ветер стихает",
+      "q": "wind gust",
+      "freesoundId": 683096
+    },
+    {
+      "id": "sfx_splash_far",
+      "where": "ночь 2: всплеск вдалеке",
+      "q": "big splash water",
+      "freesoundId": 442773
+    },
+    {
+      "id": "sfx_hull_thud",
+      "where": "ночь 4: удар в борт",
+      "q": [
+        "heavy wood impact thud",
+        "wood impact",
+        "thud"
+      ],
+      "freesoundId": 400188
+    },
+    {
+      "id": "sfx_water_drips",
+      "where": "ночь 5: капли",
+      "q": "water drips",
+      "freesoundId": 543649
+    },
+    {
+      "id": "sfx_hull_knock_3",
+      "where": "ночь 6: три стука снизу",
+      "q": [
+        "knock wood",
+        "door knock",
+        "knocking"
+      ],
+      "freesoundId": 268500
+    },
+    {
+      "id": "sfx_wet_footsteps",
+      "where": "ночь 7: мокрые шаги за спиной",
+      "q": [
+        "wet footsteps",
+        "footsteps water",
+        "footsteps puddle"
+      ],
+      "freesoundId": 127955
+    },
+    {
+      "id": "sfx_sailors_laugh",
+      "where": "ночь 8, «Бу!»: смех матросов",
+      "q": [
+        "men laughing",
+        "crowd laughing",
+        "laughter group"
+      ],
+      "skip": [
+        442530
+      ],
+      "freesoundId": 480806
+    },
+    {
+      "id": "sfx_scream",
+      "where": "«Бу!»: вскрик напуганного",
+      "q": [
+        "scream short",
+        "scared gasp",
+        "man yell"
+      ],
+      "skip": [
+        50924
+      ],
+      "freesoundId": 90164
+    },
+    {
+      "id": "sfx_heartbeat",
+      "where": "сон",
+      "q": "heartbeat",
+      "freesoundId": 22416
+    },
+    {
+      "id": "sfx_hourglass",
+      "where": "песочные часы",
+      "q": "sand pouring",
+      "freesoundId": 326304
+    },
+    {
+      "id": "sfx_well_bucket",
+      "where": "колодец",
+      "q": [
+        "bucket well water",
+        "bucket water",
+        "water pour bucket"
+      ],
+      "freesoundId": 173930
+    },
+    {
+      "id": "sfx_hammer_wood",
+      "where": "плотник, руль «Пинты»",
+      "q": [
+        "hammering nails wood",
+        "hammer nail",
+        "hammering"
+      ],
+      "skip": [
+        54850
+      ],
+      "freesoundId": 337816
+    },
+    {
+      "id": "sfx_coins",
+      "where": "торговля",
+      "q": "coins",
+      "freesoundId": 17502
+    },
+    {
+      "id": "sfx_footsteps_wood",
+      "where": "шаги по палубе",
+      "q": [
+        "footsteps wood walking",
+        "footsteps wooden",
+        "walking wood floor"
+      ],
+      "skip": [
+        32939
+      ],
+      "freesoundId": 366111
+    },
+    {
+      "id": "sfx_pickup",
+      "where": "подбор предмета",
+      "q": [
+        "pick up item",
+        "item pickup",
+        "cloth grab"
+      ],
+      "freesoundId": 325805
+    },
+    {
+      "id": "sfx_cards_shuffle",
+      "where": "карты",
+      "q": "card shuffle",
+      "freesoundId": 19245
+    },
+    {
+      "id": "sfx_cup_clink",
+      "where": "вино, тост",
+      "q": [
+        "wooden cups cheers",
+        "cheers clink",
+        "toast glasses"
+      ],
+      "freesoundId": 433721
+    },
+    {
+      "id": "sfx_pour_wine",
+      "where": "наливают вино",
+      "q": [
+        "pouring wine",
+        "pouring drink",
+        "liquid pour glass"
+      ],
+      "skip": [
+        173930
+      ],
+      "freesoundId": 44775
+    },
+    {
+      "id": "sfx_clapping",
+      "where": "танец",
+      "q": [
+        "hand clapping",
+        "clapping hands",
+        "applause small"
+      ],
+      "skip": [
+        198032
+      ],
+      "freesoundId": 147597
+    },
+    {
+      "id": "sfx_rowing",
+      "where": "шлюпка",
+      "q": [
+        "rowing oars",
+        "rowing boat",
+        "oar splash"
+      ],
+      "skip": [
+        567087
+      ],
+      "freesoundId": 47891
+    },
+    {
+      "id": "sfx_anchor_chain",
+      "where": "катсцена: якорь",
+      "q": "anchor chain",
+      "freesoundId": 377489
+    },
+    {
+      "id": "sfx_sail_flap",
+      "where": "поднимают паруса",
+      "q": "sail flapping",
+      "freesoundId": 244982
+    },
+    {
+      "id": "sfx_page_turn",
+      "where": "интро: книга",
+      "q": [
+        "page turn book",
+        "page turn",
+        "paper"
+      ],
+      "freesoundId": 320148
+    },
+    {
+      "id": "sfx_rope_creak",
+      "where": "канаты",
+      "q": [
+        "rope creak",
+        "rope stretch",
+        "rope"
+      ],
+      "freesoundId": 676988
+    }
+  ]
+}

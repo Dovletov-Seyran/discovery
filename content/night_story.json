@@ -1,0 +1,14 @@
+{
+  "comment": "Фрагменты идут подряд: аудио line, затем pause (с). sfx.at — секунды от начала фрагмента; отрицательное значение — от конца аудио. pos — позиция звука относительно фонаря (м) или 'under' (под палубой), 'behind' (за спинами игроков).",
+  "ambient": "amb_night_calm",
+  "segments": [
+    { "line": "story_1", "pause": 1.5, "sfx": [{ "at": 0.0, "id": "sfx_wind_dies" }, { "at": -1.0, "id": "sfx_mast_creak", "pos": [0, 6, -4] }] },
+    { "line": "story_2", "pause": 1.5, "sfx": [{ "at": -0.5, "id": "sfx_splash_far", "pos": [30, 0, 20] }] },
+    { "line": "story_3", "pause": 1.0, "fx": [{ "at": -1.5, "id": "lantern_flicker", "dur": 2.0 }] },
+    { "line": "story_4", "pause": 0.5, "sfx": [{ "at": -0.2, "id": "sfx_hull_thud", "pos": "under" }], "fx": [{ "at": -0.2, "id": "ship_lurch", "dur": 1.5 }] },
+    { "line": "story_5", "pause": 2.0, "sfx": [{ "at": -0.3, "id": "sfx_water_drips", "pos": [1, 1, 1] }] },
+    { "line": "story_6", "pause": 3.0, "sfx": [{ "at": -0.1, "id": "sfx_hull_knock_3", "pos": "under" }] },
+    { "line": "story_7", "pause": 2.5, "sfx": [{ "at": -0.5, "id": "sfx_wet_footsteps", "pos": "behind" }], "scareWindow": true },
+    { "line": "story_8", "pause": 2.0, "sfx": [{ "at": 0.0, "id": "sfx_sailors_laugh" }], "fx": [{ "at": -0.5, "id": "lantern_out", "dur": 1.0 }] }
+  ]
+}
