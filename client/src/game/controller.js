@@ -15,6 +15,8 @@ export class Controller {
     this.anchorYaw = 0;
     this.sensitivity = 0.002;
     this.animation = 'idle';
+    this.velocityY = 0;
+    this.capsule = {start:new Vector3(),end:new Vector3(),radius:0.35};
     this.keys = new Set();
     this.abort = new AbortController();
     const options = {signal:this.abort.signal};
@@ -48,12 +50,14 @@ export class Controller {
     if (Array.isArray(position) && position.length === 3 && position.every(Number.isFinite)) this.position.fromArray(position);
     if (Number.isFinite(yaw)) this.yaw = yaw;
     this.anchorYaw = this.yaw;
+    this.velocityY = 0;
     this.applyCamera(0);
   }
   applyCamera(bob) {
     this.world.camera.position.copy(this.position);
     this.world.camera.position.y += this.eyeHeight + bob;
     this.world.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+    this.world.camera.updateMatrixWorld();
   }
   update(delta, time) {
     let x=0, z=0;
@@ -64,13 +68,23 @@ export class Controller {
     const moving = x !== 0 || z !== 0;
     const running = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
     this.animation = this.lookOnly ? 'sit' : moving ? running ? 'run' : 'walk' : 'idle';
-    if (moving) {
-      const offset = new Vector3(x,0,z).normalize().applyAxisAngle(UP,this.yaw).multiplyScalar(Math.min(delta,0.05)*(running?6:3));
-      const capsule = {position:this.position.clone().add(offset),radius:0.35,height:1.7};
-      this.world.collide(capsule);
-      this.position.copy(capsule.position);
-      const height = this.world.groundHeight(this.position.x,this.position.z);
-      if (Number.isFinite(height)) this.position.y = height;
+    if (this.enabled && !this.lookOnly) {
+      const dt=Math.min(Math.max(delta,0),0.05);
+      const offset=new Vector3(x,0,z);
+      if(moving)offset.normalize().applyAxisAngle(UP,this.yaw).multiplyScalar(running?6:3);
+      this.velocityY-=20*dt;
+      const step=dt/4;
+      for(let index=0;index<4;index++){
+        this.position.addScaledVector(offset,step);
+        this.position.y+=this.velocityY*step;
+        const capsule=this.capsule;
+        capsule.start.set(this.position.x,this.position.y+capsule.radius,this.position.z);
+        capsule.end.set(this.position.x,this.position.y+1.7-capsule.radius,this.position.z);
+        const result=this.world.collide(capsule);
+        this.position.set(capsule.start.x,capsule.start.y-capsule.radius,capsule.start.z);
+        if(result?.onGround)this.velocityY=Math.max(0,this.velocityY);
+        else if(result?.delta?.y<0)this.velocityY=Math.min(0,this.velocityY);
+      }
     }
     if (this.enabled) this.applyCamera(moving ? Math.sin(time*10)*0.02 : 0);
   }

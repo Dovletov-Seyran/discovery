@@ -3,7 +3,8 @@ import {CONFIG} from '../../shared/config.js';
 import {SocketClient,Events} from './net/socket.js';
 import {MockClient} from './net/mock.js';
 import {GameplayRuntime} from './game/runtime.js';
-import {ROLES,ITEMS,NPC_NAMES,escape,itemId} from './ui/content.js';
+import {WorldConnection} from './game/world-connection.js';
+import {ROLES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,escape,itemId} from './ui/content.js';
 import {shellView,loginView,lobbyView} from './ui/views.js';
 import {VoiceLibrary} from './ui/voice.js';
 import {narrativeContent,INTRO_TITLES} from './ui/narrative.js';
@@ -25,7 +26,9 @@ let net, runtime, world;
 let screen='login', modal='', connected=false, chatOpen=false;
 let you={}, scene={id:'lobby',type:'lobby'}, players=[], inventory=[], quests={};
 let savedPosition, savedYaw=0, currentTarget, activeNpc;
-let noticeTimer, npcAudio, waitingForReply=false, frameCount=0, fpsAt=0;
+let noticeTimer, npcAudio, waitingForReply=false, frameCount=0, fpsAt=0, dialogueTimer;
+let scriptIndex=0,scriptLines=[],tradeState=null;
+const knownCards=new Set();
 const settings={quality:'high',sensitivity:2,voices:0.8};
 const voices=new VoiceLibrary({onVoice:playing=>gameEvents.emit('voice',{playing})});
 const narrative=new NarrativePlayer(voices,{
@@ -70,7 +73,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
         if(time-fpsAt>=0.7){
           const fps=Math.round(frameCount/(time-fpsAt));frameCount=0;fpsAt=time;
           const stats=world.stats?.();
-          $('#debug').textContent=`${fps} FPS${Number.isFinite(stats?.drawCalls)?` · ${stats.drawCalls} draw calls`:''}${stats?.worldText?`\n${stats.worldText}`:''}`;
+          $('#debug').textContent=`${fps} FPS${Number.isFinite(stats?.calls)?` · ${stats.calls} draw calls`:''}${stats?.chunks?`\nМир: ${stats.chunks.loaded}/${stats.chunks.total} · ${stats.chunks.pct.toFixed(1)}%`:''}`;
         }
       }
     },
@@ -128,6 +131,7 @@ function bindNetwork(client){
   client.on('auth_ok',message=>{
     you=message.you;inventory=message.state?.inventory||[];quests=message.state?.quests||{};
     savedPosition=message.state?.p;savedYaw=message.state?.r??0;
+    inventory.forEach(item=>knownCards.add(itemId(item)));
     if(savedPosition)runtime?.teleport(savedPosition,savedYaw);
     updateInventoryCount();
     applyScene(message.scene||{id:message.state?.scene||'lobby'});
@@ -139,7 +143,7 @@ function bindNetwork(client){
   client.on('inventory',message=>{
     const old=new Set(inventory.map(itemId));inventory=message.items||[];updateInventoryCount();
     const added=inventory.find(item=>!old.has(itemId(item)));
-    if(added)openKnowledge(itemId(added));else if(modal==='inventory')openInventory();
+    if(added&&!knownCards.has(itemId(added))){knownCards.add(itemId(added));openKnowledge(itemId(added));}else if(modal==='inventory')openInventory();
   });
   client.on('quest',message=>{quests[message.id]=message;renderQuest();});
   client.on('party',message=>{
@@ -151,12 +155,13 @@ function bindNetwork(client){
   client.on('chat',message=>{
     const line=document.createElement('p');line.textContent=`${message.name||message.from}: ${message.text}`;$('#chat-log').append(line);
     while($('#chat-log').children.length>6)$('#chat-log').firstChild.remove();
-    setTimeout(()=>line.remove(),10000);world?.players?.bubble?.(message.from,message.text);
+    setTimeout(()=>line.remove(),10000);gameEvents.emit('chat',message);
   });
   client.on('npc_thinking',message=>{if(modal==='dialogue'&&activeNpc===message.npc){waitingForReply=true;$('#npc-text').textContent='Думает…';setDialogueBusy(true);}});
   client.on('npc_say',receiveDialogue);
-  client.on('snapshot',message=>{world?.players?.snapshot?.(message.players,message.tick);gameEvents.emit('snapshot',message);});
-  client.on('player_join',message=>{world?.players?.upsert?.(message.id,message);gameEvents.emit('player_join',message);});
+  client.on('trade_state',message=>{tradeState=message;if(modal==='dialogue'&&activeNpc===message.npc)renderTrade();});
+  client.on('snapshot',message=>gameEvents.emit('snapshot',message));
+  client.on('player_join',message=>gameEvents.emit('player_join',message));
   client.on('player_leave',message=>gameEvents.emit('player_leave',message));
   client.on('tod',message=>{scene.tod=message.value;world?.setTimeOfDay?.(message.value);gameEvents.emit('tod',message);});
   for(const type of ['chunk','chunk_denied','entity','scared'])client.on(type,message=>gameEvents.emit(type,message));
@@ -170,6 +175,7 @@ function renderLobby(){
 function applyScene(message){
   narrative.stop();
   scene=message;
+  if(Number.isFinite(message.r))savedYaw=message.r;
   if(message.spawn){savedPosition=message.spawn;runtime?.teleport(savedPosition,savedYaw);}
   if(message.seat){savedPosition=message.seat;runtime?.teleport(savedPosition,savedYaw);}
   if(message.zone)world?.setZone?.(message.zone);
@@ -203,18 +209,21 @@ function renderSceneOverlay(message){
 }
 function updateInventoryCount(){$('#item-count').textContent=`${inventory.length} / 8`;}
 function renderQuest(){
-  const list=Object.values(quests),quest=list.find(item=>item.status!=='done')||list.at(-1);
+  const list=Object.entries(quests).map(([id,state])=>{
+    const def=QUESTS[id];
+    return {...state,id,title:state.title||def?.title||'Задание',scene:def?.scene,optional:state.optional??def?.optional,progress:state.progress??state.step??0,total:state.total??def?.steps.length??1,text:state.text??state.stepText??(typeof state.step==='number'?def?.steps[state.step]?.text:null)};
+  }).filter(quest=>!quest.scene||quest.scene===scene.id);
+  const quest=list.find(item=>item.status!=='done'&&!item.optional)||list.find(item=>item.status!=='done')||list.at(-1);
   $('#quest').hidden=!quest;
   if(!quest)return;
-  const title=quest.title||(quest.id==='q_astrolabe'?'Определить широту':'Текущее задание');
-  $('#quest').innerHTML=`<h3>${escape(title)}</h3>${quest.step?`<p>${escape(quest.step)}</p>`:''}<small>${quest.status==='done'?'Выполнено':`${quest.progress||0} / ${quest.total||1}`}</small>`;
+  $('#quest').innerHTML=`<h3>${escape(quest.title)}</h3>${quest.text?`<p>${escape(quest.text)}</p>`:''}<small>${quest.status==='done'?'Выполнено':`${quest.progress} / ${quest.total}`}${quest.need?` · ${quest.count||0}/${quest.need}`:''}</small>`;
 }
 function showModal(type,html){
   stopNpcAudio();modal=type;$('#modal').hidden=false;$('#modal').innerHTML=html;
   $('#modal').querySelectorAll('[data-close]').forEach(button=>button.onclick=closeModal);syncInput();
   $('#modal').querySelector('input,button,select')?.focus();
 }
-function closeModal(){stopNpcAudio();modal='';activeNpc=null;waitingForReply=false;$('#modal').hidden=true;$('#modal').innerHTML='';syncInput();}
+function closeModal(){clearTimeout(dialogueTimer);voices.stop();stopNpcAudio();modal='';activeNpc=null;waitingForReply=false;$('#modal').hidden=true;$('#modal').innerHTML='';syncInput();}
 function closeButton(){return '<button class="close-button" data-close aria-label="Закрыть">×</button>';}
 function openKnowledge(id){
   const data=ITEMS[id]||{name:id,text:''};
@@ -239,21 +248,49 @@ function openAstrolabe(){
     const angle=Number($('#angle-input').value);
     if(Math.abs(angle-73)>2)return;
     if(Number(button.dataset.answer)!==33){$('#answer-feedback').textContent='Попробуйте ещё.';return;}
-    if(net.send('minigame',{game:'astrolabe',result:{angle,latitude:33}}))closeModal();else notify('Нет связи с сервером.');
+    if(net.send('minigame',{game:'astrolabe',result:{angle,answer:33}}))closeModal();else notify('Нет связи с сервером.');
   });
 }
 function openDialogue(npc){
-  showModal('dialogue',`<section class="dialogue-panel">${closeButton()}<h2>${escape(NPC_NAMES[npc]||npc)}</h2><p id="npc-text">О чём спросить?</p><details><summary>Оригинал</summary><p id="npc-en"></p></details><div id="hints" class="hints"></div><form id="npc-form"><input maxlength="${CONFIG.CHAT_MAX_LEN}" placeholder="Ваш вопрос…" aria-label="Вопрос персонажу" required><button class="quiet-button">Спросить</button></form></section>`);
+  const scripted=NPCS[npc]?.type==='script';
+  scriptIndex=0;
+  scriptLines=LINES.filter(line=>line.npc===npc&&!/hint|alarm|hourglass|task|wait|done|toast|cards|scare/.test(line.id));
+  if(npc==='boatswain')scriptLines=[LINES.find(line=>line.id===`boatswain_hint_${you.role}`),...scriptLines].filter(Boolean);
+  showModal('dialogue',`<section class="dialogue-panel">${closeButton()}<h2>${escape(NPC_NAMES[npc]||npc)}</h2><p id="npc-text">${scripted?'…':'О чём спросить?'}</p><details><summary>Оригинал</summary><p id="npc-en"></p></details><div id="hints" class="hints"></div><div id="trade"></div>${scripted?'<button id="next-line" class="quiet-button">Далее <kbd>E</kbd></button>':`<form id="npc-form"><input maxlength="${CONFIG.CHAT_MAX_LEN}" placeholder="Ваш вопрос…" aria-label="Вопрос персонажу" required><button class="quiet-button">Спросить</button></form>`}</section>`);
   activeNpc=npc;
-  $('#npc-form').onsubmit=event=>{event.preventDefault();const input=$('#npc-form input'),text=input.value.trim();if(text&&!waitingForReply){if(net.send('npc_talk',{npc,text})){input.value='';waitingForReply=true;setDialogueBusy(true);}}};
+  if(scripted){$('#next-line').onclick=nextScriptLine;nextScriptLine();return;}
+  $('#npc-form').onsubmit=event=>{event.preventDefault();const input=$('#npc-form input'),text=input.value.trim();if(text&&!waitingForReply){if(net.send('npc_talk',{npc,text})){input.value='';beginDialogueWait();}}};
+  if(npc==='trader'&&tradeState?.npc===npc)renderTrade();
   $('#npc-form input').focus();
 }
-function setDialogueBusy(busy){$('#npc-form button').disabled=busy;$('#hints').querySelectorAll('button').forEach(button=>button.disabled=busy);}
+function nextScriptLine(){
+  const line=scriptLines[scriptIndex++];
+  if(!line){closeModal();return;}
+  $('#npc-text').textContent=line.ru||'';$('#npc-en').textContent=line.en||'';
+  voices.playLine(line.id).catch(()=>{});
+}
+function beginDialogueWait(){
+  waitingForReply=true;setDialogueBusy(true);clearTimeout(dialogueTimer);
+  dialogueTimer=setTimeout(()=>{if(modal==='dialogue'){waitingForReply=false;setDialogueBusy(false);notify('Ответ задерживается. Попробуйте ещё раз.');}},20000);
+}
+function renderTrade(){
+  if(!$('#trade')||!tradeState)return;
+  $('#trade').innerHTML=`<div class="trade-money">Кошель: ${tradeState.money} мараведи</div>${tradeState.goods.map(good=>`<form class="trade-row" data-trade="${escape(good.item)}"><label>${escape(ITEMS[good.item]?.name||good.item)} <small>${good.sold?'Куплено':`${good.price} м.`}</small></label>${good.sold?'':`<input aria-label="Цена: ${escape(ITEMS[good.item]?.name||good.item)}" type="number" min="1" max="10000" value="${good.price}"><button class="quiet-button">Предложить</button>`}</form>`).join('')}`;
+  $('#trade').querySelectorAll('form').forEach(form=>form.onsubmit=event=>{event.preventDefault();net.send('trade',{npc:activeNpc,item:form.dataset.trade,offer:Number(form.querySelector('input').value)});});
+}
+function setDialogueBusy(busy){if($('#npc-form button'))$('#npc-form button').disabled=busy;$('#hints').querySelectorAll('button').forEach(button=>button.disabled=busy);}
 function receiveDialogue(message){
-  if(modal!=='dialogue'||activeNpc!==message.npc)return;
+  if(modal!=='dialogue'||activeNpc!==message.npc){
+    if(message.line){
+      notify(message.ru||'');
+      voices.playLine(message.line).catch(()=>{});
+    }
+    return;
+  }
+  clearTimeout(dialogueTimer);
   waitingForReply=false;setDialogueBusy(false);$('#npc-text').textContent=message.ru||'';$('#npc-en').textContent=message.en||'';
   $('#hints').innerHTML=(message.hints||[]).map(hint=>`<button class="quiet-button" data-hint="${escape(hint.id)}">${escape(hint.ru)}</button>`).join('');
-  $('#hints').querySelectorAll('button').forEach(button=>button.onclick=()=>{if(net.send('npc_hint',{npc:activeNpc,hint:button.dataset.hint})){waitingForReply=true;setDialogueBusy(true);}});
+  $('#hints').querySelectorAll('button').forEach(button=>button.onclick=()=>{if(net.send('npc_hint',{npc:activeNpc,hint:button.dataset.hint})){beginDialogueWait();}});
   stopNpcAudio();
   if(message.audio){
     const url=new URL(message.audio,location.href);
@@ -274,15 +311,23 @@ function openMenu(){
   $('#leave').onclick=logout;
 }
 function closeChat(){chatOpen=false;$('#chat-form').hidden=true;syncInput();}
-function logout(){narrative.stop();net?.disconnect();connected=false;scene={id:'lobby'};savedPosition=null;localStorage.removeItem('discovery.token');closeModal();closeChat();$('#chat-log').innerHTML='';$('#party').textContent='';login();}
+function logout(){narrative.stop();gameEvents.emit('logout',{});knownCards.clear();net?.disconnect();connected=false;scene={id:'lobby'};savedPosition=null;localStorage.removeItem('discovery.token');closeModal();closeChat();$('#chat-log').innerHTML='';$('#party').textContent='';login();}
 function interact(){
   if(!currentTarget||modal||!connected)return;
   const {id,kind}=currentTarget;
-  if(kind==='npc'){openDialogue(id);return;}
+  if(kind==='npc'){openDialogue(id);net.send('interact',{id});return;}
   net.send(kind==='pickup'||kind==='item'?'pickup':'interact',{id});
 }
 
 root.innerHTML=shellView();
+if(!preview)new WorldConnection({
+  events:gameEvents,send:sendGameMessage,attach:attachWorld,canvas,
+  onStatus:status=>{
+    const labels={loading:'Загрузка…',missing:'Мир не подключён',error:'Не удалось загрузить сцену'};
+    $('#world-status').textContent=labels[status]||'';
+    $('#world-status').hidden=status==='ready';
+  },
+});
 $('#menu-button').onclick=openMenu;$('#inventory-button').onclick=openInventory;
 $('#chat-form').onsubmit=event=>{event.preventDefault();const input=$('#chat-form input'),text=input.value.trim();if(text){net.send('chat',{text});input.value='';}closeChat();};
 $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick=()=>{
@@ -302,7 +347,7 @@ window.addEventListener('keydown',event=>{
   if(event.code==='F3'){event.preventDefault();$('#debug').hidden=!$('#debug').hidden;if(!runtime)$('#debug').textContent='Мир не подключён';return;}
   if(event.code==='Tab'){event.preventDefault();if(modal==='inventory')closeModal();else if(!modal)openInventory();return;}
   if(event.code==='Enter'&&!modal){event.preventDefault();chatOpen=true;$('#chat-form').hidden=false;syncInput();$('#chat-form input').focus();return;}
-  if(event.code==='KeyE'&&!event.repeat){if(modal==='knowledge')closeModal();else if(!modal)interact();}
+  if(event.code==='KeyE'&&!event.repeat){if(modal==='knowledge')closeModal();else if(modal==='dialogue'&&$('#next-line'))nextScriptLine();else if(!modal)interact();}
 });
 login();
 if(!preview&&localStorage.getItem('discovery.token'))connect(localStorage.getItem('discovery.token'));

@@ -205,3 +205,71 @@ details p { font-size: 15px; line-height: 1.5; margin-top: 6px; }
 .intro-screen>.quiet-button { position: absolute; bottom: 30px; right: 35px; font-size: 14px; }
 .subtitles { position: fixed; bottom: 100px; left: 15%; right: 15%; text-align: center; font-size: 21px; line-height: 1.5; font-weight: 300; color: #eceee2; text-shadow: 0 2px 5px #000; }
 @media(max-width:700px) { .subtitles { left: 7%; right: 7%; font-size: 18px; bottom: 95px; } }
+
+/* Typography follows the supplied title reference: pen strokes and old serifs. */
+@font-face { font-family: 'Chronicle'; src: url('/fonts/CormorantGaramond.ttf') format('truetype'); font-weight: 300 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Chronicle'; src: url('/fonts/CormorantGaramond-Italic.ttf') format('truetype'); font-weight: 300 700; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Quill'; src: url('/fonts/MarckScript.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+:root { font-family: 'Chronicle', Georgia, serif; color: #e6decb; background: #0a0c0c; --muted: #a69f8d; --line: #d3c6a43d; --panel: #111310f2; }
+button, input, select { font-weight: 500; }
+.login-screen { grid-template-columns: 1fr; justify-items: center; align-content: center; gap: 48px; padding: 55px 24px 85px; background: radial-gradient(ellipse at 50% 33%, #36372c22, transparent 60%), #090b0b; }
+.title-block { width: min(380px,80vw); }
+.quill-title { font-family: 'Quill', cursive; font-size: 32px; color: #c3bca7; }
+h1 { font-family: 'Chronicle', Georgia, serif; font-size: 145px; font-weight: 400; line-height: 1.02; letter-spacing: 12px; margin: 7px 0 20px; padding-left: 12px; color: #e5dfcc; text-shadow: 0 1px 0 #fff3, 0 4px 25px #c0b99b12; }
+.title-rule { background: linear-gradient(90deg, transparent, #b4aa8c, transparent); }
+.title-rule i { background: #b4aa8c; }
+.title-seal { display: inline-block; min-width: 190px; margin-top: 20px; padding: 5px 23px; border-block: 3px double #b7ad8966; color: #bdb49a; font-size: 12px; font-weight: 600; letter-spacing: 4px; text-transform: uppercase; }
+.login-form { width: min(280px,80vw); }
+.login-form h2 { font-size: 28px; font-weight: 500; text-align: center; margin-bottom: 18px; }
+.login-form label { margin-top: 17px; font-size: 17px; font-style: italic; }
+.login-form input { font-size: 21px; padding-inline: 6px; border-color: #aa9b734a; }
+.login-form .primary { margin-top: 26px; }
+.primary, .option-button { font-size: 20px; font-weight: 500; border-color: #d6cda66b; background: #b9b08c08; }
+.primary:hover:not(:disabled), .option-button:hover { border-color: #d6cda6; background: #b9b08c18; }
+.quiet-button { font-size: 19px; color: #bbb29d; font-weight: 500; }
+.login-form .quiet-button { font-size: 17px; }
+.login-footer { font-family: 'Chronicle', serif; font-size: 15px; font-style: italic; }
+.wordmark { font-family: 'Chronicle', serif; font-size: 35px; font-weight: 500; }
+h2 { font-size: 38px; font-weight: 500; }
+h3 { font-weight: 500; }
+.overline { color: #ada48f; font-size: 12px; letter-spacing: 2px; }
+.lobby-screen { background: #0c0e0df5; }
+.lobby-content h2 { font-size: 44px; font-weight: 500; }
+.role-info strong { font-size: 32px; font-weight: 500; }
+.role-info>span { font-size: 18px; font-style: italic; color: #aea58f; }
+.role-option.selected { box-shadow: inset 2px 0 #bcaf87; background: linear-gradient(90deg,#d4bd7a13,transparent); }
+.role-option:hover:not(:disabled) { background: linear-gradient(90deg,#d4bd7a0d,transparent); }
+.role-number, .selection-mark { color: #b8ad8b; }
+.crew-list { font-size: 18px; }
+.menu-panel { border-color: #c1b58d69; }
+.menu-panel h2 { font-size: 36px; font-weight: 500; }
+.menu-panel p { font-size: 20px; font-weight: 500; color: #c0b8a1; }
+.menu-panel label { font-size: 18px; font-style: italic; }
+.quest h3 { font-size: 25px; }
+.quest p { font-size: 18px; }
+.quest small { font-size: 15px; color: #b6b09b; }
+.inventory-slot>span { font-size: 19px; font-weight: 500; }
+.dialogue-panel { background: #0b0e0cf0; border-color: #cabb9366; }
+.dialogue-panel h2 { font-family: 'Quill', cursive; font-size: 31px; font-weight: 400; }
+.dialogue-panel>#npc-text { font-size: 24px; font-weight: 500; }
+.dialogue-panel details { font-size: 16px; font-style: italic; }
+.dialogue-panel details p { font-size: 18px; }
+#npc-form input { font-size: 20px; }
+.hints button { font-size: 17px; }
+.hud-footer, .chat-log, .notice, .party { font-size: 18px; }
+.interact-prompt { font-size: 24px; font-weight: 500; }
+.hud-footer .quiet-button { font-size: 21px; }
+.world-status { font-size: 20px; font-style: italic; }
+.preview-controls .overline { font-size: 11px; }
+.preview-controls button { font-size: 17px; }
+.intro-screen { background: radial-gradient(ellipse at 50% 40%,#5b51321a,transparent 60%),#10120f; }
+.intro-screen h2 { font-family: 'Quill', cursive; font-size: clamp(40px,5vw,68px); font-weight: 400; color: #ded3b4; }
+.subtitles { font-size: 25px; font-weight: 500; color: #e0d7bf; }
+.trade-money { font-size: 18px; margin: 16px 0; color: #c0af7e; }
+.trade-row { display: flex; align-items: baseline; gap: 14px; border-top: 1px solid var(--line); }
+.trade-row label { flex: 1; margin: 12px 0; font-size: 19px; }
+.trade-row label small { display: block; color: var(--muted); font-size: 14px; }
+.trade-row input { width: 60px; font-size: 18px; }
+.trade-row button { font-size: 17px; }
+@media(max-width:700px) { .login-screen { gap: 34px; padding-block: 45px 90px; } h1 { font-size: 112px; } .quill-title { font-size: 28px; } .role-info strong { font-size: 28px; } .subtitles { font-size: 21px; left: 7%; right: 7%; } }
+@media(max-height:780px) and (min-width:701px) { .login-screen { grid-template-columns: 1fr 1fr; gap: 8vw; padding: 65px 12vw; } .login-form h2 { text-align: left; } }
