@@ -28,7 +28,7 @@ let screen='login', modal='', connected=false, chatOpen=false;
 let you={}, scene={id:'lobby',type:'lobby'}, players=[], inventory=[], quests={};
 let savedPosition, savedYaw=0, currentTarget, activeNpc;
 let noticeTimer, npcAudio, waitingForReply=false, frameCount=0, fpsAt=0, dialogueTimer;
-let scriptIndex=0,scriptLines=[],tradeState=null;
+let scriptIndex=0,scriptLines=[],tradeState=null,partyReady={};
 const knownCards=new Set();
 const settings={quality:'high',sensitivity:2,voices:0.8};
 const voices=new VoiceLibrary({onVoice:playing=>gameEvents.emit('voice',{playing})});
@@ -98,6 +98,10 @@ function connectionStatus(status){
   $('#connection').textContent=messages[status]||'';$('#connection').hidden=!messages[status];
   if(status==='replaced')showModal('ended',`<section class="menu-panel"><h2>Сессия завершена</h2><p>Аккаунт открыт в другой вкладке.</p><button class="primary" id="session-exit">Ко входу</button></section>`);
   if(status==='replaced')$('#session-exit').onclick=logout;
+  if(status==='full'){
+    showModal('ended',`<section class="menu-panel"><h2>Экипаж уже собран</h2><p>В игре уже 3 из 3 игроков — по одному на каждую роль. Дождитесь, пока кто-нибудь выйдет.</p><button class="primary" id="session-exit">Ко входу</button></section>`);
+    $('#session-exit').onclick=logout;
+  }
   if(screen==='lobby')renderLobby();
   syncInput();
 }
@@ -150,6 +154,7 @@ function bindNetwork(client){
   client.on('party',message=>{
     $('#party').textContent=message.waitingFor?.length?`Ждём: ${message.waitingFor.map(player=>player.name).join(', ')}`:'';
     if($('#skip-votes'))$('#skip-votes').textContent=message.skip?`${message.skip.votes} / ${message.skip.total}`:'';
+    partyReady=message.ready||{};if(screen==='game')renderQuest();
     gameEvents.emit('party',message);
   });
   client.on('notice',message=>notify(message.text));
@@ -214,7 +219,10 @@ function renderQuest(){
     const def=QUESTS[id];
     return {...state,id,title:state.title||def?.title||'Задание',scene:def?.scene,optional:state.optional??def?.optional,progress:state.progress??state.step??0,total:state.total??def?.steps.length??1,text:state.text??state.stepText??(typeof state.step==='number'?def?.steps[state.step]?.text:null)};
   }).filter(quest=>!quest.scene||quest.scene===scene.id);
-  const quest=list.find(item=>item.status!=='done'&&!item.optional)||list.find(item=>item.status!=='done')||list.at(-1);
+  let quest=list.find(item=>item.status!=='done'&&!item.optional)||list.find(item=>item.status!=='done')||list.at(-1);
+  // Канары: всё своё сделано, но ещё не в шлюпке — подсказать, как вернуться на корабль
+  const boarded=!!partyReady[you?.id];
+  if(scene.id==='canary'&&list.length&&list.every(item=>item.status==='done'||item.optional)&&!boarded)quest={title:'Шлюпка',text:'Иди к шлюпке у причала и нажми E — вернёмся на корабль',status:'active',progress:0,total:1};
   $('#quest').hidden=!quest;
   if(!quest)return;
   $('#quest').innerHTML=`<h3>${escape(quest.title)}</h3>${quest.text?`<p>${escape(quest.text)}</p>`:''}<small>${quest.status==='done'?'Выполнено':`${quest.progress} / ${quest.total}`}${quest.need?` · ${quest.count||0}/${quest.need}`:''}</small>`;

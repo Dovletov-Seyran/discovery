@@ -54,6 +54,11 @@ function onConnection(ws) {
       const session = getSession(msg.token);
       if (!session) return fail('bad_token');
       clearTimeout(authTimer);
+      if (!game.canJoin(session.userId)) {
+        ws.send(JSON.stringify({ t: S2C.NOTICE, text: `Экипаж уже собран: ${CONFIG.MAX_PLAYERS} из ${CONFIG.MAX_PLAYERS}` }));
+        ws.close(CLOSE.FULL, 'full');
+        return;
+      }
       player = game.join(session, ws);
       return;
     }

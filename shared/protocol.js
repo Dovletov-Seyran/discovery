@@ -49,6 +49,7 @@ export const S2C = {
 export const CLOSE = {
   AUTH_FAIL: 4001,  // не авторизован — переподключаться без нового входа бессмысленно
   REPLACED: 4002,   // вошли с другой вкладки — НЕ переподключаться автоматически
+  FULL: 4003,       // экипаж собран (CONFIG.MAX_PLAYERS) — НЕ переподключаться автоматически
 };
 
 export const ROLES = ['grumete', 'piloto', 'lengua'];

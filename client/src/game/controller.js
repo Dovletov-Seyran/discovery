@@ -72,8 +72,11 @@ export class Controller {
       const dt=Math.min(Math.max(delta,0),0.05);
       const offset=new Vector3(x,0,z);
       if(moving)offset.normalize().applyAxisAngle(UP,this.yaw).multiplyScalar(running?6:3);
+      // Прыжок — пробел, только стоя на палубе или земле (onGround с прошлого кадра)
+      if(this.keys.has('Space')&&this.onGround&&document.pointerLockElement===this.canvas){this.velocityY=5.5;this.onGround=false;}
       this.velocityY-=20*dt;
       const step=dt/4;
+      let grounded=false;
       for(let index=0;index<4;index++){
         this.position.addScaledVector(offset,step);
         this.position.y+=this.velocityY*step;
@@ -82,9 +85,10 @@ export class Controller {
         capsule.end.set(this.position.x,this.position.y+1.7-capsule.radius,this.position.z);
         const result=this.world.collide(capsule);
         this.position.set(capsule.start.x,capsule.start.y-capsule.radius,capsule.start.z);
-        if(result?.onGround)this.velocityY=Math.max(0,this.velocityY);
+        if(result?.onGround){grounded=true;this.velocityY=Math.max(0,this.velocityY);}
         else if(result?.delta?.y<0)this.velocityY=Math.min(0,this.velocityY);
       }
+      this.onGround=grounded;
     }
     if (this.enabled) this.applyCamera(moving ? Math.sin(time*10)*0.02 : 0);
   }

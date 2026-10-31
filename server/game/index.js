@@ -23,6 +23,12 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
 // --- Вход и выход ---
 
+// Мест столько, сколько ролей. Свои (уже в партии, в т.ч. отключённые в пределах grace) возвращаются всегда
+export function canJoin(userId) {
+  const party = players.party();
+  return party.some((p) => p.id === userId) || party.length < CONFIG.MAX_PLAYERS;
+}
+
 export function join(session, ws) {
   const p = players.getOrCreate(session.userId, session.login);
   const old = p.ws;
