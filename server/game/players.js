@@ -26,7 +26,7 @@ function create(userId, name) {
     lastItemUse:{},lastVitalsAt:Date.now(),
     quests: saved?.quests ?? {},
     log: saved?.log ?? [],
-    trade: {},           // торговля: item → { price, low } (только в памяти)
+    trade: saved?.trade??{}, // переговоры и покупки сохраняются между входами
     ready: false,
     seat: null,
     lastMoveAt: 0,
@@ -40,7 +40,7 @@ function create(userId, name) {
 }
 
 const serialize = (p) => ({
-  role: p.role, scene: p.scene, zone: p.zone, p: p.p, r: p.r, inventory: p.inventory, money: p.money,itemUses:p.itemUses,vitals:p.vitals, quests: p.quests, log: p.log,
+  role: p.role, scene: p.scene, zone: p.zone, p: p.p, r: p.r, inventory: p.inventory, money: p.money,trade:p.trade,itemUses:p.itemUses,vitals:p.vitals, quests: p.quests, log: p.log,
 });
 
 export const players = {

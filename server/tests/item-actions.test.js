@@ -38,3 +38,8 @@ test('effects and remaining servings survive a real SQLite save/reload',()=>{
  const saved=db.loadPlayer(id);assert.equal(saved.itemUses.wine,2);assert.deepEqual(saved.vitals,p.vitals);
  saved.lastItemUse={};applyItemUse(saved,'wine',12000);assert.equal(saved.itemUses.wine,1);
 });
+test('merchant purchase state persists even after a purchased food has been eaten',()=>{
+ const id=db.createUser('buyer','fixture'),p=player(['cheese']);p.trade={'trader:cheese':{price:35,low:0,sold:true}};
+ applyItemUse(p,'cheese',0);db.savePlayer(id,{...p,role:'lengua',zone:'canary',p:[0,0,0],scene:'shop',quests:{},log:[]},{now:true});
+ const saved=db.loadPlayer(id);assert.deepEqual(saved.inventory,[]);assert.equal(saved.trade['trader:cheese'].sold,true);
+});

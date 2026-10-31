@@ -56,9 +56,17 @@ class Bot {
     this.ws.on('close', (code) => { this.closeCode = code; });
     return new Promise((r) => this.ws.on('open', r));
   }
+  waitClosed(ms=3000){
+    if(this.closeCode!==null)return Promise.resolve(this.closeCode);
+    return new Promise(resolve=>{
+      const onClose=code=>{clearTimeout(timer);resolve(code);};
+      const timer=setTimeout(()=>{this.ws.off('close',onClose);resolve(null);},ms);
+      this.ws.once('close',onClose);
+    });
+  }
   send(t, payload = {}) { this.ws.send(JSON.stringify({ t, ...payload })); }
   last(t) { return this.msgs.findLast((m) => m.t === t); }
-  async wait(t, pred = () => true, ms = 3000) {
+  async wait(t, pred = () => true, ms = 8000) {
     const end = Date.now() + ms;
     while (Date.now() < end) {
       const m = this.msgs.find((x) => x.t === t && pred(x));
@@ -106,7 +114,7 @@ const anon = new Bot('anon');
 await anon.open();
 anon.send('move', { p: [0, 0, 0] });
 check(!!(await anon.wait('auth_fail')), 'сообщение до auth → auth_fail');
-await sleep(100);
+await anon.waitClosed();
 check(anon.closeCode === 4001, `закрыто с 4001 (${anon.closeCode})`);
 
 const silent = new Bot('silent');
@@ -182,7 +190,7 @@ const g2 = new Bot('grum-2');
 await g2.open();
 g2.send('auth', { token: tokens[0] });
 const ok2 = await g2.wait('auth_ok');
-await sleep(200);
+await g.waitClosed();
 check(g.closeCode === 4002, `вторая вкладка закрыла первую (код ${g.closeCode})`);
 check(!!ok2 && ok2.state.role === 'grumete' && ok2.state.p[0] > start[0] + 2, `состояние сохранилось: роль ${ok2?.state.role}, p ${JSON.stringify(ok2?.state.p)}`);
 check(!p.msgs.some((m) => m.t === 'player_leave' && m.id === g.id), 'смена вкладки не рассылает player_leave');
@@ -204,13 +212,13 @@ const near = [];
 for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) near.push(`${scx + dx},${scz + dz}`);
 p.clear();
 p.send('chunk_req', { zone: 'canary', keys: near });
-await sleep(500);
+await p.wait('chunk',()=>p.msgs.filter(m=>m.t==='chunk').length>=25,8000);
 const got = p.msgs.filter((m) => m.t === 'chunk');
 check(got.length === 25, `25 чанков вокруг спавна (${got.length}), spawn ${JSON.stringify(canary.spawn)}`);
 check(got.every((m) => m.data.h.length === 33 * 33), 'в каждом чанке 33×33 высот');
 check(got.some((m) => m.data.interact.some((o) => o.id === 'well')), 'колодец есть в соседних чанках');
 p.send('chunk_req', { zone: 'canary', keys: [`${scx + 3},${scz}`, `${scx + 4},${scz}`, '0,0'] });
-await sleep(300);
+await p.wait('chunk_denied',()=>p.msgs.filter(m=>m.t==='chunk_denied'&&m.reason==='too_far').length>=2,8000);
 check(p.msgs.some((m) => m.t === 'chunk' && m.key === `${scx + 3},${scz}`), 'чанк на расстоянии 3 → выдан');
 check(p.msgs.filter((m) => m.t === 'chunk_denied' && m.reason === 'too_far').length === 2, 'чанки дальше 3 → too_far');
 const health2 = await api('/api/health');
@@ -234,6 +242,11 @@ check(!!(await g2.wait('entity', (m) => m.id === 'astrolabe' && m.state.holder =
 await g2.walkTo(...at('astrolabe'));
 g2.send('pickup', { id: 'astrolabe' });
 check(!!(await g2.wait('notice', (m) => m.text.includes('уже взял'))), 'второй раз взять нельзя');
+g2.send('pickup',{id:'rum'});
+check(!!(await g2.wait('inventory',m=>m.items.includes('rum'))),'ром можно подобрать на корабле');
+g2.send('use',{item:'rum'});
+const rumUse=await g2.wait('item_used',m=>m.item==='rum');
+check(!!rumUse&&rumUse.vitals.drunkUntil>rumUse.serverNow&&rumUse.uses===1,'ром: сервер подтвердил опьянение и расход глотка');
 p.send('minigame', { game: 'astrolabe', result: { answer: 17 } });
 check(!!(await p.wait('notice', (m) => m.text.includes('Неверно'))), 'астролябия: неверная широта → подсказка');
 p.send('minigame', { game: 'astrolabe', result: { angle: 73, answer: 33 } });
@@ -319,6 +332,9 @@ async function traderFlow() {
   const last = await buy('biscuit', 25);
   check(last?.money === 15, `всё куплено, осталось ${last?.money} мараведи`);
   check(!!(await l.wait('quest', (m) => m.id === 'q_trade' && m.status === 'done')), '«Провизия» выполнено');
+  l.send('use',{item:'cheese'});
+  check(!!(await l.wait('item_used',m=>m.item==='cheese'&&m.effect==='food')),'еду можно съесть, сервер подтвердил восстановление сил');
+  check(!!(await l.wait('inventory',m=>m.items.includes('meat')&&!m.items.includes('cheese'))),'съеденный сыр удалён из инвентаря');
   await l.walkTo(...isle('boat'));
   l.send('interact', { id: 'boat' });
 }

@@ -228,7 +228,8 @@ async function npcRequest(p, npc, req) {
   const res = await askAi(p, npc, req);
   if (!res || started !== director.startAt()) return;
   event(p, { type: 'talk', npc });
-  if (res.topicsTold?.length) event(p, { type: 'topics', npc, topics: res.topicsTold });
+  const topics=res.topicsDiscussed??res.topicsTold??[];
+  if (topics.length) event(p, { type: 'topics', npc, topics });
 }
 
 const requestTags = (msg) => ({

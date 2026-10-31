@@ -26,3 +26,10 @@ test('controller sends Front 1 sphere centers, resolves floor and retains 1.6 m 
   runtime.update(0.01,0.07);assert.equal(sent.length,2);
   document.pointerLockElement=null;runtime.dispose();
 });
+test('opening dialogue/menu sends a final idle movement instead of leaving the player running remotely',()=>{
+ globalThis.window=new EventTarget();globalThis.document=new EventTarget();document.pointerLockElement=null;
+ const sent=[],world={camera:new PerspectiveCamera(),interactables:[],groundHeight:()=>0,collide:()=>({onGround:true})};
+ const runtime=new GameplayRuntime(world,{}, {send:(type,data)=>{sent.push({type,...data});return true;}});
+ runtime.setMode('play');runtime.controller.animation='run';runtime.setMode('blocked');
+ assert.equal(sent.at(-1).a,'idle');assert.equal(sent.at(-1).type,'move');runtime.dispose();
+});

@@ -27,3 +27,9 @@ test('synchronous Pointer Lock rejection is handled; leaving a successful lock p
  document.pointerLockElement=canvas;document.dispatchEvent(event('pointerlockchange'));
  document.pointerLockElement=null;document.dispatchEvent(event('pointerlockchange'));assert.equal(c.hasControl,false);c.dispose();
 });
+test('exhausted sprint slows to walking and stamina recovers while resting',()=>{
+ const {c}=setup();c.lock();c.stamina=.1;c.keys.add('KeyW');c.keys.add('ShiftLeft');
+ c.update(.05,0);c.update(.05,.05);assert.equal(c.exhausted,true);assert.equal(c.animation,'walk');
+ c.keys.clear();for(let i=0;i<90;i++)c.update(.05,i*.05);
+ assert.ok(c.stamina>=20);assert.equal(c.exhausted,false);c.dispose();
+});
