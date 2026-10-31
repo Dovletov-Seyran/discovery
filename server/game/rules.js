@@ -180,8 +180,9 @@ async function npcRequest(p, npc, req) {
 }
 
 export function npcTalk(p, msg) {
+  // Пустой текст — игрок подошёл (E): агент здоровается с учётом прошлых разговоров
   const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, CONFIG.CHAT_MAX_LEN) : '';
-  if (text) return npcRequest(p, msg.npc, { text });
+  return npcRequest(p, msg.npc, { text });
 }
 
 export function npcHint(p, msg) {

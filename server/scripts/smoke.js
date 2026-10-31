@@ -10,6 +10,8 @@ const suffix = Math.random().toString(36).slice(2, 7);
 let failed = 0;
 const check = (ok, what) => { console.log(`${ok ? '✓' : '✗'} ${what}`); if (!ok) failed++; };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Ответ NPC на LLM: с заглушками мгновенно, с настоящим ИИ 4–7 с → AI_WAIT_MS=20000 npm run smoke
+const AI_MS = Number(process.env.AI_WAIT_MS) || 3000;
 
 async function api(path, body) {
   const res = await fetch(BASE + path, {
@@ -145,7 +147,7 @@ check(!!(await l.wait('chat', (m) => m.text === 'Земля!' && m.from === g.id
 
 l.send('npc_talk', { npc: 'columbus', text: 'Куда мы плывём?' });
 check(!!(await l.wait('npc_thinking')), 'npc_talk → npc_thinking');
-check(!!(await l.wait('npc_say')), 'npc_talk → npc_say');
+check(!!(await l.wait('npc_say', () => true, AI_MS)), 'npc_talk → npc_say');
 await sleep(2100);
 l.clear();
 l.send('npc_talk', { npc: 'boatswain', text: 'Эй' });
@@ -214,10 +216,10 @@ p.send('minigame', { game: 'astrolabe', result: { answer: 33 } });
 check(!!(await p.wait('quest', (m) => m.id === 'q_latitude' && m.status === 'done')), 'астролябия: 33° → задание выполнено');
 
 l.send('npc_talk', { npc: 'columbus', text: 'Зачем мы плывём на запад?' });
-check(!!(await l.wait('quest', (m) => m.id === 'q_ask_columbus' && m.count === 1)), 'Колумб: тема 1 из 2');
+check(!!(await l.wait('quest', (m) => m.id === 'q_ask_columbus' && m.count === 1, AI_MS)), 'Колумб: тема 1 из 2');
 await sleep(2100);
 l.send('npc_hint', { npc: 'columbus', hint: 'reward' });
-check(!!(await l.wait('quest', (m) => m.id === 'q_ask_columbus' && m.status === 'done')), 'Колумб: подсказка → тема 2, задание выполнено');
+check(!!(await l.wait('quest', (m) => m.id === 'q_ask_columbus' && m.status === 'done', AI_MS)), 'Колумб: подсказка → тема 2, задание выполнено');
 
 g2.send('chat', { text: '/done' });
 const pinta = await l.wait('npc_say', (m) => m.line === 'rudder_alarm', 4000);
@@ -284,7 +286,7 @@ async function traderFlow() {
   l.send('trade', { npc: 'trader', item: 'cheese', offer: 20 });
   const counter = await l.wait('trade_state');
   check(counter?.goods.find((g) => g.item === 'cheese').price === 30, 'сыр за 20 → встречная цена 30');
-  check(!!(await l.wait('npc_say', (m) => m.npc === 'trader')), 'торговец отвечает на предложение');
+  check(!!(await l.wait('npc_say', (m) => m.npc === 'trader', AI_MS)), 'торговец отвечает на предложение');
   const buy = async (item, offer) => { await sleep(2100); l.send('trade', { npc: 'trader', item, offer }); return l.wait('trade_state', (m) => m.goods.find((g) => g.item === item).sold); };
   await buy('cheese', 30);
   await buy('meat', 30);

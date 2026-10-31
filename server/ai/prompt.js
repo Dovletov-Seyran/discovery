@@ -48,6 +48,7 @@ export function buildMessages({ agent, context = {}, newCards, toldCards, extraC
 
 function describeTrade({ item, offer, outcome, price }) {
   if (outcome === 'sold') return `You just agreed to sell ${item} for ${price} maravedis. React to the deal.`;
+  if (outcome === 'no_money') return `The player wants ${item} for ${price} maravedis but does not have enough money. Tease them kindly about their light purse.`;
   if (outcome === 'angry') return `The player offered only ${offer} maravedis for ${item} again. You are offended and raise the price to ${price}.`;
   return `The player offered ${offer} maravedis for ${item}. Refuse and ask for ${price} instead.`;
 }

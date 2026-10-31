@@ -6,7 +6,9 @@ import { loadAgentMemory, saveAgentMemory, deleteAgentMemory } from '../db.js';
 const AI_MODULE = new URL('../ai/index.js', import.meta.url);
 
 let impl = null;
-if (!existsSync(AI_MODULE)) {
+if (process.env.AI === '0') {
+  console.log('[ai] AI=0 — работают заглушки (без Ollama и голоса)');
+} else if (!existsSync(AI_MODULE)) {
   console.log('[ai] server/ai/index.js не найден — работают заглушки');
 } else {
   try {
