@@ -386,3 +386,7 @@ body[data-scene-type="cutscene"] .scene-progress { top:20px; left:20px; }
 .map-panel {width:min(640px,95vw);}
 #local-map {width:100%;height:auto;display:block;border:1px solid #9c8254;margin-bottom:16px;}
 @media(max-width:760px){.hud-dock{grid-template-areas:"vitals" "equipment" "hint" "footer";}.vitals{font-size:15px;}}
+
+/* Front 1's new 3D cutscenes own their titles; keep the countdown above the letterbox. */
+body.cinematic .scene-caption {display:none;}
+.scene-progress {z-index:41;}
