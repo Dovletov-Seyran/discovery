@@ -10,6 +10,8 @@ import { players } from './game/players.js';
 import { chunkStats } from './game/stats.js';
 
 const CLIENT_DIST = fileURLToPath(new URL('../client/dist/', import.meta.url));
+const DEV_PAGE = fileURLToPath(new URL('./dev/', import.meta.url));
+const SHARED = fileURLToPath(new URL('../shared/', import.meta.url));
 const AUDIO_RT = join(DATA_DIR, 'audio', 'rt');
 const MAX_BODY = 4096;
 
@@ -95,6 +97,15 @@ export async function handleHttp(req, res) {
 
     if (path.startsWith('/audio/rt/')) {
       const file = resolveFile(AUDIO_RT, path.slice('/audio/rt/'.length));
+      return file ? sendFile(res, file, 'no-cache') : sendJson(res, 404, { error: 'not_found' });
+    }
+
+    // Dev-страница для проверки сервера без клиента: /dev/ (только DEV=1)
+    if (CONFIG.DEV && (path === '/dev' || path.startsWith('/dev/') || path.startsWith('/shared/'))) {
+      if (path === '/dev') { res.writeHead(302, { Location: '/dev/' }); return res.end(); }
+      const file = path.startsWith('/shared/')
+        ? resolveFile(SHARED, path.slice('/shared/'.length))
+        : resolveFile(DEV_PAGE, path === '/dev/' ? 'index.html' : path.slice('/dev/'.length));
       return file ? sendFile(res, file, 'no-cache') : sendJson(res, 404, { error: 'not_found' });
     }
 
