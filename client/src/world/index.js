@@ -24,6 +24,7 @@ import { Cutscenes } from './cutscene.js';
 import { npcActivity } from '../../../shared/npc-activity.js';
 import { prepareNpc, animateNpc, collideNpcs, giveChart } from './npc-animation.js';
 import { WorldPatches } from './world-patches.js';
+import { Fauna } from './fauna.js';
 import { strum } from './people.js';
 import canaryLayout from '../../../content/canary_layout.json';
 import guanahaniLayout from '../../../content/guanahani_layout.json';
@@ -90,6 +91,7 @@ export const world = {
 
     this.objects = new WorldObjects(this);
     this.players = new Players(this.scene, this.M);
+    this.fauna = new Fauna(this, { layouts: { canary: canaryLayout } }); // жители и животные (fauna.js): маршруты от общего времени, реакции на world_event
     this.env.mirrorHide.push(this.zoneRoot, this.smoke, this.players.group);
     this.patches = new WorldPatches(this);
     this.pipeline = new Pipeline(r, this.scene, this.camera);
@@ -234,11 +236,13 @@ export const world = {
     this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
     this.island?.refresh();
     this.patches?.update();
+    this.patches?.flutter(performance.now() / 1000);
     this.players.update(dt);
     this.updateNpcs(dt);
     this.objects?.update();
     for(const o of this.interactables)if(!this.objects?.records.has(o.userData.id))animateProp(o,Date.now()+(this.objects?.clockOffset??0));
     this.updateSmoke(dt);
+    if (!this.cutscene.active) this.fauna?.update(dt);
     this.renderer.info.reset();
     this.frameNo = (this.frameNo ?? 0) + 1;
     if (this.frameNo % 2 === 1) this.renderer.shadowMap.needsUpdate = true;

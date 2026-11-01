@@ -302,6 +302,12 @@ export function applyState(obj, state = {}) {
 
 export function animateProp(obj,now){
   const u=obj.userData;
+  // Колодец: 4 с после набора воды ворот крутится, ведро уходит вниз до воды и возвращается
+  if(u.winch&&u.winchAt!=null){
+    const k=THREE.MathUtils.clamp((now-u.winchAt)/4000,0,1),depth=Math.sin(k*Math.PI)*0.75,w=u.winch;
+    w.axle.rotation.x=-k*Math.PI*6;w.bucket.position.y=1.1-depth;w.rope.scale.y=0.9+depth;
+    if(k>=1)u.winchAt=null;
+  }
   if(u.emptyAt&&u.setFill){
     u.setFill(THREE.MathUtils.clamp((u.emptyAt-now)/u.turnSpan,0,1));
     if(u.flipPivot){const t=u.flipAt==null?1:THREE.MathUtils.clamp((now-u.flipAt)/650,0,1);u.flipPivot.rotation.z=t<1?Math.PI*t*t*(3-2*t):0;}

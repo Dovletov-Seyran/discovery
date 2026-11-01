@@ -51,6 +51,8 @@ export class WorldConnection {
     });
     events.on('chunk_denied',message=>{if(message.zone!=='ship')this.world?.chunks?.denied?.(message.zone,message.key,message.reason);});
     events.on('entity',message=>this.applyEntity(message.id,message.state??message));
+    // действия игроков (еда, бег, меч, выстрел, танец, разговор) — жители и животные реагируют сами (world/fauna.js)
+    events.on('world_event',message=>this.world?.fauna?.react?.(message));
     events.on('scene_progress',message=>{
       if(this.world&&message.scene===this.scene?.id&&Number.isFinite(message.serverNow))this.world.npcClockOffset=message.serverNow-Date.now();
     });
@@ -67,6 +69,8 @@ export class WorldConnection {
     });
     events.on('player_action',message=>{
       this.setClock(message.serverNow);
+      // набрали воду у колодца — у всех, и у самого игрока, крутится ворот и едет ведро (world/props.js)
+      if(message.action?.kind==='fill'&&message.action.target){const well=this.world?.entity?.(message.action.target);if(well?.userData.winch)well.userData.winchAt=Date.now();}
       if(message.id===this.you?.id)return;
       const p=this.remotePlayers.get(message.id);if(p)this.remotePlayers.set(message.id,{...p,action:message.action});
       this.world?.players?.action?.(message);

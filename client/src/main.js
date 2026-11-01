@@ -48,7 +48,7 @@ const itemCooldowns=new Map();
 let scriptIndex=0,scriptLines=[],tradeState=null,partyReady={},serverBuild=null;
 const knownCards=new Set();
 const telemetry=new Telemetry(()=>world); // ping и метрики клиента для админки
-const settings={quality:'high',sensitivity:2,voices:0.8,fps:FPS_PLAY};
+const settings={quality:'high',sensitivity:2,voices:0.8,fps:FPS_PLAY,fauna:1};
 const voices=new VoiceLibrary({onVoice:playing=>gameEvents.emit('voice',{playing})});
 const narrative=new NarrativePlayer(voices,{
   onFrame:frame=>{
@@ -81,6 +81,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
   if(scene.zone)world.setZone?.(scene.zone);
   if(Number.isFinite(scene.tod))world.setTimeOfDay?.(scene.tod);
   world.setQuality?.(settings.quality);
+  world.fauna?.setDensity?.(settings.fauna);
   runtime.controller.sensitivity=settings.sensitivity/1000;
   $('#world-status').hidden=true;
   syncInput();
@@ -484,8 +485,9 @@ function receiveDialogue(message){
 }
 function stopNpcAudio(){if(npcAudio){npcAudio.pause();npcAudio=null;gameEvents.emit('voice',{playing:false});}}
 function openMenu(){
-  showModal('menu',`<section class="menu-panel">${closeButton()}<h2>Настройки</h2><label for="quality">Качество</label><select id="quality"><option value="high">Высокое</option><option value="low">Низкое</option></select><label for="fps">Кадров в секунду</label><select id="fps"><option value="60">60 — плавно</option><option value="30">30 — тише и холоднее</option></select><label for="sensitivity">Чувствительность</label><input id="sensitivity" type="range" min="1" max="5" step="0.1" value="${settings.sensitivity}"><label for="voice-volume">Голос</label><input id="voice-volume" type="range" min="0" max="1" step="0.05" value="${settings.voices}"><button class="primary" data-close>Продолжить</button><button id="leave" class="quiet-button">Выйти</button></section>`);
+  showModal('menu',`<section class="menu-panel">${closeButton()}<h2>Настройки</h2><label for="quality">Качество</label><select id="quality"><option value="high">Высокое</option><option value="low">Низкое</option></select><label for="fps">Кадров в секунду</label><select id="fps"><option value="60">60 — плавно</option><option value="30">30 — тише и холоднее</option></select><label for="fauna">Жители и животные</label><select id="fauna"><option value="1">Все</option><option value="0.5">Половина</option><option value="0">Нет</option></select><label for="sensitivity">Чувствительность</label><input id="sensitivity" type="range" min="1" max="5" step="0.1" value="${settings.sensitivity}"><label for="voice-volume">Голос</label><input id="voice-volume" type="range" min="0" max="1" step="0.05" value="${settings.voices}"><button class="primary" data-close>Продолжить</button><button id="leave" class="quiet-button">Выйти</button></section>`);
   $('#quality').value=settings.quality;$('#quality').onchange=event=>{settings.quality=event.target.value;world?.setQuality?.(settings.quality);};
+  $('#fauna').value=String(settings.fauna);$('#fauna').onchange=event=>{settings.fauna=Number(event.target.value);world?.fauna?.setDensity(settings.fauna);};
   $('#fps').value=String(settings.fps);$('#fps').onchange=event=>{settings.fps=Number(event.target.value);};
   $('#sensitivity').oninput=event=>{settings.sensitivity=Number(event.target.value);if(runtime)runtime.controller.sensitivity=settings.sensitivity/1000;};
   $('#voice-volume').oninput=event=>{settings.voices=Number(event.target.value);if(npcAudio)npcAudio.volume=settings.voices;voices.volume=settings.voices;};
