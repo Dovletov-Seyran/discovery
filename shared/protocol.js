@@ -28,7 +28,7 @@ export const S2C = {
   SNAPSHOT: 'snapshot',         // { tick, players: [{id, p, r, a}] }
   PLAYER_JOIN: 'player_join',   // { id, name, role }
   PLAYER_LEAVE: 'player_leave', // { id, name, role }
-  SCENE: 'scene',               // { id, type, startAt, tod, zone, duration, spawn?, seat? }
+  SCENE: 'scene',               // { id, type, startAt, tod, zone, duration, spawn?, seat?, fleet? }
   TOD: 'tod',                   // { value }
   CHUNK: 'chunk',               // { zone, key, data }
   CHUNK_DENIED: 'chunk_denied', // { zone, key, reason }

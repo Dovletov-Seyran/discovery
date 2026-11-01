@@ -5,10 +5,10 @@ import { resolveLayout } from '../world/terrain.js';
 
 // id → { id, zone, x, z, kind, item?, period?, ... } — интерактивные объекты и NPC
 const defs = new Map();
-for (const zone of ['ship', 'canary']) {
+for (const zone of ['ship', 'canary', 'guanahani']) {
   // остров — с координатами, как их считает генератор (rel/shore разворачиваются в точки)
   const raw = loadContent(`${zone}_layout.json`, {});
-  const layout = zone === 'canary' && raw.shape ? resolveLayout(raw).layout : raw;
+  const layout = zone !== 'ship' && raw.shape ? resolveLayout(raw).layout : raw;
   for (const o of layout.interact ?? []) defs.set(o.id, { ...o, zone, x: o.p[0], z: o.p.at(-1) });
   for (const o of layout.npcs ?? []) defs.set(o.id, { ...o, kind: 'npc', zone, x: o.p[0], z: o.p.at(-1) });
 }

@@ -263,7 +263,7 @@ if (!only || only === 'guanahani') {
   const floating = [];
   for (const o of [...layout.objects, ...layout.interact]) {
     const make = ISLAND_MODELS[o.m];
-    if (!make) continue;
+    if (!make || o.float) continue; // float: on the water (a shoal, the Spaniards' boats), not on the ground
     // what stands on the ground: the collider (walls, stones, hull), not the roof's eaves; else the whole model.
     // Sampled inside the footprint in the model's own axes, then turned like the object (a long canoe at an
     // angle covers a thin strip, not its whole bounding square).
@@ -330,7 +330,8 @@ if (!only || only === 'guanahani') {
     const R = { caney: 8, bohio: 4.6, batey: 16.5, conuco: 8 }[o.m] ?? 2.2;
     for (let a = 0; a < 16; a++) {
       const x = o.p[0] + Math.sin(a * Math.PI / 8) * R, z = o.p[2] + Math.cos(a * Math.PI / 8) * R, h = heightAt(x, z);
-      if (h > -0.5) probes.push([x, h + 0.05, z]);
+      // not inside a villager: nobody can get there, and the push out of a body is ambiguous
+      if (h > -0.5 && !layout.npcs.some((n) => Math.hypot(n.p[0] - x, n.p[2] - z) < 0.65)) probes.push([x, h + 0.05, z]);
     }
   }
   const stuck = probes.filter((p) => stuckAt(collide, p));

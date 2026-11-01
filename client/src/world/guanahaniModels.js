@@ -256,9 +256,187 @@ function waterJar(M) {
   return { obj: g, col: [boxGeo(0.5, 0.65, 0.5, 0, 0.32, 0)] };
 }
 
+// --- things to use (part 2 quests) -------------------------------------------------------------
+
+// Invisible box to aim at: the player points at a hammock or a shoal, not at a pixel of it. Drawn into nothing
+// (no colour, no depth, no shadow; the AO pass skips it by material.userData.hitbox).
+const HIT = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+HIT.userData.hitbox = true;
+const hitBox = (w, h, d, x = 0, y = 0, z = 0) => new THREE.Mesh(boxGeo(w, h, d, x, y, z), HIT);
+
+// A fish: a flattened spindle with a forked tail, along +z.
+function fishGeo(len) {
+  const body = new THREE.SphereGeometry(len / 2, 10, 6).scale(0.32, 0.38, 1);
+  const tail = new THREE.ConeGeometry(len * 0.16, len * 0.28, 4).rotateX(-Math.PI / 2).scale(0.25, 1, 1).translate(0, 0, -len * 0.58);
+  return mergeGeometries([body.toNonIndexed(), tail.toNonIndexed()]);
+}
+
+// Fish standing over the sand in the lagoon (origin at the water surface; the seabed is ~0.3–0.5 m below).
+function fishShoal(M) {
+  const g = new THREE.Group(), fish = [];
+  for (let i = 0; i < 9; i++) {
+    const a = i * 2.39, r = 0.3 + ihash(i, 0, 471) * 0.9, len = 0.28 + ihash(i, 1, 472) * 0.16;
+    const f = fishGeo(len); f.rotateY(0.6 + (ihash(i, 2, 473) - 0.5) * 0.5); f.translate(Math.cos(a) * r, -0.16 - ihash(i, 3, 474) * 0.08, Math.sin(a) * r);
+    fish.push(f);
+  }
+  g.add(mesh(mergeGeometries(fish), M.get('fish'), false, true));
+  // rings on the surface where they rise
+  for (const [x, z, s] of [[0.2, -0.1, 0.5], [-0.6, 0.5, 0.35]]) g.add(mesh(new THREE.RingGeometry(s * 0.8, s, 24).rotateX(-Math.PI / 2).translate(x, 0.015, z), M.get('cotton'), false, false));
+  g.add(hitBox(2.6, 0.6, 2.6, 0, -0.1, 0));
+  return { obj: g };
+}
+
+// Queen conchs on the wet sand: a spiral cone with a flared pink lip.
+function conchBed(M) {
+  const g = new THREE.Group(), shells = [];
+  for (let i = 0; i < 4; i++) {
+    const s = 0.8 + ihash(i, 0, 481) * 0.4, sh = lathe([[0, 0], [0.05, 0.03], [0.1, 0.07], [0.12, 0.12], [0.08, 0.2], [0.03, 0.26], [0, 0.28]], 9);
+    sh.rotateZ(Math.PI / 2).scale(s, s * 0.8, s);
+    const lip = new THREE.SphereGeometry(0.11 * s, 8, 6, 0, Math.PI).scale(1, 0.35, 1.4).translate(-0.08 * s, 0.02, 0);
+    const one = mergeGeometries([sh.toNonIndexed(), lip.toNonIndexed()]);
+    one.rotateY(i * 1.7).translate(Math.cos(i * 2.2) * 0.35, 0.06, Math.sin(i * 2.2) * 0.3);
+    shells.push(one);
+  }
+  g.add(mesh(mergeGeometries(shells), M.get('conch')));
+  g.add(hitBox(1.1, 0.5, 1.0, 0, 0.2, 0));
+  return { obj: g };
+}
+
+// A coa (the Taíno digging stick) stuck in a fresh mound, with dug cassava roots on the earth.
+function cassavaDig(M) {
+  const g = new THREE.Group(), roots = [];
+  g.add(mesh(new THREE.SphereGeometry(0.8, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.4, 1), M.get('mound')));
+  g.add(mesh(between(new V3(0.1, 0.1, 0.05), new V3(0.45, 1.35, -0.2), 0.025, 0.03, 6), M.get('trim')));
+  for (let i = 0; i < 5; i++) {
+    const r = new THREE.SphereGeometry(0.06, 7, 5).scale(1, 1, 3.6 + ihash(i, 0, 491));
+    r.rotateY(0.4 + i * 0.5).translate(-0.85 + Math.cos(i) * 0.2, 0.06, 0.55 + i * 0.13);
+    roots.push(r);
+  }
+  g.add(mesh(mergeGeometries(roots), M.get('tuber')));
+  g.add(hitBox(2.0, 1.4, 2.0, -0.1, 0.6, 0.2));
+  return { obj: g };
+}
+
+// A heap of dry branches by the batey.
+function woodPile(M) {
+  const g = new THREE.Group(), sticks = [];
+  for (let i = 0; i < 14; i++) {
+    const a = ihash(i, 0, 501) * Math.PI, y = 0.08 + Math.floor(i / 5) * 0.12, l = 1.1 + ihash(i, 1, 502) * 0.7;
+    sticks.push(cylGeo(0.04, 0.05, l, 5).rotateZ(Math.PI / 2).rotateY(a).translate((ihash(i, 2, 503) - 0.5) * 0.5, y, (ihash(i, 3, 504) - 0.5) * 0.5));
+  }
+  g.add(mesh(mergeGeometries(sticks), M.get('trim')));
+  return { obj: g, col: [boxGeo(1.4, 0.45, 1.4, 0, 0.22, 0)] };
+}
+
+// The areíto instruments on a palm mat: two gourd maracas and a mayohuacán, a hollow log drum with an H-shaped slit.
+function maracas(M) {
+  const g = new THREE.Group();
+  g.add(mesh(boxGeo(1.6, 0.02, 1.1, 0, 0.01, 0), M.get('fanLeaf')));
+  for (const [x, z, a] of [[-0.45, 0.25, 0.4], [-0.2, 0.35, -0.3]]) {
+    const m = new THREE.Group();
+    m.add(mesh(new THREE.SphereGeometry(0.09, 10, 8).scale(1, 1.1, 1).translate(0, 0.09, 0), M.get('gourd')));
+    m.add(mesh(cylGeo(0.015, 0.018, 0.22, 5).rotateZ(Math.PI / 2).translate(0.2, 0.06, 0), M.get('trim')));
+    m.position.set(x, 0.02, z); m.rotation.y = a; g.add(m);
+  }
+  const drum = cylGeo(0.2, 0.2, 1.0, 12).rotateZ(Math.PI / 2).translate(0.25, 0.22, -0.15);
+  g.add(mesh(drum, M.get('wood')));
+  for (const dx of [-0.2, 0.2]) g.add(mesh(boxGeo(0.02, 0.012, 0.14, 0.25 + dx, 0.42, -0.15), M.get('black')));
+  g.add(mesh(boxGeo(0.4, 0.012, 0.02, 0.25, 0.42, -0.15), M.get('black')));
+  g.add(hitBox(1.6, 0.8, 1.1, 0, 0.4, 0));
+  return { obj: g, col: [boxGeo(1.05, 0.42, 0.42, 0.25, 0.21, -0.15)] };
+}
+
+// Torches for the night fishing: sticks with resin heads leaning on a forked post.
+function torchBundle(M) {
+  const g = new THREE.Group();
+  g.add(mesh(between(new V3(0, 0, 0), new V3(0, 1.0, 0), 0.04, 0.05, 6), M.get('trim')));
+  for (let i = 0; i < 4; i++) {
+    const foot = new V3(0.35 + i * 0.05, 0, -0.25 + i * 0.16), top = new V3(0.02, 1.05, -0.05 + i * 0.04);
+    g.add(mesh(between(foot, top, 0.022, 0.025, 5), M.get('wood')));
+    const dir = new V3().subVectors(top, foot).normalize();
+    g.add(mesh(new THREE.SphereGeometry(0.055, 7, 5).scale(1, 1.8, 1).translate(top.x + dir.x * 0.05, top.y + 0.04, top.z + dir.z * 0.05), M.get('resin')));
+  }
+  g.add(hitBox(0.8, 1.3, 0.9, 0.15, 0.6, 0));
+  return { obj: g, col: [boxGeo(0.25, 1.1, 0.25, 0, 0.55, 0)] };
+}
+
+// What you aim at to lie down: both hammocks of a bohío (same local coordinates as bohio()).
+function hammockSpot() {
+  const g = new THREE.Group();
+  for (const [dx, dz] of [[-2.7, -1.6], [2.6, -1.7]]) { // centre pole → wall post
+    const b = hitBox(2.6, 0.7, 0.9, 0, 1.15, 0);
+    b.geometry.rotateY(Math.atan2(-dz, dx)).translate(dx / 2, 0, dz / 2); // long side along the hammock
+    g.add(b);
+  }
+  return { obj: g };
+}
+
+// The landing, 12 October: the royal standard and the two banners of the green cross with F and Y under crowns.
+function banners(M) {
+  const g = new THREE.Group();
+  const royal = M.canvas('banner_royal', 128, (c, s) => {
+    const h = s / 2;
+    for (const [x, y, castle] of [[0, 0, 1], [h, 0, 0], [0, h, 0], [h, h, 1]]) {
+      c.fillStyle = castle ? '#a8201c' : '#efe7d2'; c.fillRect(x, y, h, h);
+      if (castle) { c.fillStyle = '#e0b43c'; c.fillRect(x + 18, y + 26, 28, 26); for (let k = 0; k < 3; k++) c.fillRect(x + 18 + k * 11, y + 18, 6, 8); }
+      else { c.fillStyle = '#7a2a8a'; c.beginPath(); c.ellipse(x + 32, y + 36, 13, 16, 0, 0, Math.PI * 2); c.fill(); c.fillRect(x + 22, y + 14, 10, 12); }
+    }
+  }, { side: THREE.DoubleSide });
+  const cross = M.canvas('banner_cross', 128, (c, s) => {
+    c.fillStyle = '#efe9da'; c.fillRect(0, 0, s, s);
+    c.fillStyle = '#2f7a3a'; c.fillRect(s / 2 - 7, 8, 14, s - 16); c.fillRect(10, s / 2 - 7, s - 20, 14);
+    c.fillStyle = '#c8962c'; c.font = 'bold 26px Georgia'; c.textAlign = 'center';
+    c.fillText('F', s * 0.25, s * 0.42); c.fillText('Y', s * 0.75, s * 0.42);
+    for (const x of [s * 0.25, s * 0.75]) { c.fillRect(x - 10, 14, 20, 5); for (let k = -1; k <= 1; k++) c.fillRect(x + k * 8 - 2, 8, 4, 8); }
+  }, { side: THREE.DoubleSide });
+  for (const [x, z, mat, h] of [[0, 0, royal, 3.4], [-0.3, -1.6, cross, 3.0], [-0.3, 1.6, cross, 3.0]]) {
+    g.add(mesh(cylGeo(0.035, 0.045, h, 6).translate(x, h / 2 - 0.3, z), M.get('bannerPole')));
+    g.add(mesh(cylGeo(0.02, 0.02, 0.9, 5).rotateX(Math.PI / 2).translate(x, h - 0.35, z + 0.45), M.get('bannerPole')));
+    // the cloth hangs from the cross-bar, a little wind in it
+    const cloth = new THREE.PlaneGeometry(0.9, 1.1, 6, 6), pos = cloth.attributes.position;
+    for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 4 + pos.getY(i)) * 0.05);
+    cloth.computeVertexNormals();
+    cloth.rotateY(-Math.PI / 2).translate(x, h - 0.92, z + 0.45);
+    g.add(mesh(cloth, mat));
+  }
+  g.add(hitBox(0.8, 3, 4.2, -0.15, 1.5, 0));
+  return { obj: g, col: [boxGeo(0.3, 3, 0.3, 0, 1.5, 0), boxGeo(0.3, 3, 0.3, -0.3, 1.5, -1.6), boxGeo(0.3, 3, 0.3, -0.3, 1.5, 1.6)] };
+}
+
+// Tame parrots (the Cuban/Bahama amazon: green, white forehead, red throat) on a forked perch.
+function parrotPerch(M) {
+  const g = new THREE.Group();
+  g.add(mesh(cylGeo(0.035, 0.045, 1.3, 6).translate(0, 0.65, 0), M.get('trim')));
+  g.add(mesh(cylGeo(0.022, 0.022, 0.9, 5).rotateZ(Math.PI / 2).translate(0, 1.28, 0), M.get('trim')));
+  for (const [x, r] of [[-0.28, 0.4], [0.25, -0.5]]) {
+    const b = new THREE.Group();
+    b.add(mesh(new THREE.SphereGeometry(0.09, 10, 8).scale(0.9, 1.3, 1).translate(0, 0.12, 0), M.get('parrotGreen')));
+    b.add(mesh(new THREE.SphereGeometry(0.065, 10, 8).translate(0, 0.27, 0.02), M.get('parrotGreen')));
+    b.add(mesh(new THREE.SphereGeometry(0.035, 8, 6).translate(0, 0.3, 0.07), M.get('parrotWhite')));
+    b.add(mesh(new THREE.SphereGeometry(0.04, 8, 6).translate(0, 0.22, 0.06), M.get('parrotRed')));
+    b.add(mesh(new THREE.ConeGeometry(0.022, 0.05, 6).rotateX(Math.PI / 2 + 0.5).translate(0, 0.25, 0.09), M.get('black')));
+    b.add(mesh(new THREE.BoxGeometry(0.06, 0.2, 0.02).translate(0, -0.02, -0.08).rotateX(0.35), M.get('parrotGreen')));
+    b.position.set(x, 1.3, 0); b.rotation.y = r; g.add(b);
+  }
+  g.add(hitBox(1.0, 1.7, 0.6, 0, 0.85, 0));
+  return { obj: g, col: [boxGeo(0.25, 1.3, 0.25, 0, 0.65, 0)] };
+}
+
+// Balls of spun cotton in a shallow palm basket — gifts to take to the boats.
+function cottonSkeins(M) {
+  const g = new THREE.Group(), balls = [];
+  g.add(mesh(lathe([[0, 0], [0.35, 0.02], [0.42, 0.14], [0.44, 0.18]], 16), M.get('cane')));
+  for (let i = 0; i < 6; i++) balls.push(new THREE.SphereGeometry(0.1 + ihash(i, 0, 511) * 0.03, 9, 7).translate(Math.cos(i * 1.1) * 0.2 * (i % 3 ? 1 : 0.2), 0.14 + (i > 3 ? 0.1 : 0), Math.sin(i * 1.1) * 0.2 * (i % 3 ? 1 : 0.2)));
+  g.add(mesh(mergeGeometries(balls), M.get('cotton')));
+  g.add(hitBox(1.0, 0.6, 1.0, 0, 0.3, 0));
+  return { obj: g, col: [boxGeo(0.9, 0.25, 0.9, 0, 0.12, 0)] };
+}
+
 export const TAINO_MODELS = {
   bohio, caney, batey, zemi, conuco, cotton_bush: cottonBush, fire_pit: firePit,
   canoe, fish_spear: fishSpear, buren, grater, cibucan, loom, water_jar: waterJar, log_seat: logSeat,
+  fish_shoal: fishShoal, conch_bed: conchBed, cassava_dig: cassavaDig, wood_pile: woodPile, maracas,
+  torch_bundle: torchBundle, hammock_spot: hammockSpot, banners, parrot_perch: parrotPerch, cotton_skeins: cottonSkeins,
 };
 
 // --- plants of Guanahani -------------------------------------------------------------------

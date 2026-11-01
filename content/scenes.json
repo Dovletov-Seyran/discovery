@@ -18,6 +18,16 @@
     "seats": [[2, 1.6, 3], [-2, 1.6, 3], [0, 1.6, 5]] },
   { "id": "night_story", "type": "locked", "zone": "ship", "tod": 0.95, "duration": 150, "advance": "timer", "next": "sleep",
     "seats": [[2, 1.6, 3], [-2, 1.6, 3], [0, 1.6, 5]] },
-  { "id": "sleep", "type": "cutscene", "duration": 10, "advance": "timer", "next": "end" },
+  { "id": "sleep", "type": "cutscene", "duration": 10, "advance": "timer", "onComplete": [ {"say": "part2_title"}, {"wait": 4000} ], "next": "p2_prologue" },
+
+  { "id": "p2_prologue", "type": "cutscene", "zone": "guanahani", "tod": 0.43, "duration": 20, "advance": "timer", "next": "p2_day", "clearInventory": true, "fleet": false, "spawns": "layout" },
+  { "id": "p2_day", "type": "play", "zone": "guanahani", "tod": 0.43, "todTo": 0.66, "duration": 1200, "demoDuration": 420, "fleet": false, "advance": "quests", "onComplete": [{"say": "cacique_evening_task"}, {"wait": 5000}], "next": "p2_evening", "spawns": "layout" },
+  { "id": "p2_evening", "type": "play", "zone": "guanahani", "tod": 0.74, "todTo": 0.8, "duration": 600, "demoDuration": 240, "fleet": false, "advance": "quests", "next": "p2_night", "spawns": {"grumete": {"p": [176.5, null, 251.5], "r": 2.4}, "piloto": {"p": [172.5, null, 250.5], "r": 3.0}, "lengua": {"p": [167.5, null, 250.5], "r": -2.9}} },
+  { "id": "p2_night", "type": "play", "zone": "guanahani", "tod": 0.86, "todTo": 0.89, "duration": 300, "demoDuration": 150, "fleet": false, "advance": "quests", "onComplete": [{"wait": 2500}], "next": "p2_alarm", "spawns": {"grumete": {"p": [176.5, null, 251.5], "r": 2.4}, "piloto": {"p": [172.5, null, 250.5], "r": 3.0}, "lengua": {"p": [167.5, null, 250.5], "r": -2.9}} },
+  { "id": "p2_alarm", "type": "cutscene", "zone": "guanahani", "tod": 0.91, "duration": 12, "advance": "timer", "next": "p2_boats", "fleet": true, "spawns": {"grumete": {"p": [121, null, 254.5], "r": 1.5}, "piloto": {"p": [121.5, null, 257.5], "r": 1.6}, "lengua": {"p": [121, null, 260.5], "r": 1.65}} },
+  { "id": "p2_boats", "type": "cutscene", "zone": "guanahani", "tod": 0.36, "duration": 11, "advance": "timer", "next": "p2_landing", "fleet": true, "spawns": {"grumete": {"p": [121, null, 254.5], "r": 1.5}, "piloto": {"p": [121.5, null, 257.5], "r": 1.6}, "lengua": {"p": [121, null, 260.5], "r": 1.65}} },
+  { "id": "p2_landing", "type": "play", "zone": "guanahani", "tod": 0.36, "todTo": 0.46, "duration": 900, "demoDuration": 300, "fleet": true, "advance": "quests", "next": "p2_departure", "spawns": {"grumete": {"p": [121, null, 254.5], "r": 1.5}, "piloto": {"p": [121.5, null, 257.5], "r": 1.6}, "lengua": {"p": [121, null, 260.5], "r": 1.65}} },
+  { "id": "p2_departure", "type": "cutscene", "zone": "guanahani", "tod": 0.6, "duration": 16, "advance": "timer", "next": "p2_after", "fleet": true, "spawns": {"grumete": {"p": [121, null, 254.5], "r": 1.5}, "piloto": {"p": [121.5, null, 257.5], "r": 1.6}, "lengua": {"p": [121, null, 260.5], "r": 1.65}}, "onComplete": [{"say": "p2_departure_1"}, {"wait": 6000}] },
+  { "id": "p2_after", "type": "cutscene", "zone": "guanahani", "tod": 0.62, "duration": 60, "advance": "timer_or_skip", "next": "end", "fleet": false, "spawns": {"grumete": {"p": [121, null, 254.5], "r": 1.5}, "piloto": {"p": [121.5, null, 257.5], "r": 1.6}, "lengua": {"p": [121, null, 260.5], "r": 1.65}} },
   { "id": "end", "type": "end" }
 ]

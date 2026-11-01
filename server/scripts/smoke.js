@@ -174,7 +174,7 @@ check(!!ok2 && ok2.state.role === 'grumete' && ok2.state.p[0] > start[0] + 2, `�
 check(!p.msgs.some((m) => m.t === 'player_leave' && m.id === g.id), 'смена вкладки не рассылает player_leave');
 
 // --- Чанки ---
-check(ok2?.world.totalChunks === 257 && ok2?.world.cacheLimit === 25, `мета мира: ${JSON.stringify(ok2?.world)}`);
+check(ok2?.world.totalChunks === 513 && ok2?.world.cacheLimit === 51, `мета мира (два острова и корабль): ${JSON.stringify(ok2?.world)}`);
 p.clear();
 p.send('chunk_req', { zone: 'ship', keys: ['0,0'] });
 const shipChunk = await p.wait('chunk', (m) => m.zone === 'ship');

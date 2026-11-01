@@ -44,6 +44,10 @@ export const NPC_LOOK = {
   villager_2: taino({ loincloth: 0xe0d8c4, bodyPaint: 0x9a2a1c }),
   villager_3: taino({ loincloth: 0xe0d8c4, gold: true }),
 };
+// Guanahani, 12 October: the landing party as the villagers see it (layout ids admiral, notary, sailor_es)
+NPC_LOOK.admiral = { ...NPC_LOOK.columbus, cloak: 0x8a1f1c };
+NPC_LOOK.notary = { shirt: 0x1c1a1c, sleeves: 0x1c1a1c, pants: 0x1a1818, vest: 0x2a2428, hat: 'brim', hatColor: 0x121012, hair: 0x3a2a1c, skin: 0xd8a888 };
+NPC_LOOK.sailor_es = { ...NPC_LOOK.sailor_2, hatColor: 0x2f4a7a };
 
 const tmpColor = new THREE.Color();
 function paint(geo, hex) {

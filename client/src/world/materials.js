@@ -78,6 +78,15 @@ const DEF = {
   mangroveRoot: { color: 0x5e4c39, rough: 0.9 },
   cassavaLeaf: { color: 0x4f7d34, rough: 0.8, side: THREE.DoubleSide },
   mound: { color: 0x6b5034, rough: 1.0 },
+  conch: { color: 0xe7b9a2, rough: 0.55 },
+  fish: { color: 0x56666c, rough: 0.35, metal: 0.2 },
+  tuber: { color: 0x7a4b2c, rough: 0.95 },
+  resin: { color: 0x241710, rough: 0.6 },
+  gourd: { color: 0xa8823e, rough: 0.7 },
+  parrotGreen: { color: 0x3c8f36, rough: 0.8 },
+  parrotRed: { color: 0xb8302a, rough: 0.8 },
+  parrotWhite: { color: 0xe9e4d8, rough: 0.8 },
+  bannerPole: { color: 0x5a4632, rough: 0.8 },
 };
 
 export class Materials {

@@ -62,5 +62,25 @@
 
   { "id": "sleep_title_1", "npc": "narrator", "en": "The twelfth of October, 1492. Two o'clock in the morning.", "ru": "12 октября 1492 года. Два часа ночи." },
   { "id": "sleep_title_2", "npc": "sailor_1", "en": "Land! Land!", "ru": "Земля! Земля!" },
-  { "id": "part2_title", "npc": "narrator", "en": "Part two. Those who stood on the shore.", "ru": "Часть вторая. Те, кто стоял на берегу." }
+  { "id": "part2_title", "npc": "narrator", "en": "Part two. Those who stood on the shore.", "ru": "Часть вторая. Те, кто стоял на берегу." },
+
+  {"id": "cacique_1", "npc": "cacique", "en": "Today the whole village brings what it has made. A cacique gives as much as he receives.", "ru": "Сегодня вся деревня несёт то, что сделала. Касик раздаёт столько же, сколько получает."},
+  {"id": "cacique_2", "npc": "cacique", "en": "Fish from the lagoon, bread from the field, a hammock for the guests. Go, and come back before the sun is low.", "ru": "Рыба из лагуны, хлеб с поля, гамак для гостей. Иди и возвращайся, пока солнце высоко."},
+  {"id": "cacique_done", "npc": "cacique", "en": "Good. It will be shared at the evening fire.", "ru": "Хорошо. Вечером у костра всё разделим на всех."},
+  {"id": "cacique_evening_task", "npc": "cacique", "en": "The day is done. Tonight there will be an areíto on the batey: bring wood for the fire.", "ru": "День закончен. Вечером на батее будет ареито — несите хворост для костра."},
+  {"id": "elder_1", "npc": "elder", "en": "Listen. Long ago there was no sea. There was a man called Yaya, and his son Yayael.", "ru": "Слушайте. Давным-давно моря не было. Жил человек по имени Яйа, и был у него сын Яйаэль."},
+  {"id": "elder_2", "npc": "elder", "en": "The son died. Yaya put his bones into a great gourd and hung it under the roof of his house.", "ru": "Сын умер. Яйа сложил его кости в большую тыкву и подвесил её под крышей своего дома."},
+  {"id": "elder_3", "npc": "elder", "en": "One day he looked into the gourd, and the bones had turned into fish.", "ru": "Однажды он заглянул в тыкву — а кости стали рыбами."},
+  {"id": "elder_4", "npc": "elder", "en": "Four brothers, born on one day, came and took the gourd down to eat the fish. They heard Yaya coming, and they dropped it.", "ru": "Пришли четыре брата, рождённые в один день, сняли тыкву, чтобы поесть рыбы. Услышали шаги Яйи — и уронили её."},
+  {"id": "elder_5", "npc": "elder", "en": "The gourd broke. So much water poured out that it covered the whole land, and the fish swam out with it. That is how the sea was made.", "ru": "Тыква раскололась. Вышло столько воды, что она залила всю землю, и рыбы уплыли вместе с ней. Так появилось море."},
+  {"id": "elder_6", "npc": "elder", "en": "Everything that comes to us from the sea has a story. Remember that.", "ru": "У всего, что приходит к нам с моря, есть своя история. Помните это."},
+  {"id": "villager_1_1", "npc": "villager_1", "en": "The grater, the cibucán, the burén — in that order. And never drink what drips from the tube.", "ru": "Тёрка, жгут, бурен — по порядку. И никогда не пей то, что капает из жгута."},
+  {"id": "villager_2_1", "npc": "villager_2", "en": "The cassava is ready to dig. Take the coa — the digging stick at the edge of the field.", "ru": "Маниок созрел. Бери коа — палку для копания у края поля."},
+  {"id": "villager_3_1", "npc": "villager_3", "en": "The fish stand in the shallows by the reef in the morning. Take the spear, walk in slowly.", "ru": "Утром рыба стоит на отмели у рифа. Возьми острогу и заходи в воду медленно."},
+  {"id": "villager_3_2", "npc": "villager_3", "en": "At night we go out with torches: the fish come to the light.", "ru": "Ночью выходим с факелами: рыба идёт на свет."},
+  {"id": "admiral_1", "npc": "admiral", "en": "Sed testigos de que yo, por el Rey y la Reina, mis señores, tomo posesión de esta isla y la nombro San Salvador.", "ru": "«…por el Rey y la Reina… San Salvador…» Он говорит долго и торжественно. Ни одного знакомого слова."},
+  {"id": "admiral_2", "npc": "admiral", "en": "¿Oro? ¿De dónde viene este oro? ¿Hay un rey que tiene mucho oro?", "ru": "Он трогает золотую пластинку у тебя в носу: «Оро? Оро?» Ты показываешь рукой на юг — золото привозят оттуда."},
+  {"id": "notary_1", "npc": "notary", "en": "Yo, Rodrigo de Escobedo, escribano de toda la armada, doy fe…", "ru": "Он пишет что-то на белых листах и читает вслух. Колумб велел нотариусу Родриго де Эскобедо записать, что остров взят во владение."},
+  {"id": "sailor_es_1", "npc": "sailor_es", "en": "¡Mira, mira! Cuentas, cascabeles… ¿Qué me das?", "ru": "«Мира, мира!» Он трясёт колокольчиком и показывает на твои руки."},
+  {"id": "p2_departure_1", "npc": "narrator", "en": "On the fourteenth of October Columbus sailed on, taking seven people of the island with him, so that they would learn to speak and become interpreters.", "ru": "14 октября Колумб поплыл дальше и увёз с собой семерых жителей острова — «чтобы они научились говорить» и стали переводчиками."}
 ]

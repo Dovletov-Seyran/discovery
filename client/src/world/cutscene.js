@@ -10,7 +10,7 @@ import CUTSCENES from '../../../content/cutscenes.json';
 // so all players see the same shot and someone who joins late starts in the middle.
 // The game keeps calling world.frame(); the cutscene takes the camera inside it, after the game has set it.
 
-const EASE = { linear: (u) => u, inOut: (u) => u * u * (3 - 2 * u), out: (u) => 1 - (1 - u) ** 3 };
+const EASE = { linear: (u) => u, inOut: (u) => u * u * (3 - 2 * u), out: (u) => 1 - (1 - u) ** 3, in: (u) => u * u };
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 // piecewise-linear [[t, v], …]
 const track = (list, t) => {
@@ -175,11 +175,15 @@ export class Cutscenes {
   // The rowboat: one oarsman on the middle thwart facing aft, a passenger in the stern. The oars swing on
   // their oarlocks in a real stroke (catch → drive with the blades in the water → recovery in the air) and
   // the oarsman's hands stay on the handles (people.reach), leaning into each pull.
-  // `entity` — the game's own boat, hidden while this one is about.
+  // `entity` — the game's own boat, hidden while this one is about. rower / passenger: NPC_LOOK ids (part 2: the
+  // admiral comes ashore; a villager taken as a guide sits in the stern).
   rowboat(def, t) {
     const b = def.boat;
     if (!b) return;
-    if (!this.boat) this.boat = this.buildRowboat();
+    const key = `${b.rower ?? 'sailor_1'}|${b.passenger ?? 'sailor_2'}`;
+    if (this.boat && this.boat.key !== key) { this.boat.group.removeFromParent(); this.boat = null; }
+    if (!this.boat) this.boat = { ...this.buildRowboat(b.rower, b.passenger), key };
+    if (b.until != null && t > b.until) { this.boat.group.visible = false; return; } // gone behind a cut
     const u = clamp01((t - b.t[0]) / (b.t[1] - b.t[0])), k = u < 0.85 ? u / 0.85 * 0.92 : 0.92 + EASE.out((u - 0.85) / 0.15) * 0.08;
     const { group: g, oars, rower } = this.boat, rowing = u < 0.97;
     const ph = ((t - b.t[0]) * 0.8) % 1, drive = ph < 0.55, q = drive ? ph / 0.55 : (ph - 0.55) / 0.45;
@@ -201,7 +205,7 @@ export class Cutscenes {
     if (b.entity) this.w.setEntityState(b.entity, { visible: false });
   }
 
-  buildRowboat() {
+  buildRowboat(rowerLook = 'sailor_1', passengerLook = 'sailor_2') {
     const M = this.w.M, group = new THREE.Group(), model = ISLAND_MODELS.boat(M).obj;
     model.children.slice(-2).forEach((o) => o.removeFromParent()); // the model's resting oars: ours move
     group.add(model);
@@ -215,10 +219,10 @@ export class Cutscenes {
       return { s, pivot, pole: new THREE.Vector3(s, -1, -0.3) };
     });
     // oarsman faces aft (+z, the model's own front) as rowers do; the boat moves towards −z
-    const rower = person(M.person, NPC_LOOK.sailor_1);
+    const rower = person(M.person, NPC_LOOK[rowerLook] ?? NPC_LOOK.sailor_1);
     pose(rower, 'sit');
     rower.root.position.set(0, -0.3, -0.5);
-    const passenger = person(M.person, NPC_LOOK.sailor_2);
+    const passenger = person(M.person, NPC_LOOK[passengerLook] ?? NPC_LOOK.sailor_2);
     pose(passenger, 'sit');
     passenger.root.position.set(0, -0.3, 1.35);
     passenger.root.rotation.y = Math.PI; // looks ahead, at the ship

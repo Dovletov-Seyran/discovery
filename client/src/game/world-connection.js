@@ -92,6 +92,9 @@ export class WorldConnection {
     if(Number.isFinite(this.scene.tod))this.world.setTimeOfDay(this.scene.tod);
     if(this.lastScene!==this.scene.id){
       this.lastScene=this.scene.id;this.requestShip();
+      // часть 2: что есть на Гуанахани в этой сцене (люди Колумба — только 12 октября) и стоят ли корабли
+      this.world.setScene?.(this.scene.id);
+      if(this.scene.zone==='guanahani')this.world.setFleet?.('guanahani',!!this.scene.fleet);
       if(this.scene.type==='cutscene'&&this.scene.id!=='intro')this.world.cutscene?.play?.(this.scene.id,this.scene.startAt);
     }
   }

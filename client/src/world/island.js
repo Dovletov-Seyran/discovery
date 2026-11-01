@@ -233,15 +233,31 @@ export class Island {
     }
     bake(decor);
     c.root.add(decor);
+    // scenes: [...] — there only in those scenes (Columbus's people on the beach on 12 October): own collider
+    const sceneCol = new Map();
+    const collect = (o, cc) => {
+      if (!o.scenes) { col.push(...cc); return; }
+      const key = o.scenes.join();
+      if (!sceneCol.has(key)) sceneCol.set(key, { scenes: o.scenes, geos: [] });
+      sceneCol.get(key).geos.push(...cc);
+    };
     for (const o of data.interact ?? []) {
       const built = buildInteract(this.M, o, ISLAND_MODELS);
       if (!built) continue;
-      c.interact.push(built.obj); c.root.add(built.obj); col.push(...built.col);
+      built.obj.userData.scenes = o.scenes;
+      c.interact.push(built.obj); c.root.add(built.obj); collect(o, built.col);
     }
     for (const n of data.npcs ?? []) {
       const { obj, col: cc } = buildNpc(this.M, n);
-      c.npcs.push(obj); c.root.add(obj); col.push(...cc);
+      obj.userData.scenes = n.scenes;
+      c.npcs.push(obj); c.root.add(obj); collect(n, cc);
     }
+    c.extra = [...sceneCol.values()].filter((x) => x.geos.length).map(({ scenes, geos }) => {
+      const collider = new Collider(geos);
+      collider.geometry.computeBoundingBox();
+      return { scenes, collider, bounds: collider.geometry.boundingBox.clone().expandByScalar(1.5) };
+    });
+    this.showScene(c);
     c.collider = new Collider(col);
     // what the chunk's collider covers: a big object (the batey's ring of stones) reaches into neighbouring chunks
     c.collider.geometry.computeBoundingBox();
@@ -262,6 +278,7 @@ export class Island {
     c.root.removeFromParent();
     c.root.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });
     c.collider.geometry.dispose();
+    for (const x of c.extra) x.collider.geometry.dispose();
     this.chunks.delete(key);
     this.dirty = true;
   }
@@ -271,6 +288,27 @@ export class Island {
     if (!c || c.visible === v) return;
     c.visible = v; c.root.visible = v;
     this.dirty = true;
+  }
+
+  // The scene the game is in: things with `scenes` show (and block) only there.
+  setScene(id) {
+    this.scene = id;
+    for (const c of this.chunks.values()) this.showScene(c);
+  }
+
+  showScene(c) {
+    for (const o of [...c.interact, ...c.npcs]) {
+      const u = o.userData;
+      if (!u.scenes) continue;
+      u.offScene = !u.scenes.includes(this.scene);
+      o.visible = !u.offScene && !u.held;
+    }
+  }
+
+  // the chunk's colliders that are there right now
+  *collidersOf(c) {
+    yield [c.collider, c.bounds];
+    for (const x of c.extra) if (x.scenes.includes(this.scene)) yield [x.collider, x.bounds];
   }
 
   // Rebuild vegetation instances and the interactable list after chunks came or went.
@@ -312,11 +350,12 @@ export class Island {
     this.hold = null;
     for (const c of this.chunks.values()) {
       if (!c.visible) continue;
-      const b = c.bounds;
-      if (start.x < b.min.x || start.x > b.max.x || start.z < b.min.z || start.z > b.max.z) continue;
-      const r = c.collider.collide(capsule);
-      onGround ||= r.onGround;
-      delta.add(r.delta);
+      for (const [col, b] of this.collidersOf(c)) {
+        if (start.x < b.min.x || start.x > b.max.x || start.z < b.min.z || start.z > b.max.z) continue;
+        const r = col.collide(capsule);
+        onGround ||= r.onGround;
+        delta.add(r.delta);
+      }
     }
     // the sea: walk in up to the waist, then the slope pushes you back ashore — only someone in the water,
     // not on the pier or the boat above it (that used to stop players 8 m along the pier)
@@ -345,10 +384,12 @@ export class Island {
     // belong to the next chunk)
     let best = null;
     for (const c of this.chunks.values()) {
-      const b = c.bounds;
-      if (!c.visible || x < b.min.x || x > b.max.x || z < b.min.z || z > b.max.z) continue;
-      const g = c.collider.groundHeight(x, z, fromY);
-      if (g != null && (best === null || g > best)) best = g;
+      if (!c.visible) continue;
+      for (const [col, b] of this.collidersOf(c)) {
+        if (x < b.min.x || x > b.max.x || z < b.min.z || z > b.max.z) continue;
+        const g = col.groundHeight(x, z, fromY);
+        if (g != null && (best === null || g > best)) best = g;
+      }
     }
     return best ?? this.heightAt(x, z);
   }

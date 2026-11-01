@@ -265,7 +265,8 @@ export const MODELS = {
 
 // Entity state from the server: { holder } — somebody picked the item up; { emptyAt } — hourglass.
 export function applyState(obj, state = {}) {
-  obj.visible = !state.holder;
+  obj.userData.held = !!state.holder;
+  obj.visible = !state.holder && !obj.userData.offScene; // offScene: not in this scene (island.setScene)
   if (state.emptyAt && obj.userData.setFill) {
     obj.userData.emptyAt = state.emptyAt;
     obj.userData.turnSpan = Math.max(1000, state.emptyAt - Date.now());

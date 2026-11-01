@@ -5,6 +5,8 @@
 //   world.entity(id) / world.setEntityState(id, { visible, fill })
 //   world.applyEntity(id, state) — server `entity` state: { holder } hides an item, { emptyAt } drives the hourglass
 //   world.layout                 — spawn points and night seats from the current layout
+//   world.setScene(id)           — the server's scene: Guanahani shows some things only in some scenes
+//   world.setFleet(zone, present) — the three ships at anchor off Guanahani (part 2, from 12 October)
 //   world.stats()                — numbers for the F3 overlay
 // Chunk wiring for Фронт 2 is described at the top of chunks.js.
 import * as THREE from 'three';
@@ -134,7 +136,7 @@ export const world = {
   setEntityState(id, state) {
     const o = this.entity(id);
     if (!o) return;
-    if ('visible' in state) o.visible = state.visible;
+    if ('visible' in state) { o.userData.held = !state.visible; o.visible = state.visible && !o.userData.offScene; }
     if ('fill' in state) o.userData.setFill?.(state.fill);
   },
 
@@ -148,6 +150,9 @@ export const world = {
     this.players.setLooks(zone === 'guanahani' ? 'taino' : 'crew'); // part 2: the players are villagers
     this.chunks.setZone(zone);
   },
+
+  // the server's scene: on Guanahani some things are there only in some scenes (layout `scenes`)
+  setScene(id) { for (const isl of Object.values(this.islands)) isl.setScene(id); },
 
   setTimeOfDay(t, immediate = false) { this.env.setTimeOfDay(t, immediate); },
   // the three ships at anchor off an island (Guanahani: from the morning of 12 October)

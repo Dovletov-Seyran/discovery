@@ -28,12 +28,25 @@ for (const s of scenes.values()) {
   if (sp && s.spawns) s.spawns = sp;
   if (Array.isArray(shipLayout.seats) && shipLayout.seats.length && s.seats) s.seats = shipLayout.seats;
 }
-// На Канарах — из content/canary_layout.json (spawns, обычно рядом с пристанью), уже с высотой рельефа
-const canarySpawns = (() => {
-  const layout = loadContent('canary_layout.json', null);
-  return layout?.spawns ? resolveLayout(layout).layout.spawns : null;
-})();
-for (const s of scenes.values()) if (s.zone === 'canary' && s.spawns && canarySpawns) s.spawns = canarySpawns;
+// На островах — из content/<zone>_layout.json (spawns), уже с высотой рельефа. На Канарах (у пристани) — всегда;
+// на Гуанахани (у гамаков) — где в scenes.json стоит spawns: "layout". Точка [x, null, z] в scenes.json
+// получает высоту рельефа в этом месте.
+for (const zone of ['canary', 'guanahani']) {
+  const raw = loadContent(`${zone}_layout.json`, null);
+  if (!raw?.shape) continue;
+  const { heightAt, layout } = resolveLayout(raw);
+  const fromLayout = Object.keys(layout.spawns).length ? layout.spawns : null;
+  const ground = (v) => {
+    const pt = point(v);
+    if (pt?.p[1] === null) pt.p = [pt.p[0], Math.round(Math.max(heightAt(pt.p[0], pt.p[2]), 0) * 10) / 10, pt.p[2]];
+    return pt;
+  };
+  for (const s of scenes.values()) {
+    if (s.zone !== zone || !s.spawns) continue;
+    if (fromLayout && (zone === 'canary' || s.spawns === 'layout')) s.spawns = fromLayout;
+    else if (typeof s.spawns === 'object') s.spawns = Object.fromEntries(Object.entries(s.spawns).map(([role, v]) => [role, ground(v)]));
+  }
+}
 
 const state = {
   id: FIRST,
@@ -94,6 +107,7 @@ export function sceneMessage(p, { withSpawn = false } = {}) {
     t: S2C.SCENE, id: s.id, type: s.type, startAt: state.startAt,
     tod: currentTod(), zone: state.zone, duration: sceneDuration(s),
   };
+  if (s.fleet != null) msg.fleet = s.fleet; // часть 2: стоят ли корабли у Гуанахани
   if (withSpawn && p.p && s.spawns) msg.spawn = p.p;
   if (p.seat) msg.seat = p.seat;
   if (msg.spawn || msg.seat) msg.r = p.r; // куда смотреть после появления

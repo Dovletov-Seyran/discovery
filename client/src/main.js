@@ -4,7 +4,7 @@ import {SocketClient,Events} from './net/socket.js';
 import {MockClient} from './net/mock.js';
 import {GameplayRuntime} from './game/runtime.js';
 import {WorldConnection} from './game/world-connection.js';
-import {ROLES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,escape,itemId} from './ui/content.js';
+import {ROLES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,EPILOGUE,escape,itemId} from './ui/content.js';
 import {shellView,loginView,lobbyView} from './ui/views.js';
 import {VoiceLibrary} from './ui/voice.js';
 import {narrativeContent,INTRO_TITLES} from './ui/narrative.js';
@@ -16,6 +16,8 @@ const root = $('#ui');
 const canvas = $('#game');
 const preview = new URLSearchParams(location.search).get('offline') === '1';
 const PLAY_SCENES = new Set(['ship_day','canary','ship_evening']);
+// часть 2 (Гуанахани): игровые сцены узнаём по типу, а не по списку
+const isPlay = s => PLAY_SCENES.has(s?.id) || s?.type==='play';
 
 // Consumers can subscribe before opening the connection. Chunk data is forwarded,
 // never retained here; ownership and cache limits belong to Front 1.
@@ -84,8 +86,8 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
 
 function syncInput(){
   const blocked=screen!=='game'||modal||chatOpen||!connected;
-  runtime?.setMode(blocked?'blocked':scene.id==='night_story'?'seated':PLAY_SCENES.has(scene.id)?'play':'blocked');
-  $('#crosshair').hidden=blocked||!runtime||!PLAY_SCENES.has(scene.id);
+  runtime?.setMode(blocked?'blocked':scene.id==='night_story'?'seated':isPlay(scene)?'play':'blocked');
+  $('#crosshair').hidden=blocked||!runtime||!isPlay(scene);
   if(blocked){$('#prompt').hidden=true;currentTarget=null;}
 }
 function notify(text){
@@ -195,7 +197,7 @@ function applyScene(message){
     screen='game';$('#hud').hidden=false;$('#screen').innerHTML='';
     $('#world-status').hidden=!!runtime;
     $('#preview-controls').hidden=!preview;
-    if(!PLAY_SCENES.has(message.id)&&message.id!=='night_story')renderSceneOverlay(message);
+    if(!isPlay(message)&&message.id!=='night_story')renderSceneOverlay(message);
     if(message.id==='night_story'&&narrativeContent.night){
       $('#screen').innerHTML='<p id="subtitles" class="subtitles" aria-live="off"></p>';
       narrative.start(narrativeContent.night,{startAt:message.startAt,duration:message.duration});
@@ -211,8 +213,13 @@ function renderSceneOverlay(message){
     narrative.start(narrativeContent.intro,{startAt:message.startAt,duration:message.duration});
     return;
   }
-  // Text-only fallback before the content branch merges.
-  const titles={intro:'1492',cut_canary:'Канарские острова',cut_evening:'Курс на запад',cut_night:'Атлантика',sleep:'12 октября 1492 года',end:'Продолжение следует'};
+  if(message.id==='p2_after'){
+    $('#screen').innerHTML=`<section class="epilogue-screen"><span class="overline">ГУАНАХАНИ · 1492</span><h2>${escape(EPILOGUE.title)}</h2><ul>${EPILOGUE.facts.map(fact=>`<li>${escape(fact)}</li>`).join('')}</ul><button class="quiet-button" id="skip">Дальше <span id="skip-votes"></span></button></section>`;
+    $('#skip').onclick=()=>net.send('skip_vote');
+    return;
+  }
+  // Text-only fallback before the content branch merges. Катсцены части 2 подписывает сам мир (cutscenes.json).
+  const titles={intro:'1492',cut_canary:'Канарские острова',cut_evening:'Курс на запад',cut_night:'Атлантика',sleep:'12 октября 1492 года',end:'Конец'};
   $('#screen').innerHTML=`<div class="scene-caption"><h2>${titles[message.id]||''}</h2>${message.id==='intro'?'<button class="quiet-button" id="skip">Пропустить <span id="skip-votes"></span></button>':''}</div>`;
   if($('#skip'))$('#skip').onclick=()=>net.send('skip_vote');
 }
