@@ -28,6 +28,11 @@ const FOOTPRINTS = {
   // Гуанахани (часть 2)
   bohio: [-3.6, 3.6, -3.6, 3.6],
   caney: [-6.5, 6.5, -5, 5],
+  batey: [-16, 16, -12, 12],
+  conuco: [-7.5, 7.5, -6, 6],
+  cotton_bush: [-1, 1, -1, 1],
+  buren: [-0.7, 0.7, -0.7, 0.7],
+  loom: [-1.3, 1.3, -0.4, 0.4],
 };
 const BLEND = 4; // м: плавный переход площадки в рельеф
 
@@ -49,11 +54,12 @@ function flatHeight(layout) {
     if (e < 1) {
       const hills = (fbm(hillsNoise, x / 90, z / 90, 4) + 1) / 2;
       h = 1.2 + hh * Math.pow(hills, 1.6) * smoothstep(1.0, 0.75, e);
-      h += 2.2 * Math.exp(-(((e - 0.93) / 0.035) ** 2)); // дюна за пляжем
-      h = lerp(h, 0.9 - 1.2 * (e - 0.955) / 0.045, smoothstep(0.945, 0.975, e)); // пляж к воде
+      h += 1.4 * Math.exp(-(((e - 0.92) / 0.05) ** 2)); // невысокая дюна за пляжем
+      h = lerp(h, 0.9 - 1.2 * (e - 0.95) / 0.05, smoothstep(0.93, 0.985, e)); // пологий пляж к воде
     } else {
       // лагуна 0.8–2.2 м до рифа, риф почти до поверхности (с разрывами), за ним обрыв
-      const lag = -1.0 - 0.7 * (fbm(reefNoise, x / 40, z / 40, 3) + 1) / 2 - 0.5 * smoothstep(1, 1 + L, e);
+      // от кромки пляжа (−0.3 м) дно опускается плавно, без ступеньки
+      const lag = lerp(-0.3, -1.0 - 0.7 * (fbm(reefNoise, x / 40, z / 40, 3) + 1) / 2, smoothstep(1, 1.07, e)) - 0.5 * smoothstep(1, 1 + L, e);
       const gap = smoothstep(0.35, 0.6, (reefNoise(x / 45, z / 45) + 1) / 2);
       const crest = lerp(-0.5, -1.6, gap); // just awash: breakers, but no mangroves take root on it
       const onReef = Math.exp(-(((e - 1 - L) / (W + 0.01)) ** 2));
