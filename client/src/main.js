@@ -94,7 +94,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
       const hint=$('#control-hint');
       if(hint){
         hint.hidden=screen!=='game'||!!modal||chatOpen||!connected||!PLAY_SCENES.has(scene.id)||document.pointerLockElement===canvas;
-        const text=runtime.controller.hasControl?'WASD — ходить · зажмите ПКМ — осмотреться · E — действие':'Щёлкните по игре, чтобы управлять';
+        const text=runtime.controller.hasControl?'WASD — ходить · тяните ЛКМ или ПКМ — обзор · клик ЛКМ — предмет · E — действие':'Щёлкните по игре, чтобы управлять';
         if(hint.textContent!==text)hint.textContent=text;
       }
       if(!$('#debug').hidden){
@@ -377,7 +377,7 @@ function useEquipped(){
   if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!PLAY_SCENES.has(scene.id)||sceneProgress?.phase==='departing')return;
   if((itemCooldowns.get(equipped)||0)>Date.now())return;
   if(throwMode){if(world&&net.send('throw',launch(world,equipped))){throwMode=false;renderEquipment();}return;}
-  const target=ITEM_RULES[equipped]?.target===currentTarget?.id?currentTarget.id:undefined;
+  const target=ITEM_RULES[equipped]?.target&&ITEM_RULES[equipped].target===currentTarget?.id?currentTarget.id:undefined;
   net.send('use',{item:equipped,...(target?{target}:{})});
 }
 // Каждый раз другой день пути: своя высота Солнца и склонение (shared/astrolabe.js), ответ проверяет сервер
@@ -518,7 +518,7 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
   if(type==='astrolabe')openAstrolabe();
   if(type==='quest')net.emit('quest',{id:'q_astrolabe',title:'Определить широту',step:'Измерьте высоту Солнца.',status:'active',progress:0,total:1});
 });
-canvas.addEventListener('click',()=>{unlockItemAudio();if(screen==='game'&&!modal&&!chatOpen&&connected){useEquipped();runtime?.controller.lock();}});
+canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);

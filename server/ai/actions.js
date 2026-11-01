@@ -33,11 +33,12 @@ export function kwHit(action, text) {
  */
 export function pickAction(agent, { modelAction, text, scene }) {
   if (!text || ABOUT.test(text) || NEGATED.test(text)) return null;
+  if(/(?:не\s+(?:играй|пой|петь|играть|исполняй)|(?:don't|do not|never)\s+(?:play|sing))/i.test(text))return null;
   const here = available(agent, scene);
   const chosen = here.find((a) => a.id === modelAction);
   if (chosen) return kwHit(chosen, text) ? chosen : null;
   const byWords = [...here, ...requestable(agent).filter((a) => !here.includes(a))];
-  return byWords.find((a) => kwHit(a, text)) ?? null;
+  return byWords.find((a) => !a.requiresModel && kwHit(a, text)) ?? null;
 }
 
 // Проданный товар не возвращается на прилавок по повторной просьбе.
@@ -54,6 +55,7 @@ export const resetCooldowns = () => lastAt.clear();
  */
 export function decide(agent, action, { scene, now = Date.now() } = {}) {
   if (action.scenes?.length && !action.scenes.includes(scene)) return { ok: false, reason: 'scene' };
+  if(action.performance&&world.canPerform){const result=world.canPerform(agent.id,action.performance);if(!result.ok)return result;}
   const key = `${agent.id}:${action.id}`;
   if (action.once && world.hasFlag(`action:${key}`)) return { ok: false, reason: 'once' };
   const since = now - (lastAt.get(key) ?? -Infinity);
@@ -66,6 +68,7 @@ export function decide(agent, action, { scene, now = Date.now() } = {}) {
 
 // Выполнить разрешённое действие: патч в мир (рассылка всем — там же)
 export function perform(agent, action) {
+  if(action.performance&&world.perform)return world.perform(agent.id,action.performance);
   const patch = patchesFor(action);
   const result = patch.length ? world.apply(patch, { source: `${agent.id}:${action.id}` }) : { ok: true, ops: [] };
   if (result.ok && action.once) world.setFlag(`action:${agent.id}:${action.id}`);

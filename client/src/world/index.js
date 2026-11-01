@@ -100,7 +100,7 @@ export const world = {
     this.npcs = built.npcs;
     for (const npc of this.npcs) {
       prepareNpc(npc);
-      for (const field of ['paused','speaker','behavior']) npc.userData[field] = npc.userData.definition.state?.[field] ?? null;
+      for (const field of ['paused','speaker','behavior','performance']) npc.userData[field] = npc.userData.definition.state?.[field] ?? null;
     }
     // Columbus keeps a chart of his own: when a player takes the one from the table, he reads that one
     const columbus = this.npcs.find((n) => n.userData.id === 'columbus');
@@ -148,7 +148,7 @@ export const world = {
     const o = this.entity(id);
     if (!o) return;
     if ('visible' in state) o.visible = state.visible;
-    for (const field of ['paused','speaker','behavior']) if (field in state) o.userData[field] = state[field];
+    for (const field of ['paused','speaker','behavior','performance']) if (field in state) o.userData[field] = state[field];
     if ('fill' in state) o.userData.setFill?.(state.fill);
   },
 

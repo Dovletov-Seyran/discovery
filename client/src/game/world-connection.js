@@ -129,7 +129,7 @@ export class WorldConnection {
     if(!this.world)return;
     this.world.applyEntity?.(id,state);
     // NPC стоит, пока с ним говорят (пауза маршрута — shared/npc-activity.js)
-    for(const field of ['paused','speaker','behavior'])if(field in state)this.world.setEntityState?.(id,{[field]:state[field]});
+    for(const field of ['paused','speaker','behavior','performance'])if(field in state)this.world.setEntityState?.(id,{[field]:state[field]});
   }
   startLoop(){
     if(this.frameId||!this.active)return;

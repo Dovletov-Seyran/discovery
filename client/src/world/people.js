@@ -14,7 +14,7 @@ export const ROLE_NAME = { grumete: 'Юнга', piloto: 'Штурман', lengua
 export const NPC_LOOK = {
   columbus: { shirt: 0x2c2430, sleeves: 0x2c2430, pants: 0x1e1a18, cloak: 0x4a1f1c, hat: 'brim', hatColor: 0x17120f, hair: 0xb8b0a4, skin: 0xd8a888 },
   boatswain: { shirt: 0xcfc2a5, vest: 0x5a3a22, pants: 0x3e4a5c, hatColor: 0x7a2a20, hair: 0x2a1f16 },
-  cook: { shirt: 0xe8e0cc, pants: 0x5b4f40, hat: 'none', hair: 0x1f1810, vest: 0x8a7a5e },
+  cook: { shirt: 0xe8e0cc, pants: 0x5b4f40, hat: 'none', hair: 0x1f1810, apron: 0xa89b77 },
   storyteller: { shirt: 0xb8ab90, vest: 0x4a3a2a, pants: 0x4a4038, hatColor: 0x6a2a22, hair: 0xd0ccc4, skin: 0xc08a68 },
   sailor_1: { shirt: 0xd9cdb3, pants: 0x354638, hatColor: 0xa02a22 },
   sailor_2: { shirt: 0xe0d5bd, pants: 0x354257, hatColor: 0xb3332a },
@@ -41,7 +41,7 @@ function paint(geo, hex) {
 export function person(mat, look) {
   const {
     shirt = 0xd8ccb2, sleeves = null, pants = 0x6b5c4a, vest = null, hat = 'cap', hatColor = 0xa62a20,
-    skin = 0xd29a74, hair = 0x3a2a1c, cloak = null, skirt = null,
+    skin = 0xd29a74, hair = 0x3a2a1c, cloak = null, skirt = null, apron = null,
   } = look;
   const seg = 12;
   const part = (geo, hex, parent, x = 0, y = 0, z = 0) => {
@@ -72,11 +72,24 @@ export function person(mat, look) {
   const body = new THREE.CapsuleGeometry(0.175, 0.36, 4, seg); body.scale(1, 1, 0.7); part(body, shirt, torso, 0, 0.3, 0);
   if (vest) { const v = new THREE.CylinderGeometry(0.19, 0.2, 0.42, seg, 1, true); v.scale(1, 1, 0.74); part(v, vest, torso, 0, 0.3, 0); }
   const belt = new THREE.CylinderGeometry(0.185, 0.185, 0.06, seg); belt.scale(1, 1, 0.72); part(belt, 0x3a2616, torso, 0, 0.08, 0);
+  if(apron){
+    const cloth=new THREE.Shape();cloth.moveTo(-.105,.48);cloth.lineTo(.105,.48);cloth.lineTo(.16,-.20);cloth.quadraticCurveTo(0,-.25,-.16,-.20);cloth.closePath();
+    part(new THREE.ExtrudeGeometry(cloth,{depth:.012,bevelEnabled:true,bevelSize:.005,bevelThickness:.003,bevelSegments:1,steps:1}),apron,torso,0,0,.13);
+    for(const x of [-.08,.08])part(new THREE.BoxGeometry(.025,.18,.015),apron,torso,x,.52,.12);
+    part(new THREE.BoxGeometry(.12,.09,.014),new THREE.Color(apron).multiplyScalar(.9).getHex(),torso,0,.05,.15);
+  }
   part(new THREE.CylinderGeometry(0.045, 0.05, 0.1, seg), skin, torso, 0, 0.62, 0);
   const head = new THREE.Group(); head.position.y = 0.76; torso.add(head);
   const hg = new THREE.SphereGeometry(0.105, seg, seg); hg.scale(0.95, 1.08, 1); part(hg, skin, head);
   const hr = new THREE.SphereGeometry(0.11, seg, seg, 0, Math.PI * 2, 0, Math.PI * 0.55); hr.rotateX(-0.35); part(hr, hair, head, 0, 0.012, -0.012);
   const nose = new THREE.ConeGeometry(0.018, 0.04, 4); nose.rotateX(Math.PI / 2); part(nose, skin, head, 0, -0.005, 0.105);
+  for(const s of [-1,1]){
+    const eye=part(new THREE.SphereGeometry(.013,8,6),0xe6ddc9,head,s*.038,.02,.091);eye.scale.set(1,.7,.45);
+    part(new THREE.SphereGeometry(.006,8,6),0x25221c,head,s*.038,.02,.099);
+    const brow=part(new THREE.BoxGeometry(.032,.005,.006),hair,head,s*.039,.043,.092);brow.rotation.z=-s*.08;
+    part(new THREE.SphereGeometry(.023,8,6),skin,head,s*.103,-.005,0);
+  }
+  part(new THREE.BoxGeometry(.032,.004,.004),0x8a5846,head,0,-.045,.096);
   if (hat === 'cap') { const c = new THREE.ConeGeometry(0.105, 0.2, seg); c.rotateX(-0.5); part(c, hatColor, head, 0, 0.1, -0.02); }
   if (hat === 'brim') {
     part(new THREE.CylinderGeometry(0.2, 0.2, 0.02, seg * 2), hatColor, head, 0, 0.07, 0);
@@ -84,8 +97,9 @@ export function person(mat, look) {
   }
   const arms = [];
   for (const s of [-1, 1]) {
-    const ua = limb(0.27, 0.058, sleeves ?? shirt, torso); ua.position.set(s * 0.235, 0.54, 0);
-    const fa = limb(0.25, 0.05, sleeves ?? shirt, ua); fa.position.y = -0.31;
+    part(new THREE.SphereGeometry(.077,seg,8),sleeves??shirt,torso,s*.17,.49,0);
+    const ua = limb(0.27, 0.058, sleeves ?? shirt, torso); ua.position.set(s * 0.215, 0.50, 0);
+    const fa = limb(0.25, 0.05, sleeves ?? shirt, ua); fa.position.y = -0.285;
     part(new THREE.SphereGeometry(0.05, seg, seg), skin, fa, 0, -0.3, 0);
     arms.push({ ua, fa, s });
   }

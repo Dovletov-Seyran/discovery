@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { loadContent } from '../content.js';
 import { loadAgentMemory, saveAgentMemory, deleteAgentMemory } from '../db.js';
 import * as world from './world-state.js';
+import * as performance from './npc-performance.js';
 
 const AI_MODULE = new URL('../ai/index.js', import.meta.url);
 
@@ -22,7 +23,7 @@ if (process.env.AI === '0') {
 // Память агентов — в SQLite (agent_memory), а не в JSON-файле модуля ИИ
 impl?.setStore?.({ load: loadAgentMemory, save: saveAgentMemory, reset: deleteAgentMemory });
 // Действия агентов меняют мир игры: проверка «уже сделано», патч и рассылка — в world-state
-impl?.setWorld?.({ isApplied: world.isApplied, apply: world.apply, hasFlag: world.hasFlag, setFlag: world.setFlag });
+impl?.setWorld?.({ isApplied: world.isApplied, apply: world.apply, hasFlag: world.hasFlag, setFlag: world.setFlag,canPerform:performance.canPerform,perform:performance.perform });
 
 // Прогрев модели и Kokoro при старте сервера (в фоне)
 export async function initAi() {

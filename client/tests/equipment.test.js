@@ -45,3 +45,11 @@ test('sword swing uses its grip pivot and returns to rest; repeated use is gated
  assert.equal(eq.use(),true);assert.equal(eq.use(),false);eq.update(.29,.29,true);assert.ok(Math.abs(eq.root.rotation.z-rest)>1);
  eq.update(1,2,true);assert.equal(eq.root.rotation.z,rest);eq.dispose();
 });
+
+test('espingarda has a shaped stock, open muzzle and matchlock; the held muzzle and flash line up',()=>{
+ const eq=equipment();eq.equip('espingarda');eq.update(0,0,true);
+ for(const name of ['wooden-stock','octagonal-barrel','dark-bore','match-holder','trigger','ramrod'])assert.ok(eq.heldModel.getObjectByName(name),name);
+ const muzzle=new Vector3().fromArray(eq.heldModel.userData.muzzle).multiply(eq.heldModel.scale).add(eq.heldModel.position);
+ assert.ok(Math.abs(eq.flash.position.y-muzzle.y-.08)<.001);assert.ok(Math.abs(eq.flash.position.x-muzzle.x)<.001);
+ const b=bounds(eq);assert.ok(b.maxY<1&&b.maxX<1&&b.minX>-.9,JSON.stringify(b));eq.dispose();
+});

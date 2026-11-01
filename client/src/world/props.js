@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { V3, mesh, cylGeo, lenUV, boxGeo, lathe, bake } from './geom.js';
 import { person, pose, guitarist, NPC_LOOK } from './people.js';
+import {espingarda} from './espingarda.js';
 
 // Builders for every model id (`m`) that content/ship_layout.json may use.
 // Each returns { obj, col?: BufferGeometry[] (local space) }.
@@ -263,14 +264,7 @@ export const MODELS = {
     const strap = new THREE.TorusGeometry(0.17, 0.008, 4, 24, Math.PI); strap.rotateY(Math.PI / 2); strap.translate(0, 0.1, 0); g.add(mesh(strap, M.get('leather')));
     return { obj: g };
   },
-  espingarda: (M) => {
-    const g = new THREE.Group(), gun = new THREE.Group();
-    gun.add(mesh(cylGeo(0.022, 0.018, 1.05, 10).translate(0, 0.85, 0), M.get('iron')));
-    gun.add(mesh(boxGeo(0.05, 0.55, 0.07, 0, 0.27, 0.01), M.get('trim')));
-    gun.add(mesh(boxGeo(0.055, 0.2, 0.11, 0, 0.08, 0.03), M.get('trim')));
-    gun.rotation.x = -0.18; g.add(gun);
-    return { obj: g };
-  },
+  espingarda,
   none: () => ({ obj: new THREE.Group() }),
   cards: (M) => {
     const g = new THREE.Group(), faces = [0xf2ead8, 0xf2ead8, 0x9a2a22, 0xf2ead8, 0x2a3f6a];

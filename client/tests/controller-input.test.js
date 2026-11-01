@@ -33,3 +33,12 @@ test('exhausted sprint slows to walking and stamina recovers while resting',()=>
  c.keys.clear();for(let i=0;i<90;i++)c.update(.05,i*.05);
  assert.ok(c.stamina>=20);assert.equal(c.exhausted,false);c.dispose();
 });
+
+test('left drag rotates the camera without using an item; a short click remains available',()=>{
+ const {c,canvas}=setup();c.lock();const yaw=c.yaw;
+ canvas.dispatchEvent(event('mousedown',{button:0}));document.dispatchEvent(event('mousemove',{movementX:35,movementY:-20}));
+ assert.ok(c.yaw<yaw);assert.ok(c.pitch>0);
+ window.dispatchEvent(event('mouseup',{button:0}));assert.equal(c.consumeLookClick(),true);assert.equal(c.consumeLookClick(),false);
+ canvas.dispatchEvent(event('mousedown',{button:0}));window.dispatchEvent(event('mouseup',{button:0}));assert.equal(c.consumeLookClick(),false);
+ c.setMode('blocked');const stopped=c.yaw;document.dispatchEvent(event('mousemove',{movementX:35,movementY:-20}));assert.equal(c.yaw,stopped);c.dispose();
+});

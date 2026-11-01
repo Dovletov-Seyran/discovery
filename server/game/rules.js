@@ -6,6 +6,7 @@ import {emitWorldEvent} from './world-events.js';
 import {toggle,canPickup} from './objects.js';
 import {applyItemUse,advanceStamina} from './item-actions.js';
 import {ITEM_RULES} from '../../shared/item-actions.js';
+import {SONGS,activePerformance} from '../../shared/npc-performance.js';
 import { CONFIG } from '../../shared/config.js';
 import { ASTROLABE, latitude } from '../../shared/astrolabe.js';
 import { S2C } from '../../shared/protocol.js';
@@ -196,11 +197,13 @@ export function minigame(p, msg) {
 // --- Разговор с NPC ---
 
 export function context(p, npc) {
+  const performance=entities.stateOf(npc)?.performance;
+  const performing=activePerformance(performance,{id:sceneId(),startAt:director.startAt()});
   const behavior = entities.stateOf(npc)?.behavior;
   const job = behavior?.scene === `${sceneId()}@${director.startAt()}`
     ? ROUTINES[npc]?.scenes?.[sceneId()]?.jobs.find(j => j.id === behavior.job) : null;
   return {
-    ...(job ? { activity: job.title } : {}),
+    ...(performing ? {activity:`Playing ${SONGS[performance.song].description} on my guitar. The music is already audible to the crew.`,performing:true} : job ? { activity: job.title } : {}),
     role: p.role, name: p.name, scene: sceneId(), inventory: p.inventory,
     questsDone: Object.keys(p.quests).filter((id) => p.quests[id]?.status === 'done'), log: p.log,
     // для ИИ: подсказка по текущему шагу задания и кто ещё в экипаже

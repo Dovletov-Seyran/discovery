@@ -145,3 +145,14 @@ test('AI job paths animate on the shared clock and resume at the same place afte
   }
  }
 });
+
+test('cook supports the tray with both hands while serving, walking and speaking',()=>{
+ const n=layout.npcs.find(n=>n.id==='cook'),{obj}=buildNpc(M,n,true);prepareNpc(obj);
+ const scene={id:'ship_day',startAt:100000},rig=obj.userData.rig;
+ obj.userData.behavior={scene:'ship_day@100000',path:[[1,0,0],[2,0,0]],start:0,pose:'serve',r:0,seat:false};
+ for(const [time,paused] of [[101,null],[110,null],[115,{scene:'ship_day@100000',at:110000,offset:0,lookAt:[0,0,0],kind:'dialogue'}]]){
+  obj.userData.paused=paused;animateNpc(obj,1/60,time,false,scene);obj.updateMatrixWorld(true);
+  const tray=rig.tray.getWorldPosition(new Vector3());assert.equal(rig.tray.visible,true);
+  for(const arm of rig.arms){const palm=arm.fa.localToWorld(new Vector3(0,-.3,0));assert.ok(Math.abs(tray.y-palm.y-.025)<.01);assert.ok(Math.hypot(palm.x-tray.x,palm.z-tray.z)<.25);}
+ }
+});

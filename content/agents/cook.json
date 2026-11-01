@@ -33,7 +33,7 @@
         "каш"
       ],
       "hint": "Что сегодня на обед?",
-      "fact": "We eat ship biscuit, beans and salted food. Fresh provisions must last the voyage."
+      "fact": "I cook beans and salted sardines, with ship biscuit on the side. I serve the ration here at the galley fire box. Fresh provisions must last the voyage."
     },
     {
       "id": "fire",
@@ -77,5 +77,8 @@
     "sailor_pedro",
     "sailor_sancho",
     "old_juan"
-  ]
+  ],
+  "personalFacts": {
+    "Food:": "Food: I am the cook. I prepare beans, ship biscuit and salted sardines at the galley fire box. I can tell you about the ration here; I do not automatically give items or complete quests by speaking."
+  }
 }
