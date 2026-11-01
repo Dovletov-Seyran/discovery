@@ -373,6 +373,7 @@ export class Cutscenes {
     if (c.def.boat?.entity) w.setEntityState(c.def.boat.entity, { visible: true });
     if (!c.def.lamps?.persist) w.env.lampScale = null;
     w.env.fogOverride = null;
+    w.patches?.invalidate?.(); // туман и фонари из world_patch — заново поверх сброса
     if (w.camera.fov !== c.fov) { w.camera.fov = c.fov; w.camera.updateProjectionMatrix(); }
     w.players.group.visible = true;
     this.splash.visible = false;

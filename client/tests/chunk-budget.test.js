@@ -24,3 +24,16 @@ test('byte budget handles dense chunks and Unicode; reconnect metadata cannot si
  const {c}=manager();for(let i=0;i<8;i++)c.receive('canary',`${i+5},10`,{text:'Ж'.repeat(8000)});
  assert.ok(c.stats().bytes<=100000);c.setWorldMeta({totalBytes:850000});assert.ok(c.stats().bytes<=85000);
 });
+
+test('отложенная постройка: чанки строятся в drain по бюджету, повторно не запрашиваются',async()=>{
+ const {Chunks}=await import('../src/world/chunks.js');
+ const c=new Chunks(),built=[],sent=[];c.deferBuild=true;
+ c.setWorldMeta({totalBytes:10_000_000,totalChunks:257,cacheLimit:25,zones:{canary:{chunks:256}}});
+ c.setSender(m=>sent.push(m));c.setBuilder('canary',{add:k=>built.push(k),remove(){},setVisible(){}});c.setZone('canary');
+ c.update({x:100,z:100},1);const asked=sent[0].keys;
+ for(const k of asked)c.receive('canary',k,{h:[]});
+ assert.equal(built.length,0,'в кадре прихода ничего не строится');
+ c.update({x:100,z:100},1);assert.equal(sent.length,1,'повторного запроса нет');
+ while(c.incoming.length)c.drain(0);
+ assert.deepEqual(built.sort(),[...asked].sort());
+});

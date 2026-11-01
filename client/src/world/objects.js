@@ -48,7 +48,7 @@ export class WorldObjects {
   applyRecord(record){
     const {data,state}=record;
     const original=this.staticEntity(data.id);
-    if(original&&!state.body){if(record.obj){record.obj.removeFromParent();releaseModel(record.obj);record.obj=null;}original.visible=!state.holder&&state.visible!==false;applyState(original,state);record.body=state.body?structuredClone(state.body):null;return;}
+    if(original&&!state.body){if(record.obj){record.obj.removeFromParent();releaseModel(record.obj);record.obj=null;}original.visible=!state.holder&&state.visible!==false&&!original.userData.offScene;applyState(original,state);record.body=state.body?structuredClone(state.body):null;return;}
     if(original&&state.body)original.visible=false;
     // A static NPC/door can arrive before its chunk. Never create a generic replacement for it.
     if(data.kind!=='item'&&data.kind!=='prop')return;

@@ -49,12 +49,14 @@ test('настройка «нет» убирает всех, «половина�
  f.setDensity(0);f.update(.016);assert.equal(f.stats().creatures,0);
 });
 
-test('на корабле кот и крысы, на Гуанахани попугаи, чайки и игуаны (без собак и лошадей)',()=>{
+test('на корабле кот и крысы, на Гуанахани жители, попугаи, чайки, игуаны, хутии, крабы (без собак и лошадей)',()=>{
  const ship=new Fauna(world('ship'));ship.update(.016);
  assert.deepEqual([...new Set(ship.herds.get('ship').agents.map(a=>a.kind))].sort(),['cat','rat']);
  const g=new Fauna(world('guanahani'));g.update(.016);
- const kinds=new Set(g.herds.get('guanahani').agents.map(a=>a.kind));
- assert.deepEqual([...kinds].sort(),['gull','iguana','parrot']);
+ const agents=g.herds.get('guanahani').agents,kinds=new Set(agents.map(a=>a.kind));
+ assert.deepEqual([...kinds].sort(),['crab','gull','hutia','iguana','parrot','taina','taino']);
+ assert.ok(agents.filter(a=>a.kind==='taino'||a.kind==='taina').length>=12,'в деревне ходят жители');
+ assert.ok(agents.length>=55,`всего ${agents.length}`);
 });
 
 test('колодец: при наборе воды ворот крутится, ведро опускается и возвращается',async()=>{
@@ -71,4 +73,15 @@ test('ворот колодца остаётся подвижным и посл�
  const m=new MeshStandardMaterial(),{obj}=buildInteract({get:()=>m,canvas:()=>m},{id:'well',m:'well',p:[0,0,0],kind:'well'},ISLAND_MODELS);
  const w=obj.userData.winch;let inTree=false;obj.traverse(o=>{if(o===w?.bucket)inTree=true;});
  assert.ok(w&&inTree,'ворот и ведро в сцене');
+});
+
+test('жители Гуанахани ходят: через полминуты все на других местах',()=>{
+ const realNow=Date.now;let now=1_800_000_000_000;Date.now=()=>now;
+ try{
+  const f=new Fauna(world('guanahani'));f.update(.016);
+  const people=f.herds.get('guanahani').agents.filter(a=>a.kind==='taino'||a.kind==='taina'),before=people.map(a=>[...a.p]);
+  for(let i=0;i<600;i++){now+=50;f.update(.05);}
+  const moved=people.filter((a,i)=>Math.hypot(a.p[0]-before[i][0],a.p[1]-before[i][1])>1).length;
+  assert.ok(moved>=people.length*0.6,`сдвинулись ${moved} из ${people.length}`);
+ }finally{Date.now=realNow;}
 });

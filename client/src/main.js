@@ -226,7 +226,8 @@ function bindNetwork(client){
   client.on('snapshot',message=>gameEvents.emit('snapshot',message));
   client.on('player_join',message=>gameEvents.emit('player_join',message));
   client.on('player_leave',message=>gameEvents.emit('player_leave',message));
-  client.on('tod',message=>{scene.tod=message.value;world?.setTimeOfDay?.(message.value);gameEvents.emit('tod',message);});
+  // во время катсцены время суток ведёт она сама (ночной пролог части 2 — иначе посреди ночи вставало солнце сцены)
+  client.on('tod',message=>{scene.tod=message.value;if(!world?.cutscene?.active)world?.setTimeOfDay?.(message.value);gameEvents.emit('tod',message);});
   forwardGameEvents(client,gameEvents);
 }
 function renderLobby(){

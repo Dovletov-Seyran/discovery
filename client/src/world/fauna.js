@@ -9,8 +9,8 @@
 import * as THREE from 'three';
 
 const ANIM_DIST = 40, HIDE_DIST = 95;
-const WALK = { human: 1.15, goat: 0.45, chicken: 0.55, dog: 1.7, cat: 0.7, rat: 1.1, iguana: 0.25, gull: 6.5, parrot: 5 };
-const RUN = { human: 3.8, goat: 3, chicken: 2.6, dog: 4.5, cat: 3, rat: 3.5, iguana: 1.6, gull: 9, parrot: 8 };
+const WALK = { human: 1.15, goat: 0.45, chicken: 0.55, dog: 1.7, cat: 0.7, rat: 1.1, iguana: 0.25, gull: 6.5, parrot: 5, hutia: 0.6, crab: 0.35 };
+const RUN = { human: 3.8, goat: 3, chicken: 2.6, dog: 4.5, cat: 3, rat: 3.5, iguana: 1.6, gull: 9, parrot: 8, hutia: 3, crab: 1.8 };
 
 // --- зерно: одинаковые маршруты у всех клиентов ---
 function rng(seed) {
@@ -47,11 +47,12 @@ const ring = (rand, cx, cz, radius, n) => Array.from({ length: n }, (_, i) => {
 const C = (h) => new THREE.Color(h);
 const SKIN = [0xc98f6a, 0xb57a55, 0xd9a582, 0x9c6844];
 const CLOTH = [0x7d5a3c, 0x5b6b4a, 0x8a3f30, 0x6b5f8a, 0xb59a6a, 0x44546b, 0x8c7b5e];
-const HUMAN = (dress) => [
+// dress: длинная юбка (жительница Канар); short: короткая — набедренная повязка таино или нагуа таины
+const HUMAN = (dress, short = false) => [
   { key: 'torso', geo: new THREE.CylinderGeometry(0.16, 0.2, 0.62, 8), pos: [0, 1.06, 0], color: (a) => a.shirt },
   { key: 'head', geo: new THREE.SphereGeometry(0.11, 10, 8), pos: [0, 1.5, 0], color: (a) => a.skin },
   { key: 'hat', geo: new THREE.SphereGeometry(0.118, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), pos: [0, 1.53, 0], color: (a) => a.hair },
-  ...(dress ? [{ key: 'skirt', geo: new THREE.ConeGeometry(0.3, 0.78, 10).translate(0, -0.39, 0), pos: [0, 0.8, 0], color: (a) => a.pants }] : []),
+  ...(dress ? [{ key: 'skirt', geo: short ? new THREE.CylinderGeometry(0.2, 0.25, 0.3, 10).translate(0, -0.12, 0) : new THREE.ConeGeometry(0.3, 0.78, 10).translate(0, -0.39, 0), pos: [0, 0.85, 0], color: (a) => a.cloth ?? a.pants }] : []),
   { key: 'leg', geo: new THREE.CylinderGeometry(0.06, 0.055, 0.8, 6).translate(0, -0.4, 0), pos: [-0.09, 0.8, 0], anim: 'legA', color: (a) => a.pants },
   { key: 'leg', geo: null, pos: [0.09, 0.8, 0], anim: 'legB', color: (a) => a.pants },
   { key: 'arm', geo: new THREE.CylinderGeometry(0.045, 0.04, 0.58, 6).translate(0, -0.29, 0), pos: [-0.22, 1.32, 0], anim: 'armA', color: (a) => a.shirt },
@@ -74,6 +75,8 @@ const BIRD = (len, span) => [
 const SPECIES = {
   human: HUMAN(false),
   woman: HUMAN(true),
+  taino: HUMAN(true, true), // мужчина: торс и ноги открыты, хлопковая набедренная повязка
+  taina: HUMAN(true, true), // женщина: короткая нагуа
   goat: QUAD([0.32, 0.3, 0.7], [0.16, 0.18, 0.24], 0.46, 0.1, 0.24, [
     { key: 'horn', geo: new THREE.ConeGeometry(0.025, 0.16, 5).rotateX(-0.6), pos: [-0.05, 0.98, 0.38], color: () => C(0x4a3b2c) },
     { key: 'horn', geo: null, pos: [0.05, 0.98, 0.38], color: () => C(0x4a3b2c) }]),
@@ -90,6 +93,8 @@ const SPECIES = {
     { key: 'leg', geo: new THREE.CylinderGeometry(0.012, 0.012, 0.16, 4).translate(0, -0.08, 0), pos: [-0.05, 0.16, 0], anim: 'legA', color: () => C(0xd9a33a) },
     { key: 'leg', geo: null, pos: [0.05, 0.16, 0], anim: 'legB', color: () => C(0xd9a33a) },
   ],
+  hutia: QUAD([0.16, 0.14, 0.34], [0.11, 0.1, 0.12], 0.08, 0.06, 0.1),
+  crab: QUAD([0.2, 0.06, 0.14], [0.05, 0.04, 0.03], 0.06, 0.1, 0.05),
   rat: [
     { key: 'body', geo: new THREE.SphereGeometry(0.06, 8, 6).scale(0.8, 0.7, 1.6), pos: [0, 0.05, 0], color: (a) => a.coat },
     { key: 'tail', geo: new THREE.CylinderGeometry(0.008, 0.004, 0.18, 4).rotateX(Math.PI / 2 + 0.2), pos: [0, 0.04, -0.17], anim: 'tail', color: () => C(0xc49a8a) },
@@ -99,7 +104,7 @@ const SPECIES = {
 };
 // какие виды кто ест/боится: реакции автомата
 const BEGS = new Set(['goat', 'dog', 'chicken', 'cat']);
-const PEOPLE = new Set(['human', 'woman']);
+const PEOPLE = new Set(['human', 'woman', 'taino', 'taina']);
 const FLYING = new Set(['gull', 'parrot']);
 
 // --- кто живёт в каждой зоне (зерно — от раскладки, у всех одно и то же) ---
@@ -145,9 +150,33 @@ function canaryPopulation(rand, canaryLayout) {
   }
   return out;
 }
+// Деревня таино на Гуанахани (content/guanahani_layout.json): бохио по кругу у площади-батея, дом касика,
+// огород-конуко, пляж с каноэ на западе. Жители ходят от двери к двери, на площадь, к огороду и к морю.
+const VILLAGE = { batey: [168, 255], caney: [168, 228], conuco: [212, 249], beach: [126, 256],
+  bohios: [[193.4, 263.2], [181.5, 275.8], [163.3, 278.6], [147.3, 270.4], [147.3, 239.6], [188.7, 239.6], [206, 229], [207, 287]] };
+const TAINO_SKIN = [0x9c6a45, 0x8a5a3a, 0xa8754e, 0x7d5034];
 function guanahaniPopulation(rand) {
-  const out = [];
-  for (let i = 0; i < 8; i++) { // попугаи над деревней
+  const out = [], pick = (arr) => arr[Math.floor(rand() * arr.length)], [bx, bz] = VILLAGE.batey;
+  // перед дверью бохио: дверь смотрит на площадь
+  const door = ([x, z]) => { const dx = bx - x, dz = bz - z, d = Math.hypot(dx, dz); return [x + (dx / d) * 5, z + (dz / d) * 5]; };
+  const spots = [...VILLAGE.bohios.map(door), VILLAGE.batey, VILLAGE.caney, VILLAGE.conuco, VILLAGE.beach];
+  const jitter = ([x, z], r) => [x + (rand() - 0.5) * r, z + (rand() - 0.5) * r];
+  for (let i = 0; i < 14; i++) { // жители деревни ходят по делам
+    const kind = i % 2 ? 'taina' : 'taino', skin = C(pick(TAINO_SKIN));
+    const look = { skin, shirt: skin, pants: skin, cloth: C(pick([0xece3cc, 0xd9cba8, 0x8a5a36])), hair: C(0x16110d) };
+    const home = door(VILLAGE.bohios[i % VILLAGE.bohios.length]);
+    const points = [home, jitter(pick(spots), 4), jitter(VILLAGE.batey, 8), jitter(pick(spots), 4)];
+    out.push({ kind, look, route: makeRoute(points, WALK.human * (0.75 + rand() * 0.35), [4 + rand() * 10, 3 + rand() * 6, 6 + rand() * 8, 2 + rand() * 5]), phase: rand() * 400 });
+  }
+  for (let i = 0; i < 6; i++) { // хутии — местные грызуны — у огорода и бохио
+    const c = jitter(i < 3 ? VILLAGE.conuco : pick(VILLAGE.bohios), 10);
+    out.push({ kind: 'hutia', look: { coat: C(pick([0x6b5039, 0x7a5c40, 0x5a4330])) }, route: makeRoute(ring(rand, c[0], c[1], 3, 4), WALK.hutia, [5 + rand() * 6, 2, 4]), phase: rand() * 300 });
+  }
+  for (let i = 0; i < 10; i++) { // крабы бегают боком по песку у воды
+    const c = [118 + rand() * 8, 230 + rand() * 50];
+    out.push({ kind: 'crab', look: { coat: C(pick([0xd0703a, 0xc85a2a, 0xe0a060])) }, route: makeRoute(ring(rand, c[0], c[1], 2, 3), WALK.crab, [3 + rand() * 5, 1, 2]), phase: rand() * 200 });
+  }
+  for (let i = 0; i < 12; i++) { // попугаи над деревней
     const r = 8 + rand() * 18, pts = Array.from({ length: 8 }, (_, k) => { const a = (k / 8) * Math.PI * 2; return [172 + Math.cos(a) * r, 255 + Math.sin(a) * r]; });
     const pal = [[0x2f9a3a, 0xd23a2a], [0x2fa04a, 0x2a63b8], [0x3aa53a, 0xe8c040]][i % 3];
     out.push({ kind: 'parrot', look: { coat: C(pal[0]), wing: C(pal[1]), head: C(0xd23a2a) }, fly: 9 + rand() * 6, route: makeRoute(rand() < 0.5 ? pts : pts.reverse(), WALK.parrot, [0]), phase: rand() * 300 });
@@ -156,8 +185,8 @@ function guanahaniPopulation(rand) {
     const r = 12 + rand() * 20, pts = Array.from({ length: 8 }, (_, k) => { const a = (k / 8) * Math.PI * 2; return [118 + Math.cos(a) * r * 0.6, 255 + Math.sin(a) * r]; });
     out.push({ kind: 'gull', look: { coat: C(0xf1f0ea), wing: C(0xb9bec4) }, fly: 8 + rand() * 8, route: makeRoute(pts, WALK.gull, [0]), phase: rand() * 300 });
   }
-  for (let i = 0; i < 6; i++) { // игуаны греются и медленно ползают у камней и бохио
-    const c = [[196, 258], [140, 262], [152, 236], [200, 236], [176, 286], [160, 222]][i];
+  for (let i = 0; i < 10; i++) { // игуаны греются и медленно ползают у камней и бохио
+    const c = [[196, 258], [140, 262], [152, 236], [200, 236], [176, 286], [160, 222], [134, 246], [214, 262], [186, 222], [158, 290]][i];
     out.push({ kind: 'iguana', look: { coat: C([0x5f7a3a, 0x7b8a4a, 0x4e5f36][i % 3]) }, route: makeRoute(ring(rand, c[0], c[1], 2.5, 3), WALK.iguana, [10 + rand() * 12, 6]), phase: rand() * 300 });
   }
   return out;

@@ -91,7 +91,8 @@ export const world = {
 
     this.objects = new WorldObjects(this);
     this.players = new Players(this.scene, this.M);
-    this.fauna = new Fauna(this, { layouts: { canary: canaryLayout } }); // жители и животные (fauna.js): маршруты от общего времени, реакции на world_event
+    this.fauna = new Fauna(this, { layouts: { canary: canaryLayout } });
+    this.chunks.deferBuild = true; // чанки острова строятся по нескольку за кадр (chunks.drain в frame) // жители и животные (fauna.js): маршруты от общего времени, реакции на world_event
     this.env.mirrorHide.push(this.zoneRoot, this.smoke, this.players.group);
     this.patches = new WorldPatches(this);
     this.pipeline = new Pipeline(r, this.scene, this.camera);
@@ -234,6 +235,7 @@ export const world = {
     dt = Math.min(dt, 0.1);
     this.cutscene.update?.(dt); // takes the camera while a cutscene runs
     this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
+    this.chunks.drain?.();
     this.island?.refresh();
     this.patches?.update();
     this.patches?.flutter(performance.now() / 1000);
