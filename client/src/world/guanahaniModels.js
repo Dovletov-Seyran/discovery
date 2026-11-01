@@ -20,21 +20,28 @@ function noisy(geo, amp, seed) {
 }
 const scaleUV = (geo, su, sv) => { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); return geo; };
 
-// A cotton hammock slung between a and b, sagging in the middle (Taíno «hamaca»), with its cords.
-function hammock(M, a, b, sag = 0.45, w = 0.9) {
-  const g = new THREE.Group(), d = new V3().subVectors(b, a), len = d.length(), S = 14;
+// A cotton hammock slung between a and b: the cloth hangs in a trough (edges up), sags in the middle and is
+// gathered into cords at both ends (Taíno «hamaca»).
+function hammock(M, a, b, sag = 0.45, w = 0.85) {
+  const g = new THREE.Group(), d = new V3().subVectors(b, a), S = 16, U = 6;
   const side = new V3(-d.z, 0, d.x).normalize(), pos = [], idx = [];
   for (let i = 0; i <= S; i++) {
-    const t = i / S, c = new V3().lerpVectors(a, b, t), wid = w * Math.pow(Math.sin(Math.PI * Math.min(1, 0.08 + t * 0.84)), 0.6) / 2;
-    c.y -= sag * Math.sin(Math.PI * t);
-    for (const s of [-1, 1]) pos.push(c.x + side.x * s * wid, c.y + 0.06 * Math.abs(s) * Math.sin(Math.PI * t), c.z + side.z * s * wid);
-    if (i) { const k = i * 2; idx.push(k - 2, k - 1, k, k - 1, k + 1, k); }
+    const t = i / S, c = new V3().lerpVectors(a, b, 0.1 + t * 0.8), gather = Math.min(1, Math.min(t, 1 - t) / 0.18);
+    c.y -= sag * Math.sin(Math.PI * (0.1 + t * 0.8));
+    for (let j = 0; j <= U; j++) {
+      const s = (j / U) * 2 - 1, half = (w / 2) * (0.15 + 0.85 * gather);
+      pos.push(c.x + side.x * s * half, c.y + 0.16 * s * s * gather, c.z + side.z * s * half);
+    }
+    if (i) for (let j = 0; j < U; j++) { const k = i * (U + 1) + j, p = k - (U + 1); idx.push(p, p + 1, k, p + 1, k + 1, k); }
   }
   const cloth = new THREE.BufferGeometry();
   cloth.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   cloth.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2));
   cloth.setIndex(idx); cloth.computeVertexNormals();
   g.add(mesh(cloth, M.get('cotton')));
+  const end0 = new V3().lerpVectors(a, b, 0.1), end1 = new V3().lerpVectors(a, b, 0.9);
+  end0.y -= sag * Math.sin(Math.PI * 0.1); end1.y -= sag * Math.sin(Math.PI * 0.9);
+  g.add(mesh(between(a, end0, 0.012, 0.012, 4), M.get('rope')), mesh(between(end1, b, 0.012, 0.012, 4), M.get('rope')));
   return g;
 }
 

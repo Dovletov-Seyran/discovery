@@ -145,6 +145,7 @@ export const world = {
     for (const [name, isl] of Object.entries(this.islands)) isl.group.visible = zone === name;
     this.env.setZone(zone);
     this.env.setShore({ canary: canaryLod, guanahani: guanahaniLod }[zone] ?? null);
+    this.players.setLooks(zone === 'guanahani' ? 'taino' : 'crew'); // part 2: the players are villagers
     this.chunks.setZone(zone);
   },
 
