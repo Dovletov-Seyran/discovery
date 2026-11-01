@@ -19,6 +19,7 @@ import {tickNpcBrain,resetNpcBrain} from './npc-brain.js';
 import { worldEvent, forget as forgetEvents } from './world-events.js';
 import { clientReport, countTick, forgetClient } from './stats.js';
 import * as combat from './combat.js';
+import * as duel from './duel.js';
 import { onChunkReq, onChunkDrop } from '../world/chunks.js';
 
 director.setHooks({
@@ -79,6 +80,7 @@ export function join(session, ws) {
 
   // Роль могли занять, пока игрока не было
   if (p.role && players.roleOwner(p.role, p.id)) p.role = null;
+  duel.cleanup(p); // макана после перезапуска посреди поединка
   director.placeOnJoin(p);
   director.seatOnJoin(p);
 
@@ -175,6 +177,7 @@ const FALL_Y = { ship: -3, canary: -2.5, guanahani: -2.5 };
 function onInteract(p, msg) {
   const id = typeof msg.id === 'string' ? msg.id : '';
   if (id.startsWith('role:')) return director.pickRole(p, id.slice(5));
+  if (duel.isDuelist(id)) return duel.challenge(p, id); // E у воина касика — вызов на поединок
   rules.interact(p, msg);
 }
 
@@ -229,7 +232,8 @@ const handlers = {
   // Задержка до сервера и обратно: клиент сам вычтет свой ts (раз в 2 с, для HUD и админки)
   [C2S.PING]: (p, msg) => players.send(p, { t: S2C.PONG, ts: Number.isFinite(msg.ts) ? msg.ts : null, serverNow: Date.now() }),
   [C2S.CLIENT_STATS]: (p, msg) => clientReport(p.id, msg),
-  [C2S.ATTACK]: (p, msg) => combat.attack(p, msg), // бой на Гуанахани (docs/tz-combat.md)
+  // бой на Гуанахани (docs/tz-combat.md): воин касика на батее — поединок, остальные таино — закон деревни
+  [C2S.ATTACK]: (p, msg) => (duel.isDuelist(msg.target) ? duel.attack(p, msg.target) : combat.attack(p, msg)),
 };
 
 export function handle(p, msg) {
@@ -335,6 +339,7 @@ export function start() {
     setInterval(() => players.saveAll(), CONFIG.SAVE_INTERVAL_MS),
     setInterval(()=>rules.tickVitals(),1000),
     setInterval(() => combat.tick(), 100),
+    setInterval(() => duel.tick(), 100),
     setInterval(()=>tickObjects(),100),
     setInterval(() => {
       const gone = players.expire();

@@ -23,6 +23,7 @@ export const ITEM_RULES={
  hammock_gift:{effect:'supplies',target:'cacique',cooldown:500,hint:'Отнеси гамак касику и нажми E рядом с ним.'},
  firewood:{effect:'supplies',target:'fire',cooldown:500,hint:'Подойди к костру на площади и нажми E.'},
  torch:{effect:'light',cooldown:800},
+ macana:{effect:'swing',cooldown:550}, // дубинка воина: выдают на поединок (server/game/duel.js), после — забирают
  parrot:{effect:'show',cooldown:800},gift_cotton:{effect:'show',cooldown:800},
  bell:{effect:'show',cooldown:800},beads:{effect:'show',cooldown:800},red_cap:{effect:'show',cooldown:800},
 };

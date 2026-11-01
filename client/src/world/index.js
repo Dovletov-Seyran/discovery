@@ -93,6 +93,7 @@ export const world = {
     this.objects = new WorldObjects(this);
     this.players = new Players(this.scene, this.M);
     this.warriors = new Warriors(this.scene, this.M); // бой на Гуанахани: воины таино (docs/tz-combat.md)
+    this.duelists = new Warriors(this.scene, this.M, { kind: 'duelist' }); // воины касика на батее: поединки
     this.fauna = new Fauna(this, { layouts: { canary: canaryLayout } }); // жители и животные (fauna.js): маршруты от общего времени, реакции на world_event
     this.chunks.deferBuild = true; // чанки острова строятся по нескольку за кадр (chunks.drain в frame)
     this.env.mirrorHide.push(this.zoneRoot, this.smoke, this.players.group);
@@ -148,10 +149,12 @@ export const world = {
   get island() { return this.islands?.[this.zone] ?? null; },
 
   // what the player can use right now: the ship's or the island's visible chunks'
-  get interactables() { return [...(this.island ? this.island.interactables : this.shipInteractables),...(this.objects?.selectable??[]),...(this.warriors?.targets??[])]; },
+  get interactables() { return [...(this.island ? this.island.interactables : this.shipInteractables),...(this.objects?.selectable??[]),...(this.warriors?.targets??[]),...(this.duelists?.targets??[])]; },
 
   // `combat` сервера: ступень деревни и воины
   applyCombat(message) { this.warriors?.apply(message); },
+  // `duel` сервера: воины на батее; me — id этого игрока (ему подсказка «ЛКМ — удар»)
+  applyDuel(message, me) { this.duelists?.applyDuel(message, me); },
 
   // world_patch: предметы и декор (сухари, товар, бочки, брошенное игроками) — WorldObjects Санджара;
   // изменения корабля и неба (паруса, флаг, фонари, туман) — WorldPatches
@@ -181,6 +184,7 @@ export const world = {
     this.objects?.setZone(zone);
     this.players?.setZone(zone);
     this.warriors?.setZone(zone);
+    this.duelists?.setZone(zone);
     this.patches?.invalidate();
     const ship = zone === 'ship';
     this.ship.visible = ship; this.zoneRoot.visible = ship; this.smoke.visible = ship;
@@ -262,6 +266,7 @@ export const world = {
     this.patches?.flutter(performance.now() / 1000);
     this.players.update(dt);
     this.warriors.update(dt);
+    this.duelists.update(dt);
     this.updateNpcs(dt);
     this.updateDowned();
     this.objects?.update();
