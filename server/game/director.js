@@ -57,6 +57,9 @@ export function loadScenes() {
 }
 loadScenes();
 
+// Высота рельефа острова в точке (воины в бою ходят по земле, server/game/combat.js); null — не остров
+export const groundAt = (zone, x, z) => islandWorlds[zone]?.heightAt(x, z) ?? null;
+
 // Исправление старого сохранения делается и на сервере: иначе защита от телепорта
 // постоянно возвращает клиент, выбравшийся из-под земли, в его старую яму.
 export function restoreGround(p) {

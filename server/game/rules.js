@@ -17,6 +17,7 @@ import * as entities from './entities.js';
 import * as quests from './quests.js';
 import { worldEvent, ITEM_EVENT } from './world-events.js';
 import * as ai from './ai-bridge.js';
+import * as combat from './combat.js';
 
 const NPCS = new Map(loadContent('npcs.json', []).map((n) => [n.id, n]));
 const ROUTINES = loadContent('npc-routines.json', {});
@@ -146,6 +147,9 @@ export function interact(p, msg) {
     notice(p, win ? 'Партия в карты: ты выиграл!' : 'Партия в карты: матрос выиграл. Ещё партию?');
     event(p, { type: 'minigame', game: 'cards', success: true });
   }
+  // обидчик деревни мирится с касиком даром; остальные таино с ним не говорят (docs/tz-combat.md)
+  if (id === 'cacique' && combat.offerPeace(p)) return;
+  if (combat.refuses(p, id)) return notice(p, 'С тобой не хотят говорить. Помирись с касиком: принеси ему дар');
 
   let gained = []; // предметы, которые игрок получил этим нажатием (→ события pickup / trade_complete)
   switch (d.kind) {
@@ -361,6 +365,7 @@ async function askAi(p, npc, req) {
 async function npcRequest(p, npc, req) {
   if (typeof npc !== 'string' || NPCS.get(npc)?.type !== 'llm' || !playable()) return;
   if (director.isTransitioning() || !entities.isNear(p, npc, 3)) return replyError(p, npc, req, 'Подойди ближе к собеседнику.');
+  if (combat.refuses(p, npc)) return replyError(p, npc, req, 'С тобой не хотят говорить, пока деревня в тревоге.');
   if (npcOwner(npc) && npcOwner(npc) !== p) return claimNpc(p, npc, req);
   if (req.dialogueId && (p.dialogue?.id !== req.dialogueId || p.dialogue.npc !== npc)) return replyError(p, npc, req, 'Открой разговор заново.');
   const now = Date.now();
