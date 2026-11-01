@@ -7,6 +7,8 @@ import { players } from './players.js';
 import * as director from './director.js';
 import * as entities from './entities.js';
 import * as quests from './quests.js';
+import {equip} from './player-actions.js';
+import {presentation} from '../../shared/player-presentation.js';
 import {place,throwItem,toggle,syncWorld,tickObjects} from './objects.js';
 import * as rules from './rules.js';
 import { onChunkReq, onChunkDrop } from '../world/chunks.js';
@@ -64,11 +66,12 @@ export function join(session, ws) {
     you: players.publicInfo(p),
     state: {
       role: p.role, scene: scene.id, zone: p.zone, p: p.p, r: p.r,
-      inventory: p.inventory, money: p.money,itemUses:p.itemUses,vitals:p.vitals, quests: p.quests, log: p.log,
+      inventory: p.inventory, ...presentation(p), money: p.money,itemUses:p.itemUses,vitals:p.vitals, quests: p.quests, log: p.log,
     },
     world: worldMeta(),
     scene: director.sceneMessage(p),
     build: BUILD,
+    serverNow:Date.now(),
   });
 
   for (const other of players.connected()) {
@@ -104,6 +107,7 @@ function onMove(p, msg) {
   const locked = director.isLocked();
   if (!director.acceptsMove() && !locked) return;
   if (Number.isFinite(msg.r)) p.r = msg.r;
+  if(Number.isFinite(msg.pitch))p.pitch=Math.max(-1.35,Math.min(1.35,msg.pitch));
   if (ANIMS.includes(msg.a)) p.a = locked ? 'sit' : msg.a;
   if (locked || !isVec3(msg.p)) return; // в night_story можно только крутить головой
 
@@ -166,6 +170,7 @@ const handlers = {
   [C2S.NPC_HINT]: rules.npcHint,
   [C2S.PICKUP]: rules.pickup,
   [C2S.USE]: rules.use,
+  [C2S.EQUIP]: equip,
   [C2S.PLACE]: place,
   [C2S.THROW]: throwItem,
   [C2S.TOGGLE]: toggle,
@@ -199,7 +204,7 @@ function devCommand(p, text) {
       resetProgress();
       for (const x of players.all()) {
         if (!x.connected) { players.remove(x.id); continue; } // без ожидания grace
-        x.inventory = []; x.money = 0;x.itemUses={};x.vitals={stamina:100,drunkUntil:0,drunkStrength:0}; x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
+        x.inventory = []; x.action=null;x.money = 0;x.itemUses={};x.vitals={stamina:100,drunkUntil:0,drunkStrength:0}; x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
         players.sendInventory(x);
       }
       director.resetToStart();
@@ -232,10 +237,10 @@ function sendSnapshots() {
     byZone.get(p.zone).push(p);
   }
   for (const list of byZone.values()) {
-    const entries = list.map((p) => ({ id: p.id, p: p.p.map((v) => Math.round(v * 100) / 100), r: Math.round(p.r * 1000) / 1000, a: p.a }));
+    const entries = list.map((p) => ({ id: p.id, name:p.name,role:p.role,zone:p.zone,pitch:p.pitch??0,...presentation(p), p: p.p.map((v) => Math.round(v * 100) / 100), r: Math.round(p.r * 1000) / 1000, a: p.a }));
     list.forEach((p, i) => {
       if (list.length < 2) return;
-      players.send(p, { t: S2C.SNAPSHOT, tick, players: entries.filter((_, j) => j !== i) });
+      players.send(p, { t: S2C.SNAPSHOT, tick, serverNow:Date.now(), players: entries.filter((_, j) => j !== i) });
     });
   }
 }

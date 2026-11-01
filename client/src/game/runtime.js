@@ -31,7 +31,7 @@ export class GameplayRuntime {
     this.onTarget?.(target);
     if(this.mode!=='play'&&this.mode!=='seated')return;
     if(time-this.lastSent<1/15)return;
-    const payload={p:this.controller.position.toArray(),r:this.controller.yaw,a:this.controller.animation};
+    const payload={p:this.controller.position.toArray(),r:this.controller.yaw,pitch:this.controller.pitch,a:this.controller.animation};
     const key=JSON.stringify(payload);
     if(key!==this.lastMove&&this.send('move',payload)){this.lastMove=key;this.lastSent=time;}
   }

@@ -11,6 +11,7 @@ export class WorldConnection {
     this.send=send;this.attach=attach;this.canvas=canvas;this.onStatus=onStatus;
     this.remotePlayers=new Map();this.active=false;this.pendingObjects=new Map();
     events.on('auth_ok',message=>{
+      this.setClock(message.serverNow);
       this.world?.objects?.clear();this.pendingObjects.clear();
       this.you=message.you;this.meta=message.world;this.active=true;this.shipRequested=false;
       for(const id of this.remotePlayers.keys())this.world?.players?.remove?.(id);
@@ -19,6 +20,7 @@ export class WorldConnection {
       this.requestShip();
     });
     events.on('scene',scene=>{
+      this.world?.players?.clearActions?.();
       this.scene=scene;this.active=true;
       if(scene.id==='intro')this.playIntro(scene);
       else if(this.introPlaying)this.intro?.stop();  // пропуск или конец интро на сервере: затемнение и обратно в мир
@@ -40,6 +42,7 @@ export class WorldConnection {
     events.on('chunk_denied',message=>{if(message.zone!=='ship')this.world?.chunks?.denied?.(message.zone,message.key,message.reason);});
     events.on('entity',message=>this.applyEntity(message.id,message.state??message));
     events.on('world_patch',message=>{
+      this.setClock(message.serverNow);
       if(this.world){this.world.applyPatch?.(message);return;}
       for(const op of message.ops??[]){if(op.op==='remove')this.pendingObjects.delete(op.id);else{const old=this.pendingObjects.get(op.id);this.pendingObjects.set(op.id,old?{...old,...op,state:{...old.state,...op.state},op:'spawn'}:op);}}
       while(this.pendingObjects.size>128)this.pendingObjects.delete(this.pendingObjects.keys().next().value);
@@ -49,11 +52,25 @@ export class WorldConnection {
       if(player.id===this.you?.id)return;
       this.remotePlayers.set(player.id,player);this.world?.players?.upsert?.(player.id,player);
     });
+    events.on('player_equipment',message=>{
+      this.setClock(message.serverNow);
+      if(message.id===this.you?.id)return;
+      const p=this.remotePlayers.get(message.id);
+      if(p&&(!(p.equipmentRev>message.equipmentRev)))this.remotePlayers.set(message.id,{...p,equipped:message.item,equipmentRev:message.equipmentRev,zone:message.zone});
+      this.world?.players?.equipment?.(message);
+    });
+    events.on('player_action',message=>{
+      this.setClock(message.serverNow);
+      if(message.id===this.you?.id)return;
+      const p=this.remotePlayers.get(message.id);if(p)this.remotePlayers.set(message.id,{...p,action:message.action});
+      this.world?.players?.action?.(message);
+    });
     events.on('player_leave',({id})=>{this.remotePlayers.delete(id);this.world?.players?.remove?.(id);});
-    events.on('snapshot',message=>this.world?.players?.snapshot?.(message.players.filter(player=>player.id!==this.you?.id),message.tick));
+    events.on('snapshot',message=>{this.setClock(message.serverNow);this.world?.players?.snapshot?.(message.players.filter(player=>player.id!==this.you?.id),message.tick,message.serverNow);});
     events.on('chat',message=>this.world?.players?.say?.(message.from,message.text,4));
     events.on('logout',()=>{this.active=false;cancelAnimationFrame(this.frameId);this.frameId=null;this.previous=null;});
   }
+  setClock(serverNow){if(!Number.isFinite(serverNow))return;this.clockSample={serverNow,receivedAt:Date.now()};this.world?.players?.syncClock?.(serverNow,this.clockSample.receivedAt);}
   async ensure(){
     if(this.world){this.applyScene();this.startLoop();return this.world;}
     if(this.loading)return this.loading;
@@ -66,6 +83,7 @@ export class WorldConnection {
       this.world=world;
       world.chunks?.setWorldMeta?.(this.meta);
       world.chunks?.setSender?.(({t,...payload})=>this.send(t,payload));
+      if(this.clockSample)world.players?.syncClock?.(this.clockSample.serverNow,this.clockSample.receivedAt);
       for(const [id,player] of this.remotePlayers)world.players?.upsert?.(id,player);
       this.gameplay=this.attach(world,this.canvas);
       this.applyScene();world.applyPatch?.({ops:[...this.pendingObjects.values()],serverNow:this.patchTime});this.pendingObjects.clear();this.requestShip();this.startLoop();return world;

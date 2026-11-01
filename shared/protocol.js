@@ -4,7 +4,7 @@
 // Клиент → Сервер
 export const C2S = {
   AUTH: 'auth',             // { token }
-  MOVE: 'move',             // { p, r, a }
+  MOVE: 'move',             // {p,r,pitch?,a}
   CHUNK_REQ: 'chunk_req',   // { zone, keys: ['3,5', ...] }
   CHUNK_DROP: 'chunk_drop', // { zone, keys }
   INTERACT: 'interact',     // { id }  — в лобби id: 'role:piloto'
@@ -12,6 +12,7 @@ export const C2S = {
   PLACE: 'place',           // {item, p, r} — sphere centre at a surface under the crosshair
   THROW: 'throw',           // {item, p, v, r?} — validated launch; server supplies id and startedAt
   TOGGLE: 'toggle',         // {id} — doors and chest lids
+  EQUIP: 'equip',           // {item: itemId|null} — server validates ownership
   USE: 'use',               // { item, target? }
   MINIGAME: 'minigame',     // { game, result }
   CHAT: 'chat',             // { text }
@@ -29,8 +30,10 @@ export const S2C = {
   AUTH_OK: 'auth_ok',           // { you: {id, name, role}, state, world, scene }
   AUTH_FAIL: 'auth_fail',       // { reason }
   LOBBY: 'lobby',               // { players: [{id, name, role, ready, connected}] }
-  SNAPSHOT: 'snapshot',         // { tick, players: [{id, p, r, a}] }
+  SNAPSHOT: 'snapshot',         // {tick,serverNow,players:[{id,name,role,zone,p,r,pitch,a,equipped,equipmentRev,action}]}
   PLAYER_JOIN: 'player_join',   // { id, name, role }
+  PLAYER_EQUIPMENT: 'player_equipment', // {id,item,equipmentRev,zone,serverNow}
+  PLAYER_ACTION: 'player_action', // {id,action:{kind,item,startedAt,duration,seq,equipmentRev,zone,scene},serverNow}
   PLAYER_LEAVE: 'player_leave', // { id, name, role }
   SCENE_PROGRESS: 'scene_progress', // {scene, phase, next, endsAt?, serverNow, done, total, ready, talking}
   SCENE: 'scene',               // { id, type, startAt, tod, zone, duration, spawn?, seat? }

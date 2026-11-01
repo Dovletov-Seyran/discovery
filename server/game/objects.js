@@ -1,4 +1,5 @@
 // Authoritative placement, throwing, doors and dynamic objects. No client-authored patches.
+import {performAction,equipForUse} from './player-actions.js';
 import {randomUUID} from 'node:crypto';
 import {loadContent} from '../content.js';
 import {players} from './players.js';
@@ -44,6 +45,7 @@ function put(p,msg,body){
   const base=[msg.p[0],msg.p[1]-objectProfile(msg.item).radius,msg.p[2]];
   const id=`drop:${randomUUID()}`,d=entities.register({id,zone:p.zone,kind:'item',item:msg.item,m:models[msg.item]??msg.item,label:items.get(msg.item).name,p:base,r:msg.r??0});
   if(!d)return notice(p,'На палубе слишком много предметов. Сначала подбери лежащие.');
+  equipForUse(p,msg.item);
   const uses=removeFromHand(p,msg.item);
   entities.setState(id,{holder:null,p:base,r:msg.r??0,uses,...(body?{body}:{} )});
   if(body)active.set(id,{body,zone:p.zone,safeP:[...p.p],last:Date.now()});
@@ -74,7 +76,7 @@ export function place(p,msg){
   const resolved=contactWithDoors(p.zone,msg.p,radius);
   if(distance(resolved,msg.p)>.08)return notice(p,'Здесь предмет не поместится.');
   const now=Date.now(),body=createBody({p:msg.p,item:msg.item,startedAt:now,roll:p.zone==='ship'&&!!objectProfile(msg.item).roll});
-  put(p,msg,body);
+  if(put(p,msg,body))performAction(p,'place',msg.item);
 }
 export function throwItem(p,msg){
   if(!allowed(p,msg)||!finiteVec(msg.v))return;
@@ -84,7 +86,7 @@ export function throwItem(p,msg){
   if(distance(contactWithDoors(p.zone,msg.p,radius),msg.p)>.12)return notice(p,'Отойди от стены для броска.');
   if(active.size>=16)return notice(p,'Подожди, пока предметы упадут.');
   const body=createBody({p:msg.p,v:msg.v,item:msg.item,startedAt:Date.now(),roll:p.zone==='ship'&&!!objectProfile(msg.item).roll});
-  const id=put(p,msg,body);if(id)emitWorldEvent(p,'throw',{id,item:msg.item});
+  const id=put(p,msg,body);if(id){performAction(p,'throw',msg.item);emitWorldEvent(p,'throw',{id,item:msg.item});}
 }
 export function toggle(p,{id}){
   const d=entities.def(id),now=Date.now();
@@ -93,7 +95,7 @@ export function toggle(p,{id}){
   const open=!entities.stateOf(id)?.open;
   // Do not close a door through another player: only the authoritative server decides.
   if(!open&&d.toggleType==='door'&&players.connected().some(other=>other.zone===d.zone&&other.p&&distance(boxContact(other.p,.35,doorBox(d,false),1),other.p)>.01))return notice(p,'В дверях кто-то стоит.');
-  entities.setState(id,{open,changedAt:now});director.persistNow();syncAll();
+  entities.setState(id,{open,changedAt:now});performAction(p,'toggle',null,{target:id});director.persistNow();syncAll();
 }
 
 function relevant(p,d){

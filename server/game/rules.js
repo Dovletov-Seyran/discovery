@@ -1,5 +1,7 @@
 // Действия игрока в мире: подбор, взаимодействие, передача предметов, мини-игры, торговля, «Бу!», разговор с NPC.
 // Сервер решает всё сам; клиент присылает только намерения.
+import {equipForUse,performAction} from './player-actions.js';
+import {actionForEffect} from '../../shared/player-presentation.js';
 import {emitWorldEvent} from './world-events.js';
 import {toggle,canPickup} from './objects.js';
 import {applyItemUse,advanceStamina} from './item-actions.js';
@@ -71,6 +73,7 @@ export function pickup(p, msg) {
   broadcastEntity(id);
   players.save(p, { now: true });
   event(p, { type: 'pickup', item: d.item });
+  performAction(p,'pickup',d.item);
 }
 
 // Отдать предмет NPC/объекту, если этого ждёт задание. → true, если отдали
@@ -81,6 +84,7 @@ function deliver(p, item, target) {
   players.sendInventory(p);
   players.save(p, { now: true });
   event(p, { type: 'deliver', item, target });
+  performAction(p,'give',item,{target});
   return true;
 }
 
@@ -99,7 +103,8 @@ export function use(p, msg) {
     if(source){if(source.dynamic)entities.remove(source.id);else entities.setState(source.id,{holder:'consumed'});}
   }
   players.send(p,{t:S2C.ITEM_USED,...result});
-  players.sendInventory(p);players.save(p,{now:true});
+  equipForUse(p,item);players.sendInventory(p);
+  performAction(p,actionForEffect(result.effect),item);players.save(p,{now:true});
   if(item==='wine'||item==='rum')event(p,{type:'interact',target:'wine_barrel'});
   event(p,{type:'use',item});
   const action={food:'eat',drink:'drink',water:'drink',swing:'swing',shot:'scare'}[result.effect];
@@ -132,14 +137,17 @@ export function interact(p, msg) {
       entities.setState(id, { startedAt: now, duration: hourglassPeriod(d) * 1000, emptyAt: now + hourglassPeriod(d) * 1000, turnedBy: p.id });
       broadcastEntity(id);
       sayLine('grumete_song');
+      performAction(p,'toggle',null,{target:id});
       break;
     }
     case 'well':
       if (!p.inventory.includes('barrel')) return notice(p, 'Нужен пустой бочонок');
       p.inventory[p.inventory.indexOf('barrel')] = 'barrel_full';
       p.itemUses??={};p.itemUses.barrel_full=3;
+      if(p.equipped==='barrel')equipForUse(p,'barrel_full');
       players.sendInventory(p);
       players.save(p, { now: true });
+      performAction(p,'fill','barrel_full',{target:id});
       break;
     case 'npc':
       if (id === 'trader') players.send(p, tradeState(p, id));
@@ -176,6 +184,7 @@ export function minigame(p, msg) {
     if (!success) notice(p, 'Неверно. Широта = 90° − высота Солнца + склонение');
   }
   event(p, { type: 'minigame', game: msg.game, success });
+  if(success&&msg.game==='dance')performAction(p,'dance');
 }
 
 // --- Разговор с NPC ---
@@ -329,6 +338,7 @@ export function scare(p, msg) {
   const target = players.get(Number(msg.target));
   if (!target || target === p || !target.connected || target.zone !== p.zone) return;
   p.lastScareAt = now;
+  performAction(p,'scare');
   players.broadcast({ t: S2C.SCARED, by: p.id, target: target.id });
 }
 
