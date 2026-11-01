@@ -11,14 +11,28 @@ import {equip} from './player-actions.js';
 import {presentation} from '../../shared/player-presentation.js';
 import {place,throwItem,toggle,syncWorld,tickObjects} from './objects.js';
 import * as rules from './rules.js';
+import * as worldState from './world-state.js';
+import * as ai from './ai-bridge.js';
 import { onChunkReq, onChunkDrop } from '../world/chunks.js';
 
 director.setHooks({
-  onSceneStart: rules.onSceneStart,
+  onSceneStart: (scene, party) => {
+    rules.onSceneStart(scene, party);
+    worldState.onSceneStart(scene);
+    ai.onSceneStart(scene, director.startAt());
+  },
   isSceneComplete: quests.isSceneComplete,
   forceComplete: quests.forceComplete,
   playerDone: quests.playerDone,
 });
+
+// Динамические объекты мира: рассылка всем, привязка к объектам раскладки, поступки по заданиям
+worldState.setHooks({
+  broadcast: (msg) => players.broadcast(msg),
+  anchor: (id) => entities.def(id)?.p ?? null,
+  zone: () => director.zone(),
+});
+quests.setOnDone((q) => worldState.onQuestDone(q.id));
 
 const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
 
@@ -49,6 +63,7 @@ export function join(session, ws) {
   }
   p.dialogue = null;
   p.npcRequest = null;
+  rules.syncNpcDialogues();
   p.objectVersions=new Map();
   p.ws = ws;
   p.connected = true;
@@ -78,6 +93,7 @@ export function join(session, ws) {
     if (other !== p) players.send(p, { t: S2C.PLAYER_JOIN, ...players.publicInfo(other) });
   }
   if (!wasConnected) players.broadcast({ t: S2C.PLAYER_JOIN, ...players.publicInfo(p) }, (x) => x !== p);
+  players.send(p, worldState.fullMessage());
   players.send(p, director.lobbyMessage());
   quests.refreshParty(scene,players.party());
   quests.sendAll(p, scene.id);
@@ -92,6 +108,7 @@ export function leave(p, ws) {
   if (p.ws !== ws) return; // это старая вкладка, игрок уже переподключился
   p.dialogue = null;
   p.npcRequest = null;
+  rules.syncNpcDialogues();
   p.ws = null;
   p.connected = false;
   p.disconnectedAt = Date.now(); // готовность сохраняем: 60 с игрок остаётся в партии
@@ -161,14 +178,21 @@ function onChat(p, msg) {
   players.broadcast({ t: S2C.CHAT, from: p.id, name: p.name, text });
 }
 
+// Предмет, появившийся по world_patch (сухари из пайка), взяли — у всех он исчезает
+function takenFromWorld(id) {
+  if (typeof id === 'string' && worldState.get(id)?.spawned && entities.stateOf(id)?.holder) {
+    worldState.apply([{ op: 'remove', id }], { source: 'pickup' });
+  }
+}
+
 const handlers = {
   [C2S.MOVE]: onMove,
-  [C2S.INTERACT]: onInteract,
+  [C2S.INTERACT]: (p, msg) => { onInteract(p, msg); takenFromWorld(msg.id); },
   [C2S.CHAT]: onChat,
   [C2S.DIALOGUE]: rules.dialogue,
   [C2S.NPC_TALK]: rules.npcTalk,
   [C2S.NPC_HINT]: rules.npcHint,
-  [C2S.PICKUP]: rules.pickup,
+  [C2S.PICKUP]: (p, msg) => { rules.pickup(p, msg); takenFromWorld(msg.id); },
   [C2S.USE]: rules.use,
   [C2S.EQUIP]: equip,
   [C2S.PLACE]: place,

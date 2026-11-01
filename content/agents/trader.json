@@ -174,5 +174,72 @@
     "You pay taxes to the lady Beatriz and complain about them to everyone except her.",
     "You dream of a proper shop in Seville one day."
   ],
-  "playerIs": "a sailor from the Admiral's three ships in the harbour, the {role}"
+  "playerIs": "a sailor from the Admiral's three ships in the harbour, the {role}",
+  "actions": [
+    {
+      "id": "show_goods",
+      "en": "lay out your goods on the stall to show them",
+      "scenes": [
+        "canary"
+      ],
+      "cooldownSec": 30,
+      "kw": [
+        "покажи товар",
+        "покажите товар",
+        "показать товар",
+        "выложи товар",
+        "выложите товар",
+        "разложи товар",
+        "покажи что продаешь",
+        "show goods",
+        "show wares"
+      ],
+      "patch": [
+        {
+          "op": "spawn",
+          "id": "goods_cheese",
+          "kind": "prop",
+          "at": "trader",
+          "off": [
+            -1.6,
+            0.95,
+            -0.6
+          ],
+          "state": {},
+          "item": "cheese",
+          "label": "Сыр на прилавке"
+        },
+        {
+          "op": "spawn",
+          "id": "goods_meat",
+          "kind": "prop",
+          "at": "trader",
+          "off": [
+            -1.6,
+            0.95,
+            0
+          ],
+          "state": {},
+          "item": "meat",
+          "label": "Солонина на прилавке"
+        },
+        {
+          "op": "spawn",
+          "id": "goods_biscuit",
+          "kind": "prop",
+          "at": "trader",
+          "off": [
+            -1.6,
+            0.95,
+            0.6
+          ],
+          "state": {},
+          "item": "biscuit",
+          "label": "Сухари на прилавке"
+        }
+      ],
+      "reply": "Look, señor: Gomera cheese, salted meat, biscuit that keeps for months!",
+      "replyRu": "Смотри, сеньор: сыр с Гомеры, солонина, сухари на много месяцев!"
+    }
+  ]
 }

@@ -1,12 +1,34 @@
 import * as THREE from 'three';
 import { pose, strum } from './people.js';
 import { bake } from './geom.js';
-import { npcActivity } from '../../../shared/npc-activity.js';
+import { npcActivity, npcScene } from '../../../shared/npc-activity.js';
 
 // Merge rigid details within each joint, retaining the articulated skeleton.
 export function prepareNpc(npc) {
   const rig = npc.userData.rig;
   if (!rig) return;
+  // Неподбираемые реквизит и табуреты принадлежат персонажу, а не раскладке предметов.
+  const wood = new THREE.MeshStandardMaterial({ color: 0x6d472d, roughness: 0.9 });
+  const stool = new THREE.Group(); stool.userData.noBake = true;
+  for (const [radius, height, y] of [[0.23, 0.08, 0.43], [0.14, 0.4, 0.2]]) {
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, 10), wood);
+    mesh.position.y = y; mesh.castShadow = mesh.receiveShadow = true; stool.add(mesh);
+  }
+  stool.visible = false; rig.root.add(stool); rig.stool = stool;
+  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.035, 0.1, 10), wood);
+  cup.position.set(0, -0.28, 0.05); cup.visible = false; cup.userData.noBake = true;
+  rig.arms[0].fa.add(cup); rig.cup = cup;
+  if (npc.userData.id === 'cook') {
+    const tray = new THREE.Group(); tray.userData.noBake = true;
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.03, 12), wood);
+    tray.add(plate);
+    const food = new THREE.MeshStandardMaterial({color: 0xd8b772, roughness: 1});
+    for (let i = 0; i < 4; i++) {
+      const loaf = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), food);
+      loaf.scale.set(1, 0.45, 0.65); loaf.position.set((i % 2 - 0.5) * 0.17, 0.05, (Math.floor(i / 2) - 0.5) * 0.15); tray.add(loaf);
+    }
+    tray.position.set(0, 0.12, 0.43); tray.visible = false; rig.torso.add(tray); rig.tray = tray;
+  }
   const groups = [];
   rig.root.traverse(o => { if (o.isGroup) { groups.push(o); o.userData.noBake = true; } });
   for (const group of groups.reverse()) {
@@ -22,10 +44,18 @@ export function prepareNpc(npc) {
   };
 }
 
-export function animateNpc(npc, dt, seconds, night = false) {
+export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day') {
   const { rig, definition, motion } = npc.userData;
   if (!rig || !motion) return;
-  const state = npcActivity(definition, seconds);
+  const state = npcActivity(definition, seconds, scene, npc.userData.paused);
+  const current = npcScene(definition, scene);
+  const sceneId = typeof scene === 'string' ? scene : scene?.id;
+  if (motion.sceneId !== sceneId) { motion.initialized = false; motion.sceneId = sceneId; }
+  rig.stool.visible = !!current.seat || state.action === 'guitar' && sceneId === 'ship_evening';
+  rig.cup.visible = state.action === 'toast';
+  if (rig.tray) rig.tray.visible = state.action === 'serve' || state.walking && current.pose === 'serve';
+  if (rig.guitar) rig.guitar.visible = state.action === 'guitar';
+  rig.torso.position.y = 0;
   npc.position.fromArray(state.p);
   const yaw = state.r + Math.PI;
   const angle = Math.atan2(Math.sin(yaw - npc.rotation.y), Math.cos(yaw - npc.rotation.y));
@@ -34,12 +64,43 @@ export function animateNpc(npc, dt, seconds, night = false) {
   motion.hipY = rig.hip.position.y;
   const t = seconds + motion.phase, slow = Math.sin(t * 1.3), beat = Math.sin(t * 2.4);
   pose(rig, state.action, seconds * 5);
-  if (definition.pose === 'guitar') {
+  if (state.action === 'guitar') {
     pose(rig, 'sit');
     strum(rig, t, !night);
   } else {
     switch (state.action) {
-      case 'walk': break;
+      case 'talk':
+        rig.head.rotation.x = Math.sin(t * 1.1) * 0.03;
+        rig.arms[0].fa.rotation.x = -0.2 + Math.sin(t * 0.8) * 0.08;
+        break;
+      case 'walk':
+        if (current.pose === 'serve') for (const arm of rig.arms) { arm.ua.rotation.x = -0.8; arm.fa.rotation.x = -0.9; }
+        break;
+      case 'dance':
+        rig.hip.position.y -= 0.04 + Math.sin(t * 4.8) * 0.035;
+        rig.hip.rotation.z = beat * 0.08; rig.torso.rotation.y = slow * 0.15;
+        rig.legs.forEach((leg, i) => { leg.th.rotation.x = Math.sin(t * 2.4 + i * Math.PI) * 0.2; leg.sh.rotation.x = 0.15; });
+        rig.arms.forEach((arm, i) => { arm.ua.rotation.set(-0.35, 0, arm.s * (0.6 + 0.2 * beat)); arm.fa.rotation.x = -0.9 + Math.sin(t * 2.4 + i) * 0.25; });
+        rig.head.rotation.y = slow * 0.2;
+        break;
+      case 'serve':
+        rig.head.rotation.y = slow * 0.2;
+        for (const arm of rig.arms) { arm.ua.rotation.x = -0.8; arm.fa.rotation.x = -0.9; }
+        break;
+      case 'toast': case 'greet':
+        rig.head.rotation.y = slow * 0.25;
+        rig.arms[0].ua.rotation.x = -0.9 + slow * 0.15;
+        rig.arms[0].fa.rotation.x = -1.25 + slow * 0.15;
+        break;
+      case 'listen': case 'tell':
+        pose(rig, 'sit');
+        rig.head.rotation.set(0.08, Math.sin(t * 0.45) * 0.08, 0);
+        if (state.action === 'tell') {
+          rig.arms[0].ua.rotation.x = -0.7 + slow * 0.12;
+          rig.arms[0].fa.rotation.x = -0.9 + beat * 0.16;
+          rig.arms[1].fa.rotation.x = -0.6 + slow * 0.1;
+        }
+        break;
       case 'chart':
         rig.torso.rotation.x = 0.38 + slow * 0.025;
         rig.head.rotation.set(0.42, Math.sin(t * 0.4) * 0.18, 0);

@@ -40,7 +40,9 @@ export const S2C = {
   TOD: 'tod',                   // { value }
   CHUNK: 'chunk',               // { zone, key, data }
   CHUNK_DENIED: 'chunk_denied', // { zone, key, reason }
-  WORLD_PATCH: 'world_patch', // {ops:[{op:'spawn'|'remove'|'set',id,kind,item,model,zone,p,r,state}]}
+  // {ops:[{op:'spawn'|'remove'|'set',id,kind,item,model,zone,p,r,state}]} — предметы игроков (objects.js),
+  // действия агентов и поступки (world-state.js, у него ещё source и full: true — полное состояние агентских объектов)
+  WORLD_PATCH: 'world_patch',
   WORLD_EVENT: 'world_event', // {type:'talk'|'eat'|'drink'|'run'|'swing'|'scare'|'dance'|'throw',who,p,zone,serverNow}
   ENTITY: 'entity',             // { id, state }
   VITALS: 'vitals',            // {stamina, drunkUntil, drunkStrength, serverNow}

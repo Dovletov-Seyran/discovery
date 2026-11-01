@@ -5,6 +5,7 @@ import { loadContent } from '../content.js';
 import { layoutToggles } from '../../shared/world-interact.js';
 import { OBJECT_LIMIT, finiteVec } from '../../shared/object-physics.js';
 import { resolveLayout } from '../world/terrain.js';
+import * as world from './world-state.js';
 
 // id → { id, zone, x, z, kind, item?, period?, ... } — интерактивные объекты и NPC
 const defs = new Map();
@@ -24,7 +25,13 @@ let dirty = false;
 let epoch=0;
 export const generation=()=>epoch;
 
-export const def = (id) => defs.get(id);
+// Объект раскладки, предмет игрока (objects.js) или появившийся по world_patch агента (сухари на столе)
+export const def = (id) => defs.get(id) ?? dynamicDef(id);
+function dynamicDef(id) {
+  const o = world.get(id);
+  if (!o?.spawned || !o.p) return undefined;
+  return { id, kind: o.kind, item: o.item ?? o.state?.item, zone: o.zone, p: o.p, x: o.p[0], z: o.p[2], label: o.label ?? o.state?.label };
+}
 export const allDefs = () => [...defs.values()];
 export const positionOf = id => objects[id]?.p ?? defs.get(id)?.p;
 export function register(data) {
@@ -48,7 +55,7 @@ export function setState(id, patch) {
 
 export const markDirty = () => { dirty = true; };
 export function takeDirty() {
-  const d = dirty;
+  const d = world.takeDirty() || dirty;
   dirty = false;
   return d;
 }
@@ -60,9 +67,10 @@ export function load(saved) {
   for(const d of saved?.dynamic??[])register(d);
   dirty=false;
   sharedQuests = saved?.sharedQuests ?? {};
+  world.load(saved?.world);
 }
 
-export const snapshot = () => ({ objects, sharedQuests, dynamic:[...defs.values()].filter(d=>d.dynamic) });
+export const snapshot = () => ({ objects, sharedQuests, dynamic:[...defs.values()].filter(d=>d.dynamic), world: world.snapshot() });
 
 export function reset() {
   epoch++;
@@ -70,12 +78,35 @@ export function reset() {
   objects = {};
   sharedQuests = {};
   dirty = true;
+  world.reset();
 }
 
 // Игрок стоит рядом с объектом? Сравниваем по горизонтали, +1 м на задержку сети
 export function isNear(p, id, extra = 1) {
-  const d = defs.get(id);
+  const d = def(id);
   if (!d || d.zone !== p.zone || !p.p) return false;
-  const position = d.zone === 'ship' && d.kind === 'npc' ? npcActivity(d).p : positionOf(id);
+  const [sceneId, started] = (p.scene ?? 'ship_day').split('@');
+  const scene = { id: sceneId, ...(started ? { startAt: Number(started) } : {}) };
+  const position = d.zone === 'ship' && d.kind === 'npc' ? npcActivity(d, Date.now() / 1000, scene, objects[id]?.paused).p : objects[id]?.p ?? d.p;
   return Math.hypot(position[0] - p.p[0], position[2] - p.p[2]) <= CONFIG.INTERACT_DIST + extra;
+}
+
+
+// Серверная пауза маршрутов: первый активный собеседник задаёт направление взгляда.
+// Изменения идут обычным entity и попадают в snapshot/chunk при переподключении.
+export function syncNpcDialogues(party, scene, now = Date.now()) {
+  const key = `${scene.id}@${scene.startAt ?? 0}`, patches = [];
+  for (const d of defs.values()) {
+    if (d.zone !== 'ship' || d.kind !== 'npc') continue;
+    const saved = objects[d.id]?.paused;
+    const previous = saved?.scene === key ? saved : null;
+    const speaker = party.find(p => p.connected && p.zone === 'ship' && p.scene === key
+      && p.dialogue?.npc === d.id && p.dialogue.until > now);
+    let paused = previous;
+    if (speaker) paused = { scene: key, at: previous?.at ?? now, offset: previous?.offset ?? 0, lookAt: [...speaker.p] };
+    else if (previous?.at != null) paused = { scene: key, at: null, offset: previous.offset + now - previous.at, lookAt: null };
+    if (JSON.stringify(saved ?? null) === JSON.stringify(paused)) continue;
+    patches.push({ id: d.id, state: setState(d.id, { paused }) });
+  }
+  return patches;
 }

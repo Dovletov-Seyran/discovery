@@ -41,6 +41,9 @@ export class WorldConnection {
     });
     events.on('chunk_denied',message=>{if(message.zone!=='ship')this.world?.chunks?.denied?.(message.zone,message.key,message.reason);});
     events.on('entity',message=>this.applyEntity(message.id,message.state??message));
+    events.on('scene_progress',message=>{
+      if(this.world&&message.scene===this.scene?.id&&Number.isFinite(message.serverNow))this.world.npcClockOffset=message.serverNow-Date.now();
+    });
     events.on('world_patch',message=>{
       this.setClock(message.serverNow);
       if(this.world){this.world.applyPatch?.(message);return;}
@@ -111,6 +114,7 @@ export class WorldConnection {
   requestShip(){if(this.active&&this.world&&this.scene?.zone==='ship'&&!this.shipRequested)this.shipRequested=this.send('chunk_req',{zone:'ship',keys:['0,0']});}
   applyScene(){
     if(!this.scene)return;
+    this.world.setNpcScene?.(this.scene);
     if(this.scene.zone)this.world.setZone(this.scene.zone);
     if(Number.isFinite(this.scene.tod))this.world.setTimeOfDay(this.scene.tod);
     if(this.lastScene!==this.scene.id){
@@ -121,6 +125,8 @@ export class WorldConnection {
   applyEntity(id,state={}){
     if(!this.world)return;
     this.world.applyEntity?.(id,state);
+    // NPC стоит, пока с ним говорят (пауза маршрута — shared/npc-activity.js)
+    if('paused' in state)this.world.setEntityState?.(id,{paused:state.paused});
   }
   startLoop(){
     if(this.frameId||!this.active)return;

@@ -86,6 +86,8 @@ function directive({ intent, repeat, extraCard, steerCard, task, taskTold, trade
   }
   const steer = steerCard ? steerCard.topic : 'the voyage';
   switch (intent.kind) {
+    case 'action':
+      return actionDirective(intent.action, intent.verdict);
     case 'topic':
       if (repeat && extraCard) {
         return `They ask AGAIN about ${intent.card.topic}, which you already told them. Begin your answer with "${REPEAT_OPENING}," remind them in a few words, then add this NEW detail: ${extraCard.fact}`;
@@ -125,6 +127,18 @@ function directive({ intent, repeat, extraCard, steerCard, task, taskTold, trade
     default:
       return 'Reply naturally and briefly in character to what they said. Keep the conversation alive: you may ask them something about themselves or their work.';
   }
+}
+
+// Просьба что-то сделать: решение уже принял код, модель лишь говорит его в образе
+const REFUSAL = {
+  scene: 'It cannot be done here and now. Refuse politely in character and say briefly why.',
+  cooldown: 'You gave this very order only a moment ago. Refuse politely in character: not again so soon.',
+  done: 'It is already done: look around. Say so politely in character, in a few words.',
+  once: 'You have already done this today and will not do it again. Refuse politely in character.',
+};
+function actionDirective(action, verdict = {}) {
+  if (verdict.ok) return `They ask you to ${action.en}. You agree and give the order at once, in one or two sentences, in character, for example: "${action.reply}"`;
+  return `They ask you to ${action.en}. ${REFUSAL[verdict.reason] ?? REFUSAL.scene}`;
 }
 
 function lastExchange(mem) {
@@ -177,4 +191,4 @@ export function ensureRepeatOpening(en) {
 export const isEnglish = (text) => !!text && !/[Ѐ-ӿ一-鿿]/.test(text);
 
 // Насколько свободно модель формулирует: где важна точность — меньше фантазии
-export const TEMPERATURE = { recall: 0.2, task_help: 0.3, need: 0.3, about_you: 0.4, person: 0.5, topic: 0.6, unknown: 0.5 };
+export const TEMPERATURE = { action: 0.4, recall: 0.2, task_help: 0.3, need: 0.3, about_you: 0.4, person: 0.5, topic: 0.6, unknown: 0.5 };

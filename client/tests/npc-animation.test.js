@@ -70,3 +70,55 @@ test('server interaction range follows the same moving NPC as the client', () =>
     }
   } finally { Date.now = realNow; }
 });
+
+test('evening routes clear ship furniture and ladders; NPCs change places after the island', () => {
+  const ship = buildShip(M), built = buildLayout(M, layout), collider = new Collider([...ship.collider, ...built.col]);
+  for (const n of layout.npcs) {
+    const evening = npcActivity(n, 0, 'ship_evening');
+    assert.notDeepEqual(npcActivity(n,30,'ship_evening').p, n.p, `${n.id} kept the daytime place`);
+    let previous = evening;
+    for (let t = 0; t < 180; t += 0.15) {
+      const state = npcActivity(n, t, 'ship_evening'), [x,y,z] = state.p;
+      assert.ok(new Vector3(...state.p).distanceTo(new Vector3(...previous.p)) <= 0.11, `${n.id} teleported`);
+      // Нижняя сфера выше настила: проверяем проход туловища, а не касание ботинка со склоном трапа.
+      const cap = {start:new Vector3(x,y+0.45,z),end:new Vector3(x,y+1.45,z),radius:0.3};
+      const hit = collider.collide(cap);
+      assert.ok(Math.hypot(hit.delta.x,hit.delta.z)<0.015, `${n.id} intersects furniture at ${state.p}`);
+      assert.ok(Math.abs(collider.groundHeight(x,z,y+0.1)-y)<0.12, `${n.id} floats or leaves the deck`);
+      previous = state;
+    }
+  }
+});
+
+test('night listeners face Juan, have seats, and leave actual and documented player seats free', () => {
+  const storyteller = layout.npcs.find(n=>n.id==='storyteller').scenes.night_story;
+  const playerSeats = [...layout.seats.map(s=>s.p), [2,1.6,3],[-2,1.6,3],[0,1.6,5]];
+  const locations=[];
+  for (const n of layout.npcs) {
+    const state=npcActivity(n, 42, 'night_story');
+    assert.equal(state.walking,false);
+    assert.deepEqual(state.p,npcActivity(n,100,'night_story').p);
+    for (const p of [...playerSeats,...locations]) assert.ok(Math.hypot(state.p[0]-p[0],state.p[2]-p[2])>0.8, `${n.id} overlaps a seat`);
+    locations.push(state.p);
+    if(n.id!=='storyteller') {
+      assert.equal(state.action,'listen');
+      const dx=storyteller.p[0]-state.p[0],dz=storyteller.p[2]-state.p[2];
+      assert.ok((-Math.sin(state.r)*dx-Math.cos(state.r)*dz)/Math.hypot(dx,dz)>0.999);
+    }
+    const {obj}=buildNpc(M,n,true);prepareNpc(obj);animateNpc(obj,0,42,true,'night_story');
+    assert.equal(obj.userData.rig.guitar?.visible??false,false,'guitar must rest while listening');
+    assert.ok(obj.userData.rig.stool.visible||n.id==='musician');
+    assert.ok(Math.abs(obj.userData.rig.hip.position.y-0.48)<0.001);
+  }
+});
+
+test('scene clock supports late joins, pauses, continuation and rejects pauses from another scene', () => {
+  const scene={id:'ship_evening',startAt:100000};
+  const before=npcActivity(captain,127,scene);
+  const paused={scene:'ship_evening@100000',at:127000,offset:0,lookAt:[0,0,0]};
+  const frozen=npcActivity(captain,140,scene,paused);
+  assert.deepEqual(frozen.p,before.p);assert.equal(frozen.walking,false);
+  const resumed={...paused,at:null,offset:13000,lookAt:null};
+  assert.deepEqual(npcActivity(captain,141,scene,resumed).p,npcActivity(captain,128,scene).p);
+  assert.deepEqual(npcActivity(captain,140,{id:'night_story',startAt:135000},paused).p,captain.scenes.night_story.p);
+});

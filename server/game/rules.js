@@ -111,6 +111,7 @@ export function use(p, msg) {
   if(action)emitWorldEvent(p,action,{item});
 }
 export function tickVitals(now=Date.now()){
+  syncNpcDialogues(now);
   for(const p of players.connected()){
     const before=JSON.stringify(p.vitals);
     advanceStamina(p,(now-(p.lastVitalsAt??now))/1000,now);p.lastVitalsAt=now;
@@ -199,14 +200,21 @@ export function context(p) {
 }
 
 // Разговор живёт, пока окно открыто. Потерянная вкладка не держит всю команду навсегда.
+export function syncNpcDialogues(now = Date.now()) {
+  for (const patch of entities.syncNpcDialogues(players.connected(), { id: sceneId(), startAt: director.startAt() }, now)) {
+    players.broadcast({ t: S2C.ENTITY, ...patch });
+  }
+}
+
 export function dialogue(p, msg) {
   if (msg.active === false) {
-    if (p.dialogue?.id === msg.dialogueId) { p.dialogue = null; p.npcRequest = null; }
+    if (p.dialogue?.id === msg.dialogueId) { p.dialogue = null; p.npcRequest = null; syncNpcDialogues(); }
     return;
   }
   if (!playable() || director.isTransitioning() || !NPCS.has(msg.npc) || !entities.isNear(p, msg.npc, 3)) return;
   if (typeof msg.dialogueId !== 'string' || msg.dialogueId.length > 80) return;
   p.dialogue = { id: msg.dialogueId, npc: msg.npc, until: Date.now() + 30000 };
+  syncNpcDialogues();
 }
 
 function replyError(p, npc, req, text) {
@@ -345,6 +353,7 @@ export function scare(p, msg) {
 // --- Начало сцены: объекты, выданные предметы, задания ---
 
 export function onSceneStart(scene, party) {
+  syncNpcDialogues();
   if (scene.id === 'ship_day') {
     const d = entities.def('hourglass');
     if (d) {

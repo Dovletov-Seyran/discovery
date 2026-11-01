@@ -4,6 +4,11 @@ import { AI, isThinkingModel } from './config.js';
 // Чем выше priority, тем раньше запрос (ответы NPC важнее переводов).
 const queue = [];
 let busy = false;
+// Транспорт к модели; тесты подменяют его заглушкой (без Ollama)
+let transport = (messages, opts) => request(messages, opts);
+// Для админки: сколько запросов ждёт модель и занята ли она сейчас
+export const queueStats = () => ({ waiting: queue.length, busy });
+export const setTransport = (fn) => { transport = fn ?? ((messages, opts) => request(messages, opts)); };
 
 // format — JSON-схема: Ollama ограничивает ответ этой схемой (structured outputs), модель не может выйти за список вариантов
 export function chat(messages, { priority = 0, temperature = 0.7, maxTokens = 140, timeoutMs = AI.TIMEOUT_MS, model = AI.MODEL, format } = {}) {
@@ -20,7 +25,7 @@ async function pump() {
   if (!job) return;
   busy = true;
   try {
-    job.resolve(await request(job.messages, job.opts));
+    job.resolve(await transport(job.messages, job.opts));
   } catch (err) {
     job.reject(err);
   } finally {

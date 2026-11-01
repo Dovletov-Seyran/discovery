@@ -1,14 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { AI } from './config.js';
-import { getAgent, loadAgents, currentTask, crewNames } from './agents.js';
+import { getAgent, loadAgents, currentTask, crewNames, knownPeople } from './agents.js';
 import { understand } from './understand.js';
-import { chat, warmup, ollamaUp } from './llm.js';
-import { loadMemory, saveMemory, setStore, turnsToCompress } from './memory.js';
+import { chat, warmup, ollamaUp, queueStats } from './llm.js';
+import { loadMemory, saveMemory, setStore, turnsToCompress, resetMemory } from './memory.js';
+import { decide, perform, setWorld, storyPlan } from './actions.js';
 import { buildMessages, cleanAnswer, isEnglish, ensureRepeatOpening, latin, TEMPERATURE, GENERIC_HELP } from './prompt.js';
 import { toRussian } from './translate.js';
 import { speak, loadTTS, ttsReady } from './tts.js';
 
-export { setStore };
+export { setStore, setWorld, storyPlan, loadAgents, getAgent, loadMemory, resetMemory };
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -32,7 +33,8 @@ export function playLine(lineId) {
   return { npc: line.npc, en: line.en, ru: line.ru, audio: vo ? `/audio/vo/${vo.file}` : null, duration: vo?.duration ?? 0 };
 }
 
-const GENERIC_HINTS = { more: 'Расскажи ещё что-нибудь.', bye: 'Прощай!' };
+const GENERIC_HINTS = { more: 'Расскажи ещё что-нибудь.', bye: 'Прощай!', task: 'Что мне делать?', self: 'Расскажи о себе.' };
+const PERSON_MORE = 'А что ещё о нём скажешь?';
 const OPENER = '(The player comes up to you.)';
 
 /**
@@ -54,12 +56,14 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
     const { url } = await speak(agent.greeting.en, agent.voice, { name: npc });
     remember(mem, { now, context, user: OPENER, en: agent.greeting.en, newVisit: true });
     saveMemory(userId, npc, mem);
-    return { ...agent.greeting, audio: url, hints: hintsFor(agent, mem.told), topicsTold: [], timings: { total: ms(t0), kind: 'greeting' } };
+    return { ...agent.greeting, audio: url, hints: hintsFor(agent, mem, { task: currentTask(context, npc), key: `${userId}:${npc}` }), topicsTold: [], timings: { total: ms(t0), kind: 'greeting' } };
   }
 
   const untold = agent.cards.filter((c) => !mem.told.includes(c.id));
   const hintCard = hintId && agent.cards.find((c) => c.id === hintId);
-  const userText = text || hintCard?.hint || GENERIC_HINTS[hintId] || '';
+  // «А что ещё о нём скажешь?» — продолжение разговора о человеке экипажа (hintId person:<id>)
+  const hintPerson = !hintCard && typeof hintId === 'string' && hintId.startsWith('person:') ? knownPeople(npc).find((p) => p.id === hintId.slice(7)) : null;
+  const userText = text || hintCard?.hint || (hintPerson && PERSON_MORE) || GENERIC_HINTS[hintId] || '';
 
   // Шаг 1: к какому варианту из базы относится реплика
   let intent;
@@ -67,7 +71,15 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   else if (hintCard) intent = { kind: 'topic', card: hintCard, agentId: npc, ms: 0, via: 'hint' };
   else if (hintId === 'more' && untold[0]) intent = { kind: 'topic', card: untold[0], agentId: npc, ms: 0, via: 'hint' };
   else if (hintId === 'bye') intent = { kind: 'farewell', agentId: npc, ms: 0, via: 'hint' };
-  else intent = await understand({ agent, text: userText, turns: mem.turns });
+  else if (hintPerson) intent = { kind: 'person', person: hintPerson, agentId: npc, ms: 0, via: 'hint' };
+  else if (hintId === 'task') intent = { kind: 'task_help', agentId: npc, ms: 0, via: 'hint' };
+  else if (hintId === 'self') intent = { kind: 'about_you', agentId: npc, ms: 0, via: 'hint' };
+  else intent = await understand({ agent, text: userText, turns: mem.turns, scene: context.scene });
+
+  // Просьба сделать что-то в мире: можно ли — решает код (сцена, кулдаун, «уже сделано»)
+  if (intent.action) {
+    intent = { ...intent, kind: 'action', verdict: decide(agent, intent.action, { scene: context.scene, now }) };
+  }
 
   // Шаг 2: что именно сказать — решает код
   const repeat = intent.kind === 'topic' && mem.told.includes(intent.card.id);
@@ -84,7 +96,7 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   let llmMs = 0;
   for (let attempt = 0; attempt < 2 && !en; attempt++) {
     try {
-      const res = await chat(messages, { priority: 1, temperature: TEMPERATURE[intent.kind] ?? 0.7 });
+      const res = await chat(messages, { priority: 1, temperature: replyTemperature(agent, intent.kind) });
       llmMs += res.ms;
       const answer = cleanAnswer(res.text);
       if (isEnglish(answer)) en = repeat ? ensureRepeatOpening(answer) : answer;
@@ -121,21 +133,56 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
     saveMemory(userId, npc, mem);
     compactLater(userId, npc, agent, context);
   } else {
-    ({ en, ru } = pick(agent.fallbacks));
+    // Модель не ответила: разрешённое действие всё равно выполняется — говорим заготовку агента
+    if (intent.kind === 'action' && intent.verdict.ok && intent.action.reply) ({ reply: en, replyRu: ru = '' } = intent.action);
+    else ({ en, ru } = pick(agent.fallbacks));
     audio = (await speak(en, agent.voice, { name: npc }).catch(() => ({ url: null }))).url;
   }
 
+  // Разрешённое действие выполняется вместе с ответом: мир меняется, когда агент отдаёт приказ
+  let action = null;
+  if (intent.kind === 'action') {
+    const done = intent.verdict.ok ? perform(agent, intent.action) : null;
+    action = { id: intent.action.id, ok: !!intent.verdict.ok && done?.ok !== false, reason: intent.verdict.reason ?? null };
+  }
+
+  const timings = {
+    understand: intent.ms ?? 0, llm: llmMs, translate: translateMs, tts: ttsMs, total: ms(t0),
+    kind: intent.kind, via: intent.via, cards: intent.card ? [intent.card.id] : [], person: intent.person?.id, returning,
+    action: action?.id,
+  };
+  record(timings);
   return {
     en,
     ru,
     audio,
-    hints: hintsFor(agent, mem.told),
+    action,
+    hints: hintsFor(agent, mem, { intent, task, key: `${userId}:${npc}` }),
     topicsTold,
     topicsDiscussed, // credit a delivered repeat if the original answer was missed/closed
-    timings: {
-      understand: intent.ms ?? 0, llm: llmMs, translate: translateMs, tts: ttsMs, total: ms(t0),
-      kind: intent.kind, via: intent.via, cards: intent.card ? [intent.card.id] : [], person: intent.person?.id, returning,
-    },
+    timings,
+  };
+}
+
+// Температура ответа: точные виды (память, задание, быт, действие) — свои низкие значения;
+// свободная речь — temperature из JSON агента (правится во вкладке «Агенты»)
+const PRECISE = new Set(['recall', 'task_help', 'need', 'about_you', 'action']);
+const replyTemperature = (agent, kind) => (PRECISE.has(kind) ? TEMPERATURE[kind] : agent.temperature ?? TEMPERATURE[kind] ?? 0.7);
+
+// --- Метрики ИИ для админки: средние за последние 50 ответов ---
+const RECENT = 50;
+const recent = [];
+function record(t) {
+  recent.push({ understand: t.understand, llm: t.llm, translate: t.translate, tts: t.tts, total: t.total, at: Date.now() });
+  if (recent.length > RECENT) recent.shift();
+}
+export function metrics() {
+  const avg = (k) => (recent.length ? Math.round(recent.reduce((s, t) => s + (t[k] || 0), 0) / recent.length) : 0);
+  return {
+    queue: queueStats(),
+    answers: recent.length,
+    avgMs: { understand: avg('understand'), reply: avg('llm'), translate: avg('translate'), tts: avg('tts'), total: avg('total') },
+    lastAt: recent.at(-1)?.at ?? null,
   };
 }
 
@@ -198,9 +245,36 @@ function gap(msAway) {
   return 'a long while';
 }
 
-function hintsFor(agent, told) {
-  const hints = agent.cards.filter((c) => !told.includes(c.id)).slice(0, 3).map((c) => ({ id: c.id, ru: c.hint }));
-  return hints.length ? hints : [{ id: 'more', ru: 'Расскажи ещё что-нибудь' }, { id: 'bye', ru: 'Прощай' }];
+// Подсказки после каждого ответа: продолжение темы, 1–2 нерассказанные темы, «Что мне делать?»,
+// «Расскажи о себе», «Прощай» — последней. Тот же набор два ответа подряд не повторяем.
+const lastHints = new Map(); // userId:npc → id подсказок прошлого ответа
+export function hintsFor(agent, mem, { intent, task, key } = {}) {
+  const told = mem.told;
+  const head = [];
+  if (intent?.kind === 'topic' && intent.card) {
+    // следующий вопрос после этой темы (по порядку в базе)
+    const i = agent.cards.findIndex((c) => c.id === intent.card.id);
+    const next = [...agent.cards.slice(i + 1), ...agent.cards.slice(0, i)].find((c) => !told.includes(c.id));
+    if (next) head.push({ id: next.id, ru: next.hint });
+  } else if (intent?.kind === 'person' && intent.person) head.push({ id: `person:${intent.person.id}`, ru: PERSON_MORE });
+  const tail = [];
+  if (task) tail.push({ id: 'task', ru: GENERIC_HINTS.task });
+  if (!mem.turns.some((t) => t.role === 'user' && t.content === GENERIC_HINTS.self)) tail.push({ id: 'self', ru: GENERIC_HINTS.self });
+  const rest = agent.cards.filter((c) => !told.includes(c.id) && !head.some((h) => h.id === c.id)).map((c) => ({ id: c.id, ru: c.hint }));
+  const topicsN = Math.max(1, Math.min(2, 4 - head.length - tail.length));
+  const prev = lastHints.get(key);
+  let hints = [];
+  // темы — со сдвигом по ходу разговора; совпал с прошлым набором — сдвигаем ещё
+  for (let extra = 0; extra <= rest.length; extra++) {
+    const shift = rest.length ? (Math.floor(mem.turns.length / 2) + extra) % rest.length : 0;
+    const topics = [...rest.slice(shift), ...rest.slice(0, shift)].slice(0, topicsN);
+    hints = [...head, ...topics, ...tail].slice(0, 4);
+    if (hints.length < 2) hints.push({ id: 'more', ru: 'Расскажи ещё что-нибудь' });
+    if (!prev || hints.map((h) => h.id).join() !== prev) break;
+  }
+  hints.push({ id: 'bye', ru: 'Прощай' });
+  if (key) lastHints.set(key, hints.slice(0, -1).map((h) => h.id).join());
+  return hints;
 }
 
 const ms = (t0) => Math.round(performance.now() - t0);
