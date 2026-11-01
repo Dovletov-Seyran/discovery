@@ -107,6 +107,7 @@
     },
     {"id": "storyteller", "label": "Старый Хуан", "pose": "sit", "p": [-2.55, 0.2, -3.6], "r": -1.5708,
       "scenes": {
+        "ship_day": {"pose": "tell", "activity": []},
         "ship_evening": {"p": [1.7, 0, 0.8], "r": 1.57, "pose": "toast", "activity": []},
         "cut_evening": {"p": [1.7, 0, 0.8], "r": 1.57, "pose": "toast", "activity": []},
         "night_story": {"p": [0, 0, -5.25], "r": 3.14159, "pose": "tell", "activity": [], "seat": true},
@@ -115,8 +116,9 @@
     },
     {"id": "musician", "label": "Матрос Хиль", "pose": "guitar", "p": [-1.4, 0, -3.4], "r": -1.04,
       "scenes": {
-        "ship_evening": {"p": [0.15, 0, 0.25], "r": 0, "pose": "guitar", "activity": []},
-        "cut_evening": {"p": [0.15, 0, 0.25], "r": 0, "pose": "guitar", "activity": []},
+        "ship_day": {"r": 1.4, "pose": "mend", "activity": []},
+        "ship_evening": {"p": [1.75, 0, -0.75], "r": 0.865, "pose": "guitar", "activity": []},
+        "cut_evening": {"p": [1.75, 0, -0.75], "r": 0.865, "pose": "guitar", "activity": []},
         "night_story": {"p": [-1.4, 0, -3.4], "r": -0.64781, "pose": "listen", "activity": [], "seat": false},
         "cut_night": {"p": [-1.4, 0, -3.4], "r": -0.64781, "pose": "listen", "activity": [], "seat": false}
       }

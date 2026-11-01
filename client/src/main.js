@@ -285,7 +285,10 @@ function renderQuest(){
   if(scene.id==='canary'&&list.length&&list.every(item=>item.status==='done'||item.optional)&&!boarded)quest={title:'Шлюпка',text:'Иди к шлюпке у причала и нажми E — вернёмся на корабль',status:'active',progress:0,total:1};
   $('#quest').hidden=!quest;
   if(!quest)return;
-  $('#quest').innerHTML=`<h3>${escape(quest.title)}</h3>${quest.text?`<p>${escape(quest.text)}</p>`:''}<small>${quest.status==='done'?'Выполнено':`${quest.progress} / ${quest.total}`}${quest.need?` · ${quest.count||0}/${quest.need}`:''}</small>`;
+  // Варианты «любые N из M» — списком с галочками: сразу видно, что сделано и что осталось
+  const options=quest.status!=='done'&&Array.isArray(quest.options)?`<ul class="quest-options">${quest.options.map((label,i)=>{const done=(quest.sub||[]).includes(i);return `<li class="${done?'done':''}">${done?'✓':'○'} ${escape(ITEMS[label]?.name||label)}</li>`;}).join('')}</ul>`:'';
+  const counter=quest.status==='done'?'Выполнено':[quest.total>1?`шаг ${quest.progress+1} из ${quest.total}`:'',quest.need?`сделано ${quest.count||0} из ${quest.need}`:''].filter(Boolean).join(' · ');
+  $('#quest').innerHTML=`<h3>${escape(quest.title)}</h3>${quest.text?`<p>${escape(quest.text)}</p>`:''}${options}<small>${escape(counter)}</small>`;
 }
 function showModal(type,html){
   if(modal==='dialogue')endDialogue();
@@ -293,7 +296,9 @@ function showModal(type,html){
   $('#modal').querySelectorAll('[data-close]').forEach(button=>button.onclick=closeModal);syncInput();
   $('#modal').querySelector('input,button,select')?.focus();
 }
-function closeModal(){endDialogue();clearTimeout(dialogueTimer);voices.stop();stopNpcAudio();modal='';activeNpc=null;waitingForReply=false;$('#modal').hidden=true;$('#modal').innerHTML='';syncInput();}
+function closeModal(){endDialogue();clearTimeout(dialogueTimer);voices.stop();stopNpcAudio();modal='';activeNpc=null;waitingForReply=false;$('#modal').hidden=true;$('#modal').innerHTML='';syncInput();
+  // окно закрыли кликом — сразу вернуть мышь в игру, без лишнего клика по экрану
+  if(screen==='game'&&PLAY_SCENES.has(scene.id))runtime?.controller?.lock?.();}
 function closeButton(){return '<button class="close-button" data-close aria-label="Закрыть">×</button>';}
 function openKnowledge(id){
   const data=ITEMS[id]||{name:id,text:''};

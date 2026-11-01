@@ -18,6 +18,13 @@ export function prepareNpc(npc) {
   const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.035, 0.1, 10), wood);
   cup.position.set(0, -0.28, 0.05); cup.visible = false; cup.userData.noBake = true;
   rig.arms[0].fa.add(cup); rig.cup = cup;
+  // Тряпка в руке у того, кто моет палубу (kneel), и кусок паруса на коленях у того, кто его чинит (mend)
+  const rag = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.025, 0.13), new THREE.MeshStandardMaterial({ color: 0x8f877a, roughness: 1 }));
+  rag.position.set(0, -0.3, 0.03); rag.visible = false; rag.userData.noBake = true;
+  rig.arms[1].fa.add(rag); rig.rag = rag;
+  const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.42, 4, 3), new THREE.MeshStandardMaterial({ color: 0xe8dfc8, roughness: 0.95, side: THREE.DoubleSide }));
+  cloth.rotation.x = -Math.PI / 2 + 0.12; cloth.position.set(0, 0.06, 0.26); cloth.visible = false; cloth.userData.noBake = true;
+  rig.hip.add(cloth); rig.cloth = cloth;
   if (npc.userData.id === 'cook') {
     const tray = new THREE.Group(); tray.userData.noBake = true;
     const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.03, 12), wood);
@@ -66,6 +73,8 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
   if (motion.sceneId !== sceneId) { motion.initialized = false; motion.sceneId = sceneId; }
   rig.stool.visible = !!current.seat || state.action === 'guitar' && sceneId === 'ship_evening';
   rig.cup.visible = state.action === 'toast';
+  rig.rag.visible = state.action === 'kneel';
+  rig.cloth.visible = state.action === 'mend';
   if (rig.tray) rig.tray.visible = state.action === 'serve' || state.walking && current.pose === 'serve';
   if (rig.guitar) rig.guitar.visible = state.action === 'guitar';
   rig.torso.position.y = 0;
@@ -88,6 +97,18 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
         rig.head.rotation.set(0.08 + Math.max(0, beat) * 0.05, Math.sin(t * 0.5) * 0.12, 0);
         rig.arms[1].ua.rotation.x = -0.35 - Math.max(0, Math.sin(t * 0.9)) * 0.35;
         rig.arms[1].fa.rotation.x = -0.7 - Math.max(0, Math.sin(t * 0.9)) * 0.3;
+        break;
+      case 'kneel': // моет палубу: тряпка ходит взад-вперёд, корпус покачивается в такт
+        rig.arms[1].ua.rotation.x = -1.7 + Math.sin(t * 3.2) * 0.28;
+        rig.arms[1].fa.rotation.x = -0.4 + Math.sin(t * 3.2 + 0.6) * 0.18;
+        rig.torso.rotation.y = Math.sin(t * 3.2) * 0.08;
+        break;
+      case 'mend': // чинит парус на коленях: правая рука с иглой тянет нить, левая держит ткань
+        pose(rig, 'sit');
+        rig.head.rotation.set(0.55, Math.sin(t * 0.4) * 0.1, 0);
+        rig.arms[0].ua.rotation.x = -0.55; rig.arms[0].fa.rotation.x = -0.9;
+        rig.arms[1].ua.rotation.x = -0.5 - Math.max(0, Math.sin(t * 1.6)) * 0.45;
+        rig.arms[1].fa.rotation.x = -1.0 + Math.sin(t * 1.6) * 0.3;
         break;
       case 'walk':
         if (current.pose === 'serve') for (const arm of rig.arms) { arm.ua.rotation.x = -0.8; arm.fa.rotation.x = -0.9; }

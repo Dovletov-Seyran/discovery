@@ -56,7 +56,7 @@ test('houses keep an openable doorway instead of a solid building collider',asyn
  const {registerDoors}=await import('../src/world/objects.js');
  const {obj,col}=ISLAND_MODELS.house(M),targets=registerDoors(M,obj,{id:'home',m:'house',p:[0,0,0]});
  assert.equal(targets.length,1);assert.equal(targets[0].userData.id,'home:door:0');
- const collider=new Collider(col),start=new Vector3(-.6,.4,2.75),capsule={start,end:new Vector3(-.6,1.4,2.75),radius:.35};
+ const collider=new Collider(col),start=new Vector3(-.6,.55,2.75),capsule={start,end:new Vector3(-.6,1.55,2.75),radius:.35}; // стоит на полу дома (15 см);
  collider.collide(capsule);assert.ok(Math.abs(start.z-2.75)<.01,'the static shell must have a doorway gap');
  const w=world();w.zone='canary';w.island.interactables=targets;
  w.objects.collide(capsule);assert.ok(Math.abs(start.z-2.75)>.1,'closed leaf blocks the gap before the first patch arrives');
@@ -72,4 +72,14 @@ test('patch cache reserves its bytes within the same 10% world budget and evicts
 test('a movable keg does not collide with its own old position after being picked up or rolling away',()=>{
  const built=buildLayout(M,{objects:[],interact:[{id:'keg',m:'keg',kind:'item',item:'barrel',p:[0,0,0]}],npcs:[]});
  assert.equal(built.col.length,0);assert.equal(built.interactables.length,1);
+});
+
+test('house floor hides the ground and a player walks in over the 15 cm threshold',async()=>{
+ const {ISLAND_MODELS}=await import('../src/world/islandModels.js');
+ const {col}=ISLAND_MODELS.house(M),collider=new Collider([...col,new BoxGeometry(40,.1,40).translate(0,-.05,0)]);
+ const start=new Vector3(-.6,.36,3.6),capsule={start,end:new Vector3(-.6,1.46,3.6),radius:.35};
+ // как контроллер: шаг вперёд, потом гравитация вниз, столкновение после каждого шага
+ for(let i=0;i<60;i++){start.z-=.05;capsule.end.z-=.05;start.y-=.03;capsule.end.y-=.03;collider.collide(capsule);}
+ assert.ok(start.z<1,`зашёл внутрь: z=${start.z.toFixed(2)}`);assert.ok(start.y>.45,`стоит на полу: y=${start.y.toFixed(2)}`);
+ col.forEach(g=>g.dispose());collider.geometry.dispose();
 });

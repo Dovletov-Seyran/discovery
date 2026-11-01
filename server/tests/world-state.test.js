@@ -143,3 +143,14 @@ test('купили товар с прилавка — он исчезает', as
   assert.ok(a.p.inventory.includes('cheese'));
   assert.equal(world.has('goods_cheese'), false);
 });
+
+test('Канары: товар торговца лежит на прилавке сразу; проданный не возвращается', () => {
+  director.resetToStart();
+  director.setScene('canary');
+  for (const item of ['cheese', 'meat', 'biscuit']) assert.equal(world.get(`goods_${item}`)?.kind, 'prop', item);
+  world.setFlag('sold:goods_meat');
+  world.apply([{ op: 'remove', id: 'goods_meat' }]);
+  director.setScene('canary');
+  assert.equal(world.has('goods_meat'), false);
+  assert.equal(world.has('goods_cheese'), true);
+});

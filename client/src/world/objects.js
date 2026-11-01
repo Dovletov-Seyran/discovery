@@ -65,7 +65,11 @@ export class WorldObjects {
         content.scale.setScalar(scale);
       }
       const box=new THREE.Box3().setFromObject(content),center=box.getCenter(new THREE.Vector3());
-      content.position.sub(new THREE.Vector3(center.x,box.min.y,center.z));root.add(content);root.userData={id:data.id,kind:data.kind,item:data.item,label:data.label,noBake:true};
+      content.position.sub(new THREE.Vector3(center.x,box.min.y,center.z));root.add(content);
+      // Крупный декор из патчей (бочки с водой на палубе) — твёрдый: сквозь него не пройти.
+      // Мелочь (товар на прилавке, сухари) не мешает: её и так держит стол или прилавок.
+      const size=box.getSize(new THREE.Vector3());
+      record.solid=data.kind==='prop'&&size.y>.5?[size.x/2,size.y/2,size.z/2]:null;root.userData={id:data.id,kind:data.kind,item:data.item,label:data.label,noBake:true};
       this.root.add(root);record.obj=root;
     }
     const obj=record.obj;
@@ -86,6 +90,12 @@ export class WorldObjects {
     const start=capsule.start.clone();
     const doors=[...this.records.values()].filter(r=>r.data.toggleType==='door');
     for(const obj of this.world.island.interactables)if(obj.userData.doorDef&&!this.records.has(obj.userData.id))doors.push({data:{...obj.userData.doorDef,toggleType:'door'},state:obj.userData.state??{}});
+    for(const record of this.records.values()){
+      if(!record.solid||!record.obj?.visible||record.data.zone!==this.world.zone)continue;
+      const o=record.obj.position,box={p:[o.x,o.y+record.solid[1],o.z],r:record.obj.rotation.y,half:record.solid};
+      const p=boxContact(capsule.start.toArray(),capsule.radius,box,capsule.end.y-capsule.start.y);
+      const delta=new THREE.Vector3().fromArray(p).sub(capsule.start);capsule.start.add(delta);capsule.end.add(delta);
+    }
     for(const record of doors){
       const d=record.data;if(d.zone!==this.world.zone||d.toggleType!=='door'||record.state.visible===false)continue;
       const p=boxContact(capsule.start.toArray(),capsule.radius,doorBox(d,record.state.open),capsule.end.y-capsule.start.y);

@@ -111,7 +111,8 @@ function message(q, st, shared) {
   };
   if (done) return msg;
   if (step.type === 'interact' && step.count > 1) Object.assign(msg, { count: st.count, need: step.count });
-  if (step.type === 'topics') Object.assign(msg, { count: st.got.length, need: step.need, got: st.got });
+  // темы: варианты подписями и какие уже рассказаны (sub — номера, как у групп) — клиент рисует список с галочками
+  if (step.type === 'topics') Object.assign(msg, { count: st.got.length, need: step.need, got: st.got, options: step.labels ?? step.of, sub: step.of.map((id, i) => (st.got.includes(id) ? i : -1)).filter((i) => i >= 0) });
   if (isGroup(step)) {
     Object.assign(msg, { count: st.sub.length, need: need(step), sub: st.sub, options: step.of.map((s) => s.text ?? s.item ?? s.target) });
   }

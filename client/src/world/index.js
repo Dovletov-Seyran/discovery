@@ -172,9 +172,12 @@ export const world = {
   },
 
   collide(capsule) {
-    if (this.zone === 'canary') { const result=this.island.collide(capsule);const delta=this.objects?.collide(capsule);if(delta)result.delta.add(delta);return result; }
+    // другие игроки — как NPC: круг 0.3 м, сквозь друг друга не пройти
+    const others = this.players ? [...this.players.map.values()].map((p) => p.rig.root) : [];
+    if (this.zone === 'canary') { const pushed=collideNpcs(others,capsule);const result=this.island.collide(capsule);result.delta.add(pushed);const delta=this.objects?.collide(capsule);if(delta)result.delta.add(delta);return result; }
     const start = capsule.start.clone();
     collideNpcs(this.npcs, capsule);
+    collideNpcs(others, capsule);
     const result = this.collider.collide(capsule);
     this.objects?.collide(capsule);
     result.delta.copy(capsule.start).sub(start);

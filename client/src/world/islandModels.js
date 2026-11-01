@@ -13,10 +13,13 @@ function gableHouse(M, w, d, h, { wall = 'plaster', pitch = 0.45, over = 0.4, en
   const walls=[];
   if(entry){
     const {x=0,w:dw,h:dh}=entry,e=.2;
-    walls.push(boxGeo(w,h,e,0,h/2,-d/2),boxGeo(e,h,d,-w/2,h/2,0),boxGeo(e,h,d,w/2,h/2,0),boxGeo(w,.1,d,0,-.05,0));
+    walls.push(boxGeo(w,h,e,0,h/2,-d/2),boxGeo(e,h,d,-w/2,h/2,0),boxGeo(e,h,d,w/2,h/2,0));
     const left=x-dw/2+w/2,right=w/2-x-dw/2;
     walls.push(boxGeo(left,h,e,-w/2+left/2,h/2,d/2),boxGeo(right,h,e,w/2-right/2,h/2,d/2),boxGeo(dw,h-dh,e,x,dh+(h-dh)/2,d/2));
     for(const geo of walls)g.add(mesh(geo.clone(),M.get(wall)));
+    // Дощатый пол на 15 см выше земли: песок под домом больше не проступает внутрь. Толщина 0,5 м уходит
+    // в рельеф; пол заходит и под дверной проём, поэтому на пороге нет ступеньки, о которую спотыкаться.
+    const floor=boxGeo(w-e,.5,d+e,0,-.1,0);g.add(mesh(floor.clone(),M.get('deck')));walls.push(floor);
   }else{
     g.add(mesh(boxGeo(w,h,d,0,h/2,0),M.get(wall)));
     g.add(mesh(boxGeo(w+.08,.45,d+.08,0,.22,0),M.get('stone')));

@@ -52,7 +52,8 @@
           "reward",
           "distance"
         ],
-        "text": "Узнай у Колумба две вещи: зачем плывём, что ему обещано, сколько плыть",
+        "text": "Спроси Колумба о любых двух вещах из трёх",
+        "labels": ["Зачем плывём на запад", "Что ему обещали король и королева", "Сколько плыть до Индий"],
         "en": "Ask the Admiral about two things: why we sail west, what the monarchs promised him, and how far it is to the Indies"
       }
     ],

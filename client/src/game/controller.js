@@ -87,7 +87,9 @@ export class Controller {
   }
   update(delta, time) {
     let x=0, z=0;
-    if (this.enabled && !this.lookOnly && this.hasControl) {
+    // WASD работают и без захвата мыши (после окна «Предмет получен» мышь отпущена): клавиши и так
+    // ловятся, только когда игра не заблокирована окном и фокус не в поле ввода
+    if (this.enabled && !this.lookOnly) {
       x = Number(this.keys.has('KeyD')) - Number(this.keys.has('KeyA'));
       z = Number(this.keys.has('KeyS')) - Number(this.keys.has('KeyW'));
     }
@@ -111,7 +113,7 @@ export class Controller {
       // Прыжок — пробел, только стоя на палубе или земле (onGround с прошлого кадра)
       const wasGrounded=this.onGround, from=this.position.clone();
       let jumped=false;
-      if(this.keys.has('Space')&&this.onGround&&this.hasControl){this.velocityY=5.5;this.onGround=false;jumped=true;}
+      if(this.keys.has('Space')&&this.onGround){this.velocityY=5.5;this.onGround=false;jumped=true;}
 
       this.velocityY-=20*dt;
       const step=dt/4;
