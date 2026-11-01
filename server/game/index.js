@@ -1,3 +1,4 @@
+import {freshVitals} from '../../shared/item-actions.js';
 // Игровая логика: вход/выход игрока, обработчики сообщений, циклы.
 import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -245,7 +246,7 @@ export function resetAll() {
   resetProgress();
   for (const x of players.all()) {
     if (!x.connected) { players.remove(x.id); continue; } // без ожидания grace
-    x.inventory = []; x.action=null; x.money = 0;x.itemUses={};x.vitals={stamina:100,drunkUntil:0,drunkStrength:0}; x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
+    x.inventory = []; x.action=null; x.money = 0;x.itemUses={};x.vitals=freshVitals(); x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
     players.sendInventory(x);
   }
   director.resetToStart();

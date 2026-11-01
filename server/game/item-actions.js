@@ -1,3 +1,4 @@
+import {STAMINA,staminaStep} from '../../shared/stamina.js';
 import {ITEM_RULES,freshVitals} from '../../shared/item-actions.js';
 
 // Pure state mutation; rules.js handles proximity, quests, persistence and broadcasts.
@@ -24,7 +25,7 @@ export function applyItemUse(p,item,now=Date.now()){
   p.vitals.drunkUntil=Math.min(now+60000,Math.max(now,p.vitals.drunkUntil)+rule.drunkMs);
   p.vitals.drunkStrength=Math.min(1,(active?p.vitals.drunkStrength:0)+rule.strength);
  }
- if(rule.energy)p.vitals.stamina=Math.min(100,p.vitals.stamina+rule.energy);
+ if(rule.energy)p.vitals.stamina=Math.min(STAMINA.max,p.vitals.stamina+rule.energy);
  p.lastItemUse[item]=now;
  return {item,effect:rule.effect,cooldownUntil:now+rule.cooldown,serverNow:now,
   uses:p.itemUses[item]??(p.inventory.includes(item)?rule.servings:0),money:p.money,vitals:{...p.vitals}};
@@ -32,7 +33,7 @@ export function applyItemUse(p,item,now=Date.now()){
 export function advanceStamina(p,seconds,now=Date.now()){
  p.vitals??=freshVitals();
  const sprinting=p.a==='run'&&now-(p.lastMoveAt??0)<1500;
- p.vitals.stamina=Math.max(0,Math.min(100,p.vitals.stamina+(sprinting?-12:6)*Math.min(seconds,1.5)));
+ p.vitals.stamina=staminaStep(p.vitals.stamina,sprinting,Math.min(seconds,1.5));
  if(p.vitals.drunkUntil<=now)p.vitals.drunkStrength=0;
  return p.vitals;
 }

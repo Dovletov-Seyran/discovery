@@ -1,3 +1,4 @@
+import {STAMINA} from '../../shared/stamina.js';
 import './ui/style.css';
 import {placement,launch} from './game/object-actions.js';
 import {drawLocalMap,unlockItemAudio,playShot} from './ui/item-feedback.js';
@@ -367,8 +368,8 @@ function renderVitals(){
   const el=$('#vitals');if(!el)return;
   const energy=Math.round(runtime?.controller.stamina??vitals.stamina),left=Math.max(0,Math.ceil((vitals.drunkUntil-Date.now()-serverOffset)/1000));
   const hp=Math.round(vitals.hp??100);
-  el.hidden=energy>=99&&!left&&hp>=100;
-  const html=`${hp<100?`<span class="hp">Здоровье <progress max="100" value="${hp}" aria-label="Здоровье"></progress> ${hp}</span>`:''}<span>Силы <progress max="100" value="${energy}" aria-label="Запас сил"></progress> ${energy}</span>${left?`<span>Опьянение ${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}</span>`:''}`;
+  el.hidden=energy>=STAMINA.max-1&&!left&&hp>=100;
+  const html=`${hp<100?`<span class="hp">Здоровье <progress max="100" value="${hp}" aria-label="Здоровье"></progress> ${hp}</span>`:''}<span>Силы <progress max="${STAMINA.max}" value="${energy}" aria-label="Запас сил"></progress> ${energy}</span>${left?`<span>Опьянение ${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}</span>`:''}`;
   if(el.innerHTML!==html)el.innerHTML=html;
 }
 function receiveItemUse(message){
@@ -376,7 +377,7 @@ function receiveItemUse(message){
   if(message.vitals)applyVitals(message.vitals,message.serverNow);
   if(equipped===message.item)equipment?.use();
   if(message.effect==='drink')notify('Глоток вина.');
-  if(message.effect==='food')notify(`Запас сил: ${Math.round(vitals.stamina)} / 100`);
+  if(message.effect==='food')notify(`Запас сил: ${Math.round(vitals.stamina)} / ${STAMINA.max}`);
   if(message.effect==='water')notify('Глоток воды.');
   if(message.effect==='shot'){equipment?.fire();playShot();notify('Выстрел · перезарядка 2,5 с');}
   if(message.effect==='map')openMap();
