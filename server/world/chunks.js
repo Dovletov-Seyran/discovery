@@ -44,7 +44,11 @@ export function onChunkReq(player, msg, { send, entityState }) {
       const state = entityState(o.id);
       return state === undefined ? o : { ...o, state };
     });
-    send({ t: S2C.CHUNK, zone, key, data: { ...data, interact } });
+    const npcs = (data.npcs ?? []).map(npc => {
+      const state = entityState(npc.id);
+      return state === undefined ? npc : { ...npc, state };
+    });
+    send({ t: S2C.CHUNK, zone, key, data: { ...data, interact, npcs } });
     player.chunks.add(`${zone}:${key}`);
     chunkStats.add(player.id);
   });

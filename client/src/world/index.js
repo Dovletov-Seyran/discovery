@@ -28,7 +28,7 @@ export const world = {
   camera: null, scene: null, renderer: null,
   npcs: [], layout: null, shipInteractables: [],
   players: null, chunks: new Chunks(),
-  quality: 'high', zone: 'ship',
+  quality: 'high', zone: 'ship', npcScene: { id: 'ship_day' }, npcClockOffset: 0,
 
   // world.cutscene.play(id, startAt) → Promise (cutscene.js, shots in content/cutscenes.json); real after init()
   cutscene: { play: () => Promise.resolve(), stop() {}, active: false },
@@ -91,7 +91,10 @@ export const world = {
     this.zoneRoot.add(built.decor, ...built.interactables, ...built.npcs);
     this.shipInteractables = [...built.interactables, ...built.npcs];
     this.npcs = built.npcs;
-    for (const npc of this.npcs) prepareNpc(npc);
+    for (const npc of this.npcs) {
+      prepareNpc(npc);
+      npc.userData.paused = npc.userData.definition.state?.paused ?? null;
+    }
     this.updateNpcs(0);
     this.env.lamps = [];
     this.env.addLamps(built.lamps);
@@ -128,6 +131,7 @@ export const world = {
     const o = this.entity(id);
     if (!o) return;
     if ('visible' in state) o.visible = state.visible;
+    if ('paused' in state) o.userData.paused = state.paused;
     if ('fill' in state) o.userData.setFill?.(state.fill);
   },
 
@@ -158,9 +162,15 @@ export const world = {
     return result;
   },
 
+  setNpcScene(scene) {
+    this.npcScene = { id: scene.id, startAt: scene.startAt };
+    if (Number.isFinite(scene.progress?.serverNow)) this.npcClockOffset = scene.progress.serverNow - Date.now();
+    this.updateNpcs(0);
+  },
+
   updateNpcs(dt) {
-    const seconds = Date.now() / 1000;
-    for (const npc of this.npcs) animateNpc(npc, dt, seconds, this.env.t >= 0.82);
+    const seconds = (Date.now() + this.npcClockOffset) / 1000;
+    for (const npc of this.npcs) animateNpc(npc, dt, seconds, this.env.t >= 0.82, this.npcScene);
   },
   groundHeight(x, z, fromY) { return this.zone === 'canary' ? this.island.groundHeight(x, z, fromY) : this.collider.groundHeight(x, z, fromY); },
 

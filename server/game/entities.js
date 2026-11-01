@@ -63,6 +63,28 @@ export function reset() {
 export function isNear(p, id, extra = 1) {
   const d = def(id);
   if (!d || d.zone !== p.zone || !p.p) return false;
-  const position = d.zone === 'ship' && d.kind === 'npc' ? npcActivity(d).p : d.p;
+  const [sceneId, started] = (p.scene ?? 'ship_day').split('@');
+  const scene = { id: sceneId, ...(started ? { startAt: Number(started) } : {}) };
+  const position = d.zone === 'ship' && d.kind === 'npc' ? npcActivity(d, Date.now() / 1000, scene, objects[id]?.paused).p : d.p;
   return Math.hypot(position[0] - p.p[0], position[2] - p.p[2]) <= CONFIG.INTERACT_DIST + extra;
+}
+
+
+// Серверная пауза маршрутов: первый активный собеседник задаёт направление взгляда.
+// Изменения идут обычным entity и попадают в snapshot/chunk при переподключении.
+export function syncNpcDialogues(party, scene, now = Date.now()) {
+  const key = `${scene.id}@${scene.startAt ?? 0}`, patches = [];
+  for (const d of defs.values()) {
+    if (d.zone !== 'ship' || d.kind !== 'npc') continue;
+    const saved = objects[d.id]?.paused;
+    const previous = saved?.scene === key ? saved : null;
+    const speaker = party.find(p => p.connected && p.zone === 'ship' && p.scene === key
+      && p.dialogue?.npc === d.id && p.dialogue.until > now);
+    let paused = previous;
+    if (speaker) paused = { scene: key, at: previous?.at ?? now, offset: previous?.offset ?? 0, lookAt: [...speaker.p] };
+    else if (previous?.at != null) paused = { scene: key, at: null, offset: previous.offset + now - previous.at, lookAt: null };
+    if (JSON.stringify(saved ?? null) === JSON.stringify(paused)) continue;
+    patches.push({ id: d.id, state: setState(d.id, { paused }) });
+  }
+  return patches;
 }

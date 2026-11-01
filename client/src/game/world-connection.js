@@ -41,6 +41,9 @@ export class WorldConnection {
     });
     events.on('chunk_denied',message=>{if(message.zone!=='ship')this.world?.chunks?.denied?.(message.zone,message.key,message.reason);});
     events.on('entity',message=>this.applyEntity(message.id,message.state));
+    events.on('scene_progress',message=>{
+      if(this.world&&message.scene===this.scene?.id&&Number.isFinite(message.serverNow))this.world.npcClockOffset=message.serverNow-Date.now();
+    });
     events.on('player_join',player=>{
       if(player.id===this.you?.id)return;
       this.remotePlayers.set(player.id,player);this.world?.players?.upsert?.(player.id,player);
@@ -89,6 +92,7 @@ export class WorldConnection {
   requestShip(){if(this.active&&this.world&&this.scene?.zone==='ship'&&!this.shipRequested)this.shipRequested=this.send('chunk_req',{zone:'ship',keys:['0,0']});}
   applyScene(){
     if(!this.scene)return;
+    this.world.setNpcScene?.(this.scene);
     if(this.scene.zone)this.world.setZone(this.scene.zone);
     if(Number.isFinite(this.scene.tod))this.world.setTimeOfDay(this.scene.tod);
     if(this.lastScene!==this.scene.id){
@@ -98,7 +102,7 @@ export class WorldConnection {
   }
   applyEntity(id,state={}){
     if(!this.world)return;
-    this.world.setEntityState?.(id,entityPatch(state));
+    this.world.setEntityState?.(id,{...entityPatch(state),...('paused' in state?{paused:state.paused}:{})});
     if(state.emptyAt)this.hourglasses.set(id,{emptyAt:state.emptyAt,period:60});
   }
   startLoop(){
