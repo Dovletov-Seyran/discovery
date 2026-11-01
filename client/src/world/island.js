@@ -243,6 +243,9 @@ export class Island {
       c.npcs.push(obj); c.root.add(obj); col.push(...cc);
     }
     c.collider = new Collider(col);
+    // what the chunk's collider covers: a big object (the batey's ring of stones) reaches into neighbouring chunks
+    c.collider.geometry.computeBoundingBox();
+    c.bounds = c.collider.geometry.boundingBox.clone().expandByScalar(1.5);
     this.chunks.set(key, c);
     this.group.add(c.root);
     this.shade(c);
@@ -309,8 +312,8 @@ export class Island {
     this.hold = null;
     for (const c of this.chunks.values()) {
       if (!c.visible) continue;
-      const x0 = c.cx * CS - 3, z0 = c.cz * CS - 3;
-      if (start.x < x0 || start.x > x0 + CS + 6 || start.z < z0 || start.z > z0 + CS + 6) continue;
+      const b = c.bounds;
+      if (start.x < b.min.x || start.x > b.max.x || start.z < b.min.z || start.z > b.max.z) continue;
       const r = c.collider.collide(capsule);
       onGround ||= r.onGround;
       delta.add(r.delta);
@@ -337,7 +340,16 @@ export class Island {
   }
 
   groundHeight(x, z, fromY) {
-    const c = this.chunks.get(`${Math.floor(x / CS)},${Math.floor(z / CS)}`);
-    return c ? (c.collider.groundHeight(x, z, fromY) ?? this.heightAt(x, z)) : null;
+    if (!this.chunks.has(`${Math.floor(x / CS)},${Math.floor(z / CS)}`)) return null;
+    // the highest surface below fromY among the chunks whose colliders reach here (a stone of the batey may
+    // belong to the next chunk)
+    let best = null;
+    for (const c of this.chunks.values()) {
+      const b = c.bounds;
+      if (!c.visible || x < b.min.x || x > b.max.x || z < b.min.z || z > b.max.z) continue;
+      const g = c.collider.groundHeight(x, z, fromY);
+      if (g != null && (best === null || g > best)) best = g;
+    }
+    return best ?? this.heightAt(x, z);
   }
 }

@@ -178,7 +178,9 @@ function canoe(M) {
     g.add(mesh(between(new V3(s * 0.15, 0.1, s * 0.6), new V3(-s * 0.1, 0.18, s * 1.9), 0.025, 0.025, 6), M.get('wood')));
     g.add(mesh(boxGeo(0.16, 0.02, 0.45, -s * 0.12, 0.18, s * 2.1), M.get('wood')));
   }
-  return { obj: g, col: [boxGeo(1.0, 0.6, L - 0.6, 0, 0.1, 0)] };
+  // the keel (D·0.55 − D below the origin) rests on the ground, so no sand shows inside the hull
+  for (const m of g.children) m.position.y += D * 0.45;
+  return { obj: g, col: [boxGeo(1.0, 0.6, L - 0.6, 0, 0.3, 0)] };
 }
 
 // A fishing spear (a hardwood shaft, the point barbed with fish teeth) resting on two forked sticks.
@@ -240,6 +242,14 @@ function loom(M) {
   return { obj: g, col: [boxGeo(2.4, 1.8, 0.3, 0, 0.9, 0)] };
 }
 
+// A low seat: a short length of trunk laid on two stones, for someone sitting by the batey.
+function logSeat(M) {
+  const g = new THREE.Group();
+  for (const x of [-0.45, 0.45]) g.add(mesh(noisy(new THREE.IcosahedronGeometry(0.16, 0), 0.3, 461 + (x > 0 ? 1 : 0)).translate(x, 0.12, 0), M.get('limestone')));
+  g.add(mesh(cylGeo(0.17, 0.17, 1.3, 10).rotateZ(Math.PI / 2).translate(0, 0.3, 0), M.get('wood'))); // top at 0.47 m: a sitting hip
+  return { obj: g, col: [boxGeo(1.3, 0.47, 0.4, 0, 0.235, 0)] };
+}
+
 function waterJar(M) {
   const g = new THREE.Group();
   g.add(mesh(lathe([[0, 0], [0.16, 0.02], [0.27, 0.2], [0.28, 0.38], [0.16, 0.56], [0.1, 0.62], [0.12, 0.66]], 14), M.get('clay')));
@@ -248,7 +258,7 @@ function waterJar(M) {
 
 export const TAINO_MODELS = {
   bohio, caney, batey, zemi, conuco, cotton_bush: cottonBush, fire_pit: firePit,
-  canoe, fish_spear: fishSpear, buren, grater, cibucan, loom, water_jar: waterJar,
+  canoe, fish_spear: fishSpear, buren, grater, cibucan, loom, water_jar: waterJar, log_seat: logSeat,
 };
 
 // --- plants of Guanahani -------------------------------------------------------------------

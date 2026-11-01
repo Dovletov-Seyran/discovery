@@ -281,6 +281,32 @@ if (!only || only === 'guanahani') {
   }
   report(floating.length === 0, `Гуанахани: постройки и предметы стоят на земле${floating.length ? ` — нет: ${floating.join(', ')}` : ''}`);
 
+  // 0b. hulls rest on their keels (no sand inside a canoe); whoever sits has something under him
+  const sunk = [];
+  for (const o of layout.interact.filter((i) => i.m === 'canoe')) {
+    const box = new THREE.Box3().setFromObject(ISLAND_MODELS.canoe(M).obj);
+    if (box.min.y < -0.05) sunk.push(`${o.id} (киль на ${box.min.y.toFixed(2)} м)`);
+  }
+  for (const n of layout.npcs.filter((m) => m.pose === 'sit')) {
+    const seat = island.groundHeight(n.p[0], n.p[2], n.p[1] + 1.2) - heightAt(n.p[0], n.p[2]);
+    if (!(seat > 0.35)) sunk.push(`${n.id} сидит в воздухе`);
+  }
+  report(sunk.length === 0, `Гуанахани: каноэ на киле, сидящим есть на чём сидеть${sunk.length ? ` — нет: ${sunk.join(', ')}` : ''}`);
+
+  // 0c. every stone round the batey stops a player walking into it from outside — also from the next chunk
+  // (the ring is one object; its collider lives in the chunk of the batey's centre)
+  const bt = layout.objects.find((o) => o.id === 'batey'), through = [];
+  for (let i = 0; i < 44; i++) {
+    const a = (i / 44) * Math.PI * 2, sx = bt.p[0] + Math.cos(a) * 15, sz = bt.p[2] + Math.sin(a) * 11;
+    const out = [sx + Math.cos(a) * 1.4, sz + Math.sin(a) * 1.4];
+    const pl = new Player(collide, [out[0], heightAt(out[0], out[1]) + 0.05, out[1]]).settle();
+    // the stones stand ~1.3 m apart and a player may slip between them; he must never be inside one
+    let closest = Infinity;
+    for (let f = 0; f < 90; f++) { pl.step([-Math.cos(a), -Math.sin(a)], { run: false }); closest = Math.min(closest, Math.hypot(pl.pos.x - sx, pl.pos.z - sz)); }
+    if (closest < 0.45) through.push(i);
+  }
+  report(through.length === 0, `Гуанахани: камни батея не пропускают (44)${through.length ? ` — сквозь камни ${through.join(', ')}` : ''}`);
+
   // 1. runs with jumps across the land: never below the terrain
   let falls = 0, runs = 0;
   const fallAt = [];

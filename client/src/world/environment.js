@@ -209,6 +209,8 @@ export class Environment {
       sunDirection: new THREE.Vector3(0, 1, 0), sunColor: 0xfff1d6, waterColor: 0x15607e, distortionScale: 2.6, fog: true,
     });
     patchWater(this.water);
+    // the beach meets the sea almost flat: on ties the water wins, instead of sand and water flickering in turns
+    Object.assign(this.water.material, { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
     this.applyShore();
     const reflect = this.water.onBeforeRender;
     this.water.onBeforeRender = (...args) => {
