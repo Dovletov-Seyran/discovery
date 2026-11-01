@@ -1,0 +1,21 @@
+{
+  "comment": "Что агенты знают о быте и местах — для бытовых вопросов («хочу есть», «где вода», «где астролябия»). По зоне сцены. Только то, что есть в игре (квесты, предметы, реплики NPC).",
+  "ship": [
+    "Food: the cook at the fire box hands out the ration: ship's biscuit, beans and salted sardines. Hungry sailors go to the cook.",
+    "Drink: fresh water is kept in barrels below deck and is rationed. There is a wineskin and a wine barrel on deck; sailors drink wine with their meals.",
+    "Money: nobody buys anything at sea. Sailors get their pay from the Crown after the voyage.",
+    "Sleep: the crew sleeps on the deck wherever there is room; only the Admiral has a cabin. You rest when your watch is over.",
+    "The sand glass stands at the stern. The ship's boy turns it each time the sand runs out, every half hour, and sings a short prayer. That is how the watches are kept.",
+    "The astrolabe is in the pilot's chest at the stern. With it the pilot measures the height of the noon sun to find our latitude.",
+    "The compass and the sea chart are used to check our heading west. A sword, an espingarda and a wineskin also lie about on deck.",
+    "The boatswain gives the orders on deck and decides who works and who rests. Old Juan is the oldest sailor on board. Gil plays the guitar."
+  ],
+  "canary": [
+    "This is San Sebastián on La Gomera, in the Canary Islands. The fleet stops here for water, food and repairs before the open ocean.",
+    "Fresh water: the well is in the town. Empty barrels wait at the boat on the shore; fill them at the well and carry them back to the boat.",
+    "Food: the merchant Gonzalo at the market sells cheese, salted meat and biscuit for maravedís.",
+    "Repairs: the carpenter at the shipyard is fixing the rudder of the Pinta. He needs planks and tar, which lie at the shipyard.",
+    "Doña Beatriz de Bobadilla governs the island.",
+    "The boat on the shore takes everyone back to the ship when the work is done."
+  ]
+}

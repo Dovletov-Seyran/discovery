@@ -1,11 +1,12 @@
 # Звуки мира — источники
 
-Все звуки — с [Freesound](https://freesound.org), лицензия **CC0 1.0** (общественное достояние, указание автора не обязательно, но мы указываем). Обработаны: обрезка, нормализация громкости, MP3.
+Все звуки, кроме синтезированной нами музыки (лицензия «своя», скрипт по ссылке), — с [Freesound](https://freesound.org), лицензия **CC0 1.0** (общественное достояние, указание автора не обязательно, но мы указываем). Обработаны: обрезка, нормализация громкости, MP3.
 
 Список и поисковые запросы — `content/sounds.json`, скачивание — `node scripts/fetch-sounds.mjs`.
 
 | Звук | Оригинал | Автор | Лицензия |
 |---|---|---|---|
+| `amb_feast_folia` | [La Folía, vihuela, pandero (synthesized)](../scripts/compose-feast.mjs) | команда «Открытие 1492» | своя (синтез) |
 | `amb_feast_music` | [Guitar soundtrack](https://freesound.org/people/txirimiri/sounds/261608/) | txirimiri | CC0 1.0 |
 | `amb_fire` | [Fire in the stove](https://freesound.org/people/mcmikai/sounds/532191/) | mcmikai | CC0 1.0 |
 | `amb_gulls` | [Seagull on beach](https://freesound.org/people/squashy555/sounds/353416/) | squashy555 | CC0 1.0 |

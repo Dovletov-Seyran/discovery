@@ -408,5 +408,14 @@
   "freesoundId": 676988,
   "url": "https://freesound.org/people/NearTheAtmoshphere/sounds/676988/",
   "license": "CC0 1.0"
+ },
+ "amb_feast_folia": {
+  "file": "amb/amb_feast_folia.mp3",
+  "kind": "amb",
+  "duration": 163.7,
+  "title": "La Folía, vihuela, pandero (synthesized)",
+  "author": "команда «Открытие 1492»",
+  "url": "../scripts/compose-feast.mjs",
+  "license": "своя (синтез)"
  }
 }

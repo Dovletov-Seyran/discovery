@@ -26,6 +26,7 @@ export const AI = {
   AGENTS_DIR: root('content/agents'),
   CREW_FILE: root('content/crew.json'),
   QUESTS_FILE: root('content/quests.json'),
+  FACTS_FILE: root('content/world_facts.json'),
   LINES_FILE: root('content/lines.json'),
   VO_MANIFEST: root('client/public/audio/vo/manifest.json'),
   MODELS_DIR: root('data/models'),       // кеш модели Kokoro: не зависит от node_modules

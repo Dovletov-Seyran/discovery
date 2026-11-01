@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // Placeholder people built from capsules, one vertex-coloured material for everybody.
-// NPCs are baked into a single mesh; players keep their limbs for the walk/sit animation.
+// Ship NPCs and players retain articulated joints; static island NPCs are baked.
 // Swap for rigged Quaternius models later — `person()` is the only thing that would change.
 
 export const ROLE_LOOK = {

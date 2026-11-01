@@ -81,3 +81,15 @@ test('NPC can explain a shared task left by a missing role',()=>{
  const task=currentTask({scene:'ship_day',role:'piloto',quests:{q_latitude:{status:'done'},q_hourglass:{status:'active',step:0,shared:true}}},'columbus');
  assert.match(task.step,/sand glass/i);
 });
+
+test('быт и места: факты по зоне сцены, общий вопрос «что делать» отличается от вопроса о вещи', async () => {
+  const { worldFacts } = await import('../agents.js');
+  const { GENERIC_HELP } = await import('../prompt.js');
+  assert.match(worldFacts({ scene: 'ship_day' }).join(' '), /cook/);
+  assert.match(worldFacts({ scene: 'canary' }).join(' '), /well/);
+  assert.ok(GENERIC_HELP.test('что мне делать?'));
+  assert.ok(GENERIC_HELP.test('помоги мне'));
+  assert.ok(!GENERIC_HELP.test('где мне найти астролябию?'));
+  const msgs = buildMessages({ agent: getAgent('columbus'), context: { name: 'A', role: 'grumete', scene: 'ship_day' }, intent: { kind: 'need', agentId: 'columbus' }, mem: { told: [], turns: [], summary: '' }, text: 'я хочу кушать' });
+  assert.match(msgs.at(-2).content, /cook/);
+});

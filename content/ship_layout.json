@@ -54,7 +54,12 @@
     { "id": "dance", "m": "none", "p": [0.4, 0, -1.9], "kind": "dance", "label": "Круг танцующих" }
   ],
   "npcs": [
-    { "id": "columbus", "label": "Колумб", "pose": "admiral", "p": [2.55, 1.95, 5.75], "r": 0.25 },
+    { "id": "columbus", "label": "Колумб", "pose": "admiral", "p": [2.55, 1.95, 5.75], "r": 0.25,
+      "activity": [
+        { "p": [2.55, 1.95, 5.75], "r": 0.25, "action": "admiral", "wait": 12 },
+        { "p": [2.3, 1.95, 8.7], "r": 1.5708, "action": "chart", "wait": 14 },
+        { "p": [2.35, 1.95, 6.45], "r": 1.5708, "action": "compass", "wait": 9 }
+      ] },
     { "id": "boatswain", "label": "Боцман", "pose": "akimbo", "p": [1.3, 0, -1.1], "r": -2.84 },
     { "id": "cook", "label": "Кок", "pose": "stir", "p": [1.4, 0, -5.75], "r": 0 },
     { "id": "sailor_1", "label": "Матрос", "pose": "kneel", "p": [-1.0, 0, -2.5], "r": 1.89 },

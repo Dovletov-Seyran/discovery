@@ -162,6 +162,8 @@ kbd { font: 12px 'Discovery UI', sans-serif; border: 1px solid #e2e2d56b; min-wi
 .dialogue-panel { position: absolute; bottom: 45px; width: min(850px, 90vw); max-height: 65svh; overflow: auto; padding: 24px 30px; background: #0e1111f0; border-block: 1px solid #e3e3d756; }
 .dialogue-panel h2 { font-size: 25px; }
 .dialogue-panel>#npc-text { font-size: 21px; font-weight: 300; line-height: 1.55; margin: 18px 0 14px; }
+.dialogue-panel>#npc-you { color: #8f9585; font-size: 15px; font-style: italic; margin-top: 14px; }
+.dialogue-panel>#npc-you+#npc-text { margin-top: 6px; }
 details { color: #8f9585; font-size: 13px; }
 details p { font-size: 15px; line-height: 1.5; margin-top: 6px; }
 .hints { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 10px; }
