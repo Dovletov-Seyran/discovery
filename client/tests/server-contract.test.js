@@ -19,7 +19,7 @@ test('actual backend: auth_ok.scene, role, chat and replacement code', {skip:!pr
   const first=new SocketClient({url}),second=new SocketClient({url});
   try {
     const auth=once(first,'auth_ok');first.connect(token);
-    const state=await auth;assert.equal(state.scene.id,'lobby');assert.ok(state.you.id);
+    const state=await auth;assert.equal(state.scene.id,'lobby');assert.equal(state.scene.progress.phase,'none');assert.ok(state.you.id);
     const lobby=once(first,'lobby');first.send('interact',{id:'role:piloto'});
     // Initial lobby may already be queued; subscribe until selected role appears.
     let message=await lobby;

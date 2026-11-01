@@ -44,6 +44,8 @@ export function join(session, ws) {
     players.send(p, { t: S2C.NOTICE, text: 'Вы вошли с другой вкладки' });
     old.close(CLOSE.REPLACED, 'replaced');
   }
+  p.dialogue = null;
+  p.npcRequest = null;
   p.ws = ws;
   p.connected = true;
   p.disconnectedAt = null;
@@ -60,7 +62,7 @@ export function join(session, ws) {
     you: players.publicInfo(p),
     state: {
       role: p.role, scene: scene.id, zone: p.zone, p: p.p, r: p.r,
-      inventory: p.inventory, money: p.money, quests: p.quests, log: p.log,
+      inventory: p.inventory, money: p.money,itemUses:p.itemUses,vitals:p.vitals, quests: p.quests, log: p.log,
     },
     world: worldMeta(),
     scene: director.sceneMessage(p),
@@ -72,6 +74,7 @@ export function join(session, ws) {
   }
   if (!wasConnected) players.broadcast({ t: S2C.PLAYER_JOIN, ...players.publicInfo(p) }, (x) => x !== p);
   players.send(p, director.lobbyMessage());
+  quests.refreshParty(scene,players.party());
   quests.sendAll(p, scene.id);
   director.onPartyChanged();
   players.save(p, { now: true });
@@ -81,6 +84,8 @@ export function join(session, ws) {
 
 export function leave(p, ws) {
   if (p.ws !== ws) return; // это старая вкладка, игрок уже переподключился
+  p.dialogue = null;
+  p.npcRequest = null;
   p.ws = null;
   p.connected = false;
   p.disconnectedAt = Date.now(); // готовность сохраняем: 60 с игрок остаётся в партии
@@ -100,6 +105,12 @@ function onMove(p, msg) {
   if (locked || !isVec3(msg.p)) return; // в night_story можно только крутить головой
 
   const now = Date.now();
+  if (director.restoreGround(p)) {
+    p.lastMoveAt=now;
+    players.save(p,{now:true});
+    players.send(p,{t:S2C.POS_CORRECT,p:p.p,r:p.r});
+    return;
+  }
   const dt = Math.min(Math.max((now - p.lastMoveAt) / 1000, 0), 1);
   const maxStep = CONFIG.MAX_SPEED * dt * 1.5 + 0.5;
   if (!p.p) p.p = msg.p;
@@ -147,6 +158,7 @@ const handlers = {
   [C2S.MOVE]: onMove,
   [C2S.INTERACT]: onInteract,
   [C2S.CHAT]: onChat,
+  [C2S.DIALOGUE]: rules.dialogue,
   [C2S.NPC_TALK]: rules.npcTalk,
   [C2S.NPC_HINT]: rules.npcHint,
   [C2S.PICKUP]: rules.pickup,
@@ -181,7 +193,7 @@ function devCommand(p, text) {
       resetProgress();
       for (const x of players.all()) {
         if (!x.connected) { players.remove(x.id); continue; } // без ожидания grace
-        x.inventory = []; x.money = 0; x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
+        x.inventory = []; x.money = 0;x.itemUses={};x.vitals={stamina:100,drunkUntil:0,drunkStrength:0}; x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
         players.sendInventory(x);
       }
       director.resetToStart();
@@ -229,9 +241,13 @@ export function start() {
     setInterval(() => director.tick(), 250),
     setInterval(() => director.broadcastTod(), CONFIG.TOD_INTERVAL_MS),
     setInterval(() => players.saveAll(), CONFIG.SAVE_INTERVAL_MS),
+    setInterval(()=>rules.tickVitals(),1000),
     setInterval(() => {
       const gone = players.expire();
-      if (gone.length) director.onPartyChanged();
+      if (gone.length) {
+        quests.refreshParty(director.scene(),players.party(),gone);
+        director.onPartyChanged();
+      }
     }, 5000),
   ];
   return () => timers.forEach(clearInterval);

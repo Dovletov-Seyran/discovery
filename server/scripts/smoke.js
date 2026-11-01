@@ -2,6 +2,7 @@
 // Внимание: делает /reset — сбрасывает прогресс всех игроков на этом сервере.
 // SERVER=http://localhost:3000 по умолчанию; SERVER=https://localhost:3000 — сервер с HTTPS=1.
 import WebSocket from 'ws';
+import {CONFIG} from '../../shared/config.js';
 import { resolveLayout } from '../world/terrain.js';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -9,10 +10,11 @@ import { fileURLToPath } from 'node:url';
 
 // Координаты объектов корабля — из раскладки Фронта 1, чтобы тест не ломался при перестановке
 const LAYOUT = JSON.parse(readFileSync(new URL('../../content/ship_layout.json', import.meta.url), 'utf8'));
-const at = (id) => { const o = LAYOUT.interact.find((x) => x.id === id); return [o.p[0], o.p[2]]; };
-// …и острова — с координатами, которые считает генератор (пристань ищет берег сама)
+const at = (id) => { const o = [...LAYOUT.interact,...LAYOUT.npcs].find((x) => x.id === id); return [o.p[0], o.p[2]]; };
+// Остров — с координатами, которые считает генератор.
 const ISLE = resolveLayout(JSON.parse(readFileSync(new URL('../../content/canary_layout.json', import.meta.url), 'utf8'))).layout;
 const isle = (id) => { const o = [...ISLE.interact, ...ISLE.npcs].find((x) => x.id === id); return [o.p[0], o.p[2]]; };
+
 
 const BASE = process.env.SERVER || 'http://localhost:3000';
 const WS_URL = BASE.replace(/^http/, 'ws') + '/ws';
@@ -48,14 +50,33 @@ class Bot {
     this.ws.on('message', (d) => {
       const m = JSON.parse(d);
       this.msgs.push(m);
+      if (m.t === 'scene' && (m.spawn || m.seat)) this.pos = m.spawn || m.seat;
       if (m.t === 'pos_correct') { this.pos = m.p; this.corrections = (this.corrections ?? 0) + 1; } // как обязан делать клиент
     });
     this.ws.on('close', (code) => { this.closeCode = code; });
     return new Promise((r) => this.ws.on('open', r));
   }
+  waitClosed(ms=3000){
+    if(this.closeCode!==null)return Promise.resolve(this.closeCode);
+    return new Promise(resolve=>{
+      const onClose=code=>{clearTimeout(timer);resolve(code);};
+      const timer=setTimeout(()=>{this.ws.off('close',onClose);resolve(null);},ms);
+      this.ws.once('close',onClose);
+    });
+  }
   send(t, payload = {}) { this.ws.send(JSON.stringify({ t, ...payload })); }
   last(t) { return this.msgs.findLast((m) => m.t === t); }
-  async wait(t, pred = () => true, ms = 3000) {
+  // Ждать НОВОЕ сообщение — пришедшее после отметки mark (длина буфера до отправки), а не старое из буфера
+  async waitNew(mark, t, pred = () => true, ms = 8000) {
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      const m = this.msgs.slice(mark).find((x) => x.t === t && pred(x));
+      if (m) return m;
+      await sleep(20);
+    }
+    return null;
+  }
+  async wait(t, pred = () => true, ms = 8000) {
     const end = Date.now() + ms;
     while (Date.now() < end) {
       const m = this.msgs.find((x) => x.t === t && pred(x));
@@ -65,13 +86,13 @@ class Bot {
     return null;
   }
   clear() { this.msgs = []; }
-  // Идти к точке шагами, которые сервер принимает (≈13 м/с с запасом на джиттер)
+  // Идти с реальной скоростью клиента (≈6 м/с), применяя pos_correct.
   async walkTo(x, z) {
     for (;;) {
       const dx = x - this.pos[0], dz = z - this.pos[2];
       const d = Math.hypot(dx, dz);
       if (d < 0.5) return;
-      const k = Math.min(0.9, d) / d;
+      const k = Math.min(0.4, d) / d;
       this.pos = [this.pos[0] + dx * k, this.pos[1], this.pos[2] + dz * k];
       this.send('move', { p: this.pos, r: 0, a: 'run' });
       await sleep(67);
@@ -103,7 +124,7 @@ const anon = new Bot('anon');
 await anon.open();
 anon.send('move', { p: [0, 0, 0] });
 check(!!(await anon.wait('auth_fail')), 'сообщение до auth → auth_fail');
-await sleep(100);
+await anon.waitClosed();
 check(anon.closeCode === 4001, `закрыто с 4001 (${anon.closeCode})`);
 
 const silent = new Bot('silent');
@@ -164,6 +185,7 @@ check(!!(await g.wait('pos_correct')), 'телепорт на 100 м → pos_cor
 g.send('chat', { text: 'Земля!' });
 check(!!(await l.wait('chat', (m) => m.text === 'Земля!' && m.from === g.id)), 'чат доходит до других');
 
+await l.walkTo(...at('columbus'));
 l.send('npc_talk', { npc: 'columbus', text: 'Куда мы плывём?' });
 check(!!(await l.wait('npc_thinking')), 'npc_talk → npc_thinking');
 check(!!(await l.wait('npc_say', () => true, AI_MS)), 'npc_talk → npc_say');
@@ -178,7 +200,7 @@ const g2 = new Bot('grum-2');
 await g2.open();
 g2.send('auth', { token: tokens[0] });
 const ok2 = await g2.wait('auth_ok');
-await sleep(200);
+await g.waitClosed();
 check(g.closeCode === 4002, `вторая вкладка закрыла первую (код ${g.closeCode})`);
 check(!!ok2 && ok2.state.role === 'grumete' && ok2.state.p[0] > start[0] + 2, `состояние сохранилось: роль ${ok2?.state.role}, p ${JSON.stringify(ok2?.state.p)}`);
 check(!p.msgs.some((m) => m.t === 'player_leave' && m.id === g.id), 'смена вкладки не рассылает player_leave');
@@ -200,13 +222,13 @@ const near = [];
 for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) near.push(`${scx + dx},${scz + dz}`);
 p.clear();
 p.send('chunk_req', { zone: 'canary', keys: near });
-await sleep(500);
+await p.wait('chunk',()=>p.msgs.filter(m=>m.t==='chunk').length>=25,8000);
 const got = p.msgs.filter((m) => m.t === 'chunk');
 check(got.length === 25, `25 чанков вокруг спавна (${got.length}), spawn ${JSON.stringify(canary.spawn)}`);
 check(got.every((m) => m.data.h.length === 33 * 33), 'в каждом чанке 33×33 высот');
 check(got.some((m) => m.data.interact.some((o) => o.id === 'well')), 'колодец есть в соседних чанках');
 p.send('chunk_req', { zone: 'canary', keys: [`${scx + 3},${scz}`, `${scx + 4},${scz}`, '0,0'] });
-await sleep(300);
+await p.wait('chunk_denied',()=>p.msgs.filter(m=>m.t==='chunk_denied'&&m.reason==='too_far').length>=2,8000);
 check(p.msgs.some((m) => m.t === 'chunk' && m.key === `${scx + 3},${scz}`), 'чанк на расстоянии 3 → выдан');
 check(p.msgs.filter((m) => m.t === 'chunk_denied' && m.reason === 'too_far').length === 2, 'чанки дальше 3 → too_far');
 const health2 = await api('/api/health');
@@ -230,13 +252,22 @@ check(!!(await g2.wait('entity', (m) => m.id === 'astrolabe' && m.state.holder =
 await g2.walkTo(...at('astrolabe'));
 g2.send('pickup', { id: 'astrolabe' });
 check(!!(await g2.wait('notice', (m) => m.text.includes('уже взял'))), 'второй раз взять нельзя');
+g2.send('pickup',{id:'rum'});
+check(!!(await g2.wait('inventory',m=>m.items.includes('rum'))),'ром можно подобрать на корабле');
+g2.send('use',{item:'rum'});
+const rumUse=await g2.wait('item_used',m=>m.item==='rum');
+check(!!rumUse&&rumUse.vitals.drunkUntil>rumUse.serverNow&&rumUse.uses===1,'ром: сервер подтвердил опьянение и расход глотка');
 p.send('minigame', { game: 'astrolabe', result: { answer: 17 } });
 check(!!(await p.wait('notice', (m) => m.text.includes('Неверно'))), 'астролябия: неверная широта → подсказка');
-p.send('minigame', { game: 'astrolabe', result: { answer: 33 } });
+p.send('minigame', { game: 'astrolabe', result: { angle: 73, answer: 33 } });
 check(!!(await p.wait('quest', (m) => m.id === 'q_latitude' && m.status === 'done')), 'астролябия: 33° → задание выполнено');
 
+await l.walkTo(...at('columbus'));
+let askMark = l.msgs.length;
 l.send('npc_talk', { npc: 'columbus', text: 'Зачем мы плывём на запад?' });
 check(!!(await l.wait('quest', (m) => m.id === 'q_ask_columbus' && m.count === 1, AI_MS)), 'Колумб: тема 1 из 2');
+// Колумб должен договорить: пока NPC отвечает, сервер не принимает следующий вопрос (с настоящим ИИ это 5–7 с)
+await l.waitNew(askMark, 'npc_say', (m) => m.npc === 'columbus', AI_MS);
 await sleep(2100);
 l.send('npc_hint', { npc: 'columbus', hint: 'reward' });
 check(!!(await l.wait('quest', (m) => m.id === 'q_ask_columbus' && m.status === 'done', AI_MS)), 'Колумб: подсказка → тема 2, задание выполнено');
@@ -288,7 +319,8 @@ async function pilotFlow() {
   p.send('pickup', { id: 'planks' });
   await p.walkTo(...isle('tar'));
   p.send('pickup', { id: 'tar' });
-  await p.wait('inventory', (m) => m.items.includes('tar') && m.items.includes('planks'));
+  const supplies=await p.wait('inventory', (m) => m.items.includes('tar') && m.items.includes('planks'));
+  check(!!supplies,`доски и смола подобраны${supplies?'':': '+JSON.stringify({pos:p.pos,inventory:p.last('inventory'),notices:p.msgs.filter(m=>m.t==='notice')})}`);
   await p.walkTo(...isle('carpenter'));
   p.send('interact', { id: 'boat' }); // далеко — ничего
   p.send('interact', { id: 'carpenter' });
@@ -307,18 +339,31 @@ async function traderFlow() {
   const counter = await l.wait('trade_state');
   check(counter?.goods.find((g) => g.item === 'cheese').price === 30, 'сыр за 20 → встречная цена 30');
   check(!!(await l.wait('npc_say', (m) => m.npc === 'trader', AI_MS)), 'торговец отвечает на предложение');
-  const buy = async (item, offer) => { await sleep(2100); l.send('trade', { npc: 'trader', item, offer }); return l.wait('trade_state', (m) => m.goods.find((g) => g.item === item).sold); };
+  // после каждой сделки торговец говорит — дождаться его реплики, иначе следующий торг сервер отклонит
+  const buy = async (item, offer) => {
+    await sleep(2100);
+    const mark = l.msgs.length;
+    l.send('trade', { npc: 'trader', item, offer });
+    const st = await l.wait('trade_state', (m) => m.goods.find((g) => g.item === item).sold);
+    await l.waitNew(mark, 'npc_say', (m) => m.npc === 'trader', AI_MS);
+    return st;
+  };
   await buy('cheese', 30);
   await buy('meat', 30);
   const last = await buy('biscuit', 25);
   check(last?.money === 15, `всё куплено, осталось ${last?.money} мараведи`);
   check(!!(await l.wait('quest', (m) => m.id === 'q_trade' && m.status === 'done')), '«Провизия» выполнено');
+  l.send('use',{item:'cheese'});
+  check(!!(await l.wait('item_used',m=>m.item==='cheese'&&m.effect==='food')),'еду можно съесть, сервер подтвердил восстановление сил');
+  check(!!(await l.wait('inventory',m=>m.items.includes('meat')&&!m.items.includes('cheese'))),'съеденный сыр удалён из инвентаря');
   await l.walkTo(...isle('boat'));
   l.send('interact', { id: 'boat' });
 }
 
 const [g3] = await Promise.all([grumeteFlow(), pilotFlow(), traderFlow()]);
-const evening = await l.wait('scene', (m) => m.id === 'cut_evening', 4000);
+const leavingCanary=await l.wait('scene_progress',m=>m.scene==='canary'&&m.phase==='departing');
+check(!!leavingCanary&&leavingCanary.endsAt>leavingCanary.serverNow,'Канары: сервер прислал отсчёт перед сменой локации');
+const evening = await l.wait('scene', (m) => m.id === 'cut_evening', CONFIG.TRANSITION_COUNTDOWN_MS+3000);
 check(!!evening, 'все сели в шлюпку → cut_evening');
 
 // --- Вечер и ночь ---
@@ -334,8 +379,9 @@ g3.send('minigame', { game: 'cards', result: { success: true } });
 check(!!(await g3.wait('quest', (m) => m.id === 'q_feast' && m.status === 'done')), 'праздник: 3 из 4 → выполнено');
 p.send('chat', { text: '/done' });
 l.send('chat', { text: '/done' });
-for (const b of [g3, p, l]) b.send('ready', { value: true });
-check(!!(await l.wait('scene', (m) => m.id === 'cut_night', 4000)), 'праздник + все готовы → cut_night');
+const leavingEvening=await l.wait('scene_progress',m=>m.scene==='ship_evening'&&m.phase==='departing');
+check(!!leavingEvening&&leavingEvening.endsAt-leavingEvening.serverNow>=CONFIG.TRANSITION_COUNTDOWN_MS-100,'вечер: серверный отсчёт не меньше 5 с');
+check(!!(await l.wait('scene', (m) => m.id === 'cut_night', CONFIG.TRANSITION_COUNTDOWN_MS+3000)), 'задания праздника завершены → cut_night без ready');
 
 for (const b of [g3, p, l]) b.clear();
 g3.send('chat', { text: '/scene night_story' });

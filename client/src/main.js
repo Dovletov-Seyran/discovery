@@ -1,4 +1,9 @@
 import './ui/style.css';
+import {drawLocalMap,unlockItemAudio,playShot} from './ui/item-feedback.js';
+import {ITEM_RULES,freshVitals} from '../../shared/item-actions.js';
+import {sceneProgressView} from './ui/scene-progress.js';
+import {Equipment,itemPictures} from './game/equipment.js';
+import {itemIcon,ITEM_ACTIONS} from './ui/item-icons.js';
 import {CONFIG} from '../../shared/config.js';
 import {SocketClient,Events} from './net/socket.js';
 import {MockClient} from './net/mock.js';
@@ -11,6 +16,7 @@ import {narrativeContent,INTRO_TITLES} from './ui/narrative.js';
 import {NarrativePlayer} from './ui/timeline.js';
 import {WorldAudio} from './audio/world-audio.js';
 
+const uniqueId=()=>globalThis.crypto?.randomUUID?.()||`${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 const $ = selector => document.querySelector(selector);
 const root = $('#ui');
 const canvas = $('#game');
@@ -23,11 +29,14 @@ export const gameEvents = new Events();
 export const sendGameMessage = (type,payload={}) => net?.send(type,payload) ?? false;
 export const playVoiceLine = (id,options) => voices.playLine(id,options);
 export const getPlayerState = () => runtime ? {p:runtime.controller.position.toArray(),r:runtime.controller.yaw,a:runtime.controller.animation} : null;
-let net, runtime, world;
+let net, runtime, world, equipment;
+let equipped=null, selectedItem=null, pictures={}, dialogueId=null, requestId=null, dialogueHeartbeat;
 let screen='login', modal='', connected=false, chatOpen=false;
 let you={}, scene={id:'lobby',type:'lobby'}, players=[], inventory=[], quests={};
 let savedPosition, savedYaw=0, currentTarget, activeNpc;
 let noticeTimer, npcAudio, waitingForReply=false, frameCount=0, fpsAt=0, dialogueTimer;
+let sceneProgress=null,serverOffset=0,vitals=freshVitals(),itemUses={},money=0,pendingUnequip=null;
+const itemCooldowns=new Map();
 let scriptIndex=0,scriptLines=[],tradeState=null,partyReady={},serverBuild=null;
 const knownCards=new Set();
 const settings={quality:'high',sensitivity:2,voices:0.8};
@@ -44,8 +53,11 @@ const narrative=new NarrativePlayer(voices,{
 for(const npc of narrativeContent.npcs)NPC_NAMES[npc.id]=npc.name;
 
 export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
+  equipment?.dispose();
   runtime?.dispose();
   world=nextWorld;
+  equipment=new Equipment(world);equipment.equip(equipped);applyVitals(vitals);
+  try{pictures=itemPictures(world,Object.keys(ITEMS));}catch(error){console.warn("[items] thumbnails unavailable",error);}
   runtime=new GameplayRuntime(world,targetCanvas,{
     ...options,
     send:(type,data)=>net?.send(type,data)??false,
@@ -69,6 +81,15 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
     update(delta,time){
       if(runtime!==attachedRuntime)return;
       attachedRuntime.update(delta,time);
+      equipment?.update(delta,time,screen==='game'&&!modal&&!chatOpen&&PLAY_SCENES.has(scene.id));
+      if(pendingUnequip&&equipment.action<=0){if(equipped===pendingUnequip)equipItem(null);pendingUnequip=null;}
+      updateInstrument();renderVitals();
+      const hint=$('#control-hint');
+      if(hint){
+        hint.hidden=screen!=='game'||!!modal||chatOpen||!connected||!PLAY_SCENES.has(scene.id)||document.pointerLockElement===canvas;
+        const text=runtime.controller.hasControl?'WASD — ходить · зажмите ПКМ — осмотреться · E — действие':'Щёлкните по игре, чтобы управлять';
+        if(hint.textContent!==text)hint.textContent=text;
+      }
       if(!$('#debug').hidden){
         frameCount++;
         if(time-fpsAt>=0.7){
@@ -78,6 +99,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
         }
       }
     },
+    renderOverlay(){if(runtime===attachedRuntime)equipment?.render();},
     dispose(){if(runtime===attachedRuntime){runtime.dispose();runtime=null;world=null;currentTarget=null;$('#world-status').hidden=false;syncInput();}},
   };
 }
@@ -85,6 +107,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
 function syncInput(){
   const blocked=screen!=='game'||modal||chatOpen||!connected;
   runtime?.setMode(blocked?'blocked':scene.id==='night_story'?'seated':PLAY_SCENES.has(scene.id)?'play':'blocked');
+  if($('#control-hint'))$('#control-hint').hidden=!!blocked;
   $('#crosshair').hidden=blocked||!runtime||!PLAY_SCENES.has(scene.id);
   if(blocked){$('#prompt').hidden=true;currentTarget=null;}
 }
@@ -103,6 +126,7 @@ function connectionStatus(status){
     $('#session-exit').onclick=logout;
   }
   if(screen==='lobby')renderLobby();
+  if(!connected&&modal==='dialogue')closeModal();
   syncInput();
 }
 function login(){
@@ -126,7 +150,7 @@ async function authenticate(register){
   finally{submit.disabled=false;create.disabled=false;}
 }
 function connect(credential){
-  net?.disconnect();connected=false;players=[];inventory=[];quests={};
+  closeModal();equipItem(null);net?.disconnect();connected=false;players=[];inventory=[];quests={};
   net=preview?new MockClient():new SocketClient();
   bindNetwork(net);net.connect(credential);
 }
@@ -138,6 +162,7 @@ function bindNetwork(client){
     if(serverBuild&&message.build&&message.build!=='dev'&&message.build!==serverBuild){location.reload();return;}
     serverBuild=message.build;
     you=message.you;inventory=message.state?.inventory||[];quests=message.state?.quests||{};
+    itemUses=message.state?.itemUses||{};money=message.state?.money||0;applyVitals(message.state?.vitals||freshVitals());
     savedPosition=message.state?.p;savedYaw=message.state?.r??0;
     inventory.forEach(item=>knownCards.add(itemId(item)));
     if(savedPosition)runtime?.teleport(savedPosition,savedYaw);
@@ -147,13 +172,19 @@ function bindNetwork(client){
   });
   client.on('lobby',message=>{players=message.players;if(screen==='lobby')renderLobby();});
   client.on('scene',applyScene);
+  client.on('scene_progress',message=>{if(message.scene!==scene.id)return;sceneProgress=message;serverOffset=message.serverNow-Date.now();renderSceneProgress();});
   client.on('pos_correct',message=>{savedPosition=message.p;savedYaw=message.r??savedYaw;runtime?.teleport(savedPosition,savedYaw);gameEvents.emit('pos_correct',message);});
   client.on('inventory',message=>{
-    const old=new Set(inventory.map(itemId));inventory=message.items||[];updateInventoryCount();
+    const old=new Set(inventory.map(itemId));inventory=message.items||[];
+    itemUses=message.itemUses||{};money=message.money??money;if(message.vitals)applyVitals(message.vitals);
+    if(equipped&&!inventory.some(item=>itemId(item)===equipped)){if(equipment?.action>0)pendingUnequip=equipped;else equipItem(null);}
+    updateInventoryCount();
     const added=inventory.find(item=>!old.has(itemId(item)));
-    if(added&&!knownCards.has(itemId(added))){knownCards.add(itemId(added));openKnowledge(itemId(added));}else if(modal==='inventory')openInventory();
+    if(added&&!modal&&!knownCards.has(itemId(added))){knownCards.add(itemId(added));openKnowledge(itemId(added));}else if(modal==='inventory')openInventory();
   });
-  client.on('quest',message=>{quests[message.id]=message;renderQuest();});
+  client.on('vitals',message=>applyVitals(message,message.serverNow));
+  client.on('item_used',receiveItemUse);
+  client.on('quest',message=>{quests[message.id]=message;renderQuest();if(modal==='journal')openJournal();});
   client.on('party',message=>{
     $('#party').textContent=message.waitingFor?.length?`Ждём: ${message.waitingFor.map(player=>player.name).join(', ')}`:'';
     if($('#skip-votes'))$('#skip-votes').textContent=message.skip?`${message.skip.votes} / ${message.skip.total}`:'';
@@ -166,7 +197,7 @@ function bindNetwork(client){
     while($('#chat-log').children.length>6)$('#chat-log').firstChild.remove();
     setTimeout(()=>line.remove(),10000);gameEvents.emit('chat',message);
   });
-  client.on('npc_thinking',message=>{if(modal==='dialogue'&&activeNpc===message.npc){waitingForReply=true;$('#npc-text').textContent='Думает…';setDialogueBusy(true);}});
+  client.on('npc_thinking',message=>{if(matchesReply(message)){waitingForReply=true;$('#npc-text').textContent='Думает…';setDialogueBusy(true);}});
   client.on('npc_say',receiveDialogue);
   client.on('trade_state',message=>{tradeState=message;if(modal==='dialogue'&&activeNpc===message.npc)renderTrade();});
   client.on('snapshot',message=>gameEvents.emit('snapshot',message));
@@ -184,6 +215,10 @@ function renderLobby(){
 function applyScene(message){
   narrative.stop();
   scene=message;
+  sceneProgress=message.progress||null;
+  if(Number.isFinite(sceneProgress?.serverNow))serverOffset=sceneProgress.serverNow-Date.now();
+  renderSceneProgress();
+  document.body.dataset.sceneType=message.type||'';
   if(Number.isFinite(message.r))savedYaw=message.r;
   if(message.spawn){savedPosition=message.spawn;runtime?.teleport(savedPosition,savedYaw);}
   if(message.seat){savedPosition=message.seat;runtime?.teleport(savedPosition,savedYaw);}
@@ -202,7 +237,15 @@ function applyScene(message){
     }
     renderQuest();
   }
-  syncInput();gameEvents.emit('scene',message);
+  renderEquipment();syncInput();gameEvents.emit('scene',message);
+}
+function renderSceneProgress(){
+  const el=$('#scene-progress');if(!el)return;
+  const view=connected?sceneProgressView(sceneProgress,Date.now()+serverOffset):null;
+  el.hidden=!view;
+  if(!view)return;
+  const html=`<span>${escape(view.label)}</span>${view.value?`<strong>${escape(view.value)}</strong>`:''}<small>${escape(view.detail)}</small>`;
+  if(el.innerHTML!==html)el.innerHTML=html;
 }
 function renderSceneOverlay(message){
   if(message.id==='intro'&&narrativeContent.intro){
@@ -216,12 +259,15 @@ function renderSceneOverlay(message){
   $('#screen').innerHTML=`<div class="scene-caption"><h2>${titles[message.id]||''}</h2>${message.id==='intro'?'<button class="quiet-button" id="skip">Пропустить <span id="skip-votes"></span></button>':''}</div>`;
   if($('#skip'))$('#skip').onclick=()=>net.send('skip_vote');
 }
-function updateInventoryCount(){$('#item-count').textContent=`${inventory.length} / 8`;}
-function renderQuest(){
-  const list=Object.entries(quests).map(([id,state])=>{
+function updateInventoryCount(){$('#item-count').textContent=String(inventory.length);renderEquipment();}
+function questList(){
+  return Object.entries(quests).map(([id,state])=>{
     const def=QUESTS[id];
     return {...state,id,title:state.title||def?.title||'Задание',scene:def?.scene,optional:state.optional??def?.optional,progress:state.progress??state.step??0,total:state.total??def?.steps.length??1,text:state.text??state.stepText??(typeof state.step==='number'?def?.steps[state.step]?.text:null)};
   }).filter(quest=>!quest.scene||quest.scene===scene.id);
+}
+function renderQuest(){
+  const list=questList();
   let quest=list.find(item=>item.status!=='done'&&!item.optional)||list.find(item=>item.status!=='done')||list.at(-1);
   // Канары: всё своё сделано, но ещё не в шлюпке — подсказать, как вернуться на корабль
   const boarded=!!partyReady[you?.id];
@@ -231,23 +277,87 @@ function renderQuest(){
   $('#quest').innerHTML=`<h3>${escape(quest.title)}</h3>${quest.text?`<p>${escape(quest.text)}</p>`:''}<small>${quest.status==='done'?'Выполнено':`${quest.progress} / ${quest.total}`}${quest.need?` · ${quest.count||0}/${quest.need}`:''}</small>`;
 }
 function showModal(type,html){
+  if(modal==='dialogue')endDialogue();
   stopNpcAudio();modal=type;$('#modal').hidden=false;$('#modal').innerHTML=html;
   $('#modal').querySelectorAll('[data-close]').forEach(button=>button.onclick=closeModal);syncInput();
   $('#modal').querySelector('input,button,select')?.focus();
 }
-function closeModal(){clearTimeout(dialogueTimer);voices.stop();stopNpcAudio();modal='';activeNpc=null;waitingForReply=false;$('#modal').hidden=true;$('#modal').innerHTML='';syncInput();}
+function closeModal(){endDialogue();clearTimeout(dialogueTimer);voices.stop();stopNpcAudio();modal='';activeNpc=null;waitingForReply=false;$('#modal').hidden=true;$('#modal').innerHTML='';syncInput();}
 function closeButton(){return '<button class="close-button" data-close aria-label="Закрыть">×</button>';}
 function openKnowledge(id){
   const data=ITEMS[id]||{name:id,text:''};
   showModal('knowledge',`<section class="menu-panel knowledge">${closeButton()}<span class="overline">ПРЕДМЕТ ПОЛУЧЕН</span><h2>${escape(data.name)}</h2>${data.text?`<p>${escape(data.text)}</p>`:''}<button class="primary" data-close>Продолжить</button></section>`);
 }
+function picture(id){return pictures[id]||itemIcon(id);}
+function equipItem(id){pendingUnequip=null;equipped=id;equipment?.equip(id);renderEquipment();}
+function renderEquipment(){
+  const hud=$('#equipment');if(!hud)return;
+  hud.hidden=!equipped||!PLAY_SCENES.has(scene.id);
+  hud.innerHTML=equipped?`<img src="${picture(equipped)}" alt=""><span>${escape(ITEMS[equipped]?.name||equipped)}<small>${escape(ITEM_ACTIONS[equipped]||'В руке')} · ЛКМ${itemUses[equipped]!=null?` · ${itemUses[equipped]} ост.`:''}</small></span><output id="instrument"></output>`:'';
+}
+function updateInstrument(){
+  const output=$('#instrument');if(!output||!runtime)return;
+  if(equipped==='compass'){
+    const degrees=(( -runtime.controller.yaw*180/Math.PI)%360+360)%360;
+    const heading=['С','СВ','В','ЮВ','Ю','ЮЗ','З','СЗ'][Math.round(degrees/45)%8];
+    output.textContent=`${heading} ${Math.round(degrees)%360}°`;
+  } else if(equipped==='espingarda'){const left=Math.max(0,Math.ceil(((itemCooldowns.get(equipped)||0)-Date.now())/1000));output.textContent=left?`${left} с`:'Готово';}
+  else if(equipped==='astrolabe')output.textContent=`${Math.round(Math.max(0,runtime.controller.pitch)*180/Math.PI)}°`;
+}
 function openInventory(){
-  showModal('inventory',`<section class="menu-panel inventory-panel">${closeButton()}<h2>Снаряжение</h2><div class="inventory-slots">${Array.from({length:8},(_,index)=>{
-    const item=inventory[index],id=item&&itemId(item);
-    return `<button class="inventory-slot" ${id?`data-item="${escape(id)}"`:'disabled'}><small>${index+1}</small><span>${escape(id?(ITEMS[id]?.name||id):'—')}</span></button>`;
-  }).join('')}</div>${inventory.some(item=>itemId(item)==='astrolabe')?'<button id="use-astrolabe" class="primary">Использовать астролябию</button>':''}</section>`);
-  document.querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>openKnowledge(button.dataset.item));
-  if($('#use-astrolabe'))$('#use-astrolabe').onclick=openAstrolabe;
+  const ids=inventory.map(itemId);
+  if(!ids.includes(selectedItem))selectedItem=ids[0]||null;
+  const data=ITEMS[selectedItem];
+  showModal('inventory',`<section class="menu-panel inventory-panel">${closeButton()}<h2>Снаряжение</h2><div class="inventory-layout"><div class="inventory-slots">${Array.from({length:Math.max(8,ids.length)},(_,index)=>{
+    const id=ids[index];
+    return `<button class="inventory-slot ${id===selectedItem?'selected':''}" ${id?`data-item="${escape(id)}" aria-pressed="${id===selectedItem}"`:'disabled aria-label="Пустое место"'}><small>${index+1}</small>${id?`<img src="${picture(id)}" alt=""><span>${escape(ITEMS[id]?.name||id)}</span>`:'<span>—</span>'}</button>`;
+  }).join('')}</div><div class="item-detail">${selectedItem?`<img src="${picture(selectedItem)}" alt=""><h3>${escape(data?.name||selectedItem)}</h3><p>${escape(ITEM_ACTIONS[selectedItem]||'Предмет из припасов')}</p><button id="equip-item" class="primary">${equipped===selectedItem?'Убрать':'Взять в руку'}</button>${data?.text?`<details><summary>О предмете</summary><p>${escape(data.text)}</p></details>`:''}`:'<p>Пока пусто</p>'}</div></div><small>1–9 — выбрать предмет · ЛКМ — использовать</small></section>`);
+  document.querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>{selectedItem=button.dataset.item;openInventory();});
+  if($('#equip-item'))$('#equip-item').onclick=()=>{equipItem(equipped===selectedItem?null:selectedItem);closeModal();};
+}
+function openJournal(){
+  const list=questList();
+  showModal('journal',`<section class="menu-panel journal-panel">${closeButton()}<h2>Судовой журнал</h2>${list.length?list.map(q=>{
+    const def=QUESTS[q.id],progress=q.status==='done'?q.total:q.progress;
+    return `<article class="journal-quest"><h3>${escape(q.title)} <small>${q.status==='done'?'Выполнено':q.shared?'Общее':q.optional?'Необязательно':''}</small></h3><ol>${(def?.steps||[{text:q.text}]).map((step,i)=>`<li class="${i<progress?'done':i===progress?'current':''}">${escape(step.text||'Задание')}${i===progress&&q.need?` <small>${q.count||0}/${q.need}</small>`:''}</li>`).join('')}</ol></article>`;
+  }).join(''):'<p>В этой сцене заданий нет.</p>'}<small>J — закрыть</small></section>`);
+}
+function applyVitals(next,serverNow=Date.now()+serverOffset){
+  vitals={...vitals,...next};
+  if(runtime)runtime.controller.stamina=vitals.stamina;
+  equipment?.drink(vitals.drunkUntil,vitals.drunkStrength,serverNow);
+  renderVitals();
+}
+function renderVitals(){
+  const el=$('#vitals');if(!el)return;
+  const energy=Math.round(runtime?.controller.stamina??vitals.stamina),left=Math.max(0,Math.ceil((vitals.drunkUntil-Date.now()-serverOffset)/1000));
+  el.hidden=energy>=99&&!left;
+  const html=`<span>Силы <progress max="100" value="${energy}" aria-label="Запас сил"></progress> ${energy}</span>${left?`<span>Опьянение ${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}</span>`:''}`;
+  if(el.innerHTML!==html)el.innerHTML=html;
+}
+function receiveItemUse(message){
+  const left=Math.max(0,message.cooldownUntil-message.serverNow);itemCooldowns.set(message.item,Date.now()+left);
+  if(message.vitals)applyVitals(message.vitals,message.serverNow);
+  if(equipped===message.item)equipment?.use();
+  if(message.effect==='drink')notify(message.item==='rum'?'Глоток рома.':'Глоток вина.');
+  if(message.effect==='food')notify(`Запас сил: ${Math.round(vitals.stamina)} / 100`);
+  if(message.effect==='water')notify('Глоток воды.');
+  if(message.effect==='shot'){equipment?.fire();playShot();notify('Выстрел · перезарядка 2,5 с');}
+  if(message.effect==='map')openMap();
+  if(message.effect==='astrolabe')openAstrolabe();
+  if(message.effect==='compass')notify('Север — 0°. Курс указан на приборе.');
+  if(message.effect==='wallet')showModal('wallet',`<section class="menu-panel">${closeButton()}<h2>Кошель</h2><p>${message.money} мараведи</p><small>Припасы можно купить у торговца на Канарах.</small></section>`);
+}
+function openMap(){
+  const position=runtime?.controller.position.toArray()||savedPosition||[0,0,0],yaw=runtime?.controller.yaw||0;
+  showModal('map',`<section class="menu-panel map-panel">${closeButton()}<h2>Морская карта</h2><canvas id="local-map" width="540" height="380" aria-label="Карта загруженных окрестностей"></canvas><small>Координаты: ${position[0].toFixed(0)}, ${position[2].toFixed(0)} · север наверху</small></section>`);
+  drawLocalMap($('#local-map'),world,position,yaw,scene.zone);
+}
+function useEquipped(){
+  if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!PLAY_SCENES.has(scene.id)||sceneProgress?.phase==='departing')return;
+  if((itemCooldowns.get(equipped)||0)>Date.now())return;
+  const target=ITEM_RULES[equipped]?.target===currentTarget?.id?currentTarget.id:undefined;
+  net.send('use',{item:equipped,...(target?{target}:{})});
 }
 function openAstrolabe(){
   showModal('astrolabe',`<section class="menu-panel astrolabe-panel">${closeButton()}<h2>Астролябия</h2><div class="astrolabe-dial"><div id="alidade"></div><output id="angle-output">45°</output></div><label for="angle-input">Высота Солнца</label><input id="angle-input" type="range" min="0" max="90" value="45"><p id="alignment">Совместите с Солнцем: 73° ± 2°.</p><div id="latitude-question" hidden><p>Широта = 90° − 73° + 16°</p><div class="answers">${[17,33,49].map(value=>`<button data-answer="${value}" class="option-button">${value}°</button>`).join('')}</div></div><p id="answer-feedback" role="status"></p></section>`);
@@ -268,14 +378,16 @@ function openDialogue(npc){
   scriptIndex=0;
   scriptLines=LINES.filter(line=>line.npc===npc&&!/hint|alarm|hourglass|task|wait|done|toast|cards|scare/.test(line.id));
   if(npc==='boatswain')scriptLines=[LINES.find(line=>line.id===`boatswain_hint_${you.role}`),...scriptLines].filter(Boolean);
-  showModal('dialogue',`<section class="dialogue-panel">${closeButton()}<h2>${escape(NPC_NAMES[npc]||npc)}</h2><p id="npc-text">${scripted?'…':'О чём спросить?'}</p><details><summary>Оригинал</summary><p id="npc-en"></p></details><div id="hints" class="hints"></div><div id="trade"></div>${scripted?'<button id="next-line" class="quiet-button">Далее <kbd>E</kbd></button>':`<form id="npc-form"><input maxlength="${CONFIG.CHAT_MAX_LEN}" placeholder="Ваш вопрос…" aria-label="Вопрос персонажу" required><button class="quiet-button">Спросить</button></form>`}</section>`);
-  activeNpc=npc;
+  showModal('dialogue',`<section class="dialogue-panel">${closeButton()}<h2>${escape(NPC_NAMES[npc]||npc)}</h2><p id="npc-text">${scripted?'…':'О чём спросить?'}</p><details><summary>Оригинал</summary><p id="npc-en"></p></details><div id="hints" class="hints"></div><div id="trade"></div>${scripted?'<button id="next-line" class="quiet-button">Далее <kbd>E</kbd></button>':`<form id="npc-form"><input maxlength="${CONFIG.CHAT_MAX_LEN}" placeholder="Ваш вопрос…" aria-label="Вопрос персонажу" required><button class="quiet-button">Спросить</button></form>`}<button class="quiet-button" data-close>Закончить разговор</button></section>`);
+  activeNpc=npc;dialogueId=uniqueId();
+  const heartbeat=()=>net?.send('dialogue',{npc,dialogueId,active:true});
+  heartbeat();dialogueHeartbeat=setInterval(heartbeat,10000);
   if(scripted){$('#next-line').onclick=nextScriptLine;nextScriptLine();return;}
-  $('#npc-form').onsubmit=event=>{event.preventDefault();const input=$('#npc-form input'),text=input.value.trim();if(text&&!waitingForReply){if(net.send('npc_talk',{npc,text})){input.value='';beginDialogueWait();}}};
+  $('#npc-form').onsubmit=event=>{event.preventDefault();const input=$('#npc-form input'),text=input.value.trim();if(text&&!waitingForReply){if(sendNpc('npc_talk',{npc,text})){input.value='';beginDialogueWait();}}};
   if(npc==='trader'&&tradeState?.npc===npc)renderTrade();
   $('#npc-form input').focus();
   // Пустой npc_talk = игрок подошёл: агент здоровается с учётом прошлых разговоров и даёт подсказки
-  if(NPCS[npc]?.type==='llm'&&net.send('npc_talk',{npc,text:''}))beginDialogueWait();
+  if(NPCS[npc]?.type==='llm'&&sendNpc('npc_talk',{npc,text:''}))beginDialogueWait();
 }
 function nextScriptLine(){
   const line=scriptLines[scriptIndex++];
@@ -283,18 +395,32 @@ function nextScriptLine(){
   $('#npc-text').textContent=line.ru||'';$('#npc-en').textContent=line.en||'';
   voices.playLine(line.id).catch(()=>{});
 }
+function endDialogue(){
+  clearInterval(dialogueHeartbeat);dialogueHeartbeat=null;
+  if(dialogueId)net?.send('dialogue',{npc:activeNpc,dialogueId,active:false});
+  dialogueId=null;requestId=null;
+}
+function sendNpc(type,payload){
+  if(waitingForReply)return false;
+  requestId=uniqueId();
+  return net.send(type,{...payload,dialogueId,requestId});
+}
+function matchesReply(message){
+  return modal==='dialogue'&&activeNpc===message.npc&&(!message.dialogueId||message.dialogueId===dialogueId)&&(!message.requestId||message.requestId===requestId);
+}
 function beginDialogueWait(){
   waitingForReply=true;setDialogueBusy(true);clearTimeout(dialogueTimer);
-  dialogueTimer=setTimeout(()=>{if(modal==='dialogue'){waitingForReply=false;setDialogueBusy(false);notify('Ответ задерживается. Попробуйте ещё раз.');}},20000);
+  dialogueTimer=setTimeout(()=>{if(modal==='dialogue'){waitingForReply=false;setDialogueBusy(false);notify('Ответ задерживается. Попробуйте ещё раз.');requestId=null;}},50000);
 }
 function renderTrade(){
   if(!$('#trade')||!tradeState)return;
   $('#trade').innerHTML=`<div class="trade-money">Кошель: ${tradeState.money} мараведи</div>${tradeState.goods.map(good=>`<form class="trade-row" data-trade="${escape(good.item)}"><label>${escape(ITEMS[good.item]?.name||good.item)} <small>${good.sold?'Куплено':`${good.price} м.`}</small></label>${good.sold?'':`<input aria-label="Цена: ${escape(ITEMS[good.item]?.name||good.item)}" type="number" min="1" max="10000" value="${good.price}"><button class="quiet-button">Предложить</button>`}</form>`).join('')}`;
-  $('#trade').querySelectorAll('form').forEach(form=>form.onsubmit=event=>{event.preventDefault();net.send('trade',{npc:activeNpc,item:form.dataset.trade,offer:Number(form.querySelector('input').value)});});
+  $('#trade').querySelectorAll('form').forEach(form=>form.onsubmit=event=>{event.preventDefault();if(sendNpc('trade',{npc:activeNpc,item:form.dataset.trade,offer:Number(form.querySelector('input').value)}))beginDialogueWait();});
+  setDialogueBusy(waitingForReply);
 }
-function setDialogueBusy(busy){if($('#npc-form button'))$('#npc-form button').disabled=busy;$('#hints').querySelectorAll('button').forEach(button=>button.disabled=busy);}
+function setDialogueBusy(busy){$('#modal').querySelectorAll('#npc-form button,#hints button,.trade-row button').forEach(button=>button.disabled=busy);}
 function receiveDialogue(message){
-  if(modal!=='dialogue'||activeNpc!==message.npc){
+  if(!matchesReply(message)){
     if(message.line){
       notify(message.ru||'');
       voices.playLine(message.line).catch(()=>{});
@@ -302,12 +428,12 @@ function receiveDialogue(message){
     return;
   }
   clearTimeout(dialogueTimer);
-  waitingForReply=false;setDialogueBusy(false);$('#npc-text').textContent=message.ru||'';$('#npc-en').textContent=message.en||'';
-  $('#hints').innerHTML=(message.hints||[]).map(hint=>`<button class="quiet-button" data-hint="${escape(hint.id)}">${escape(hint.ru)}</button>`).join('');
-  $('#hints').querySelectorAll('button').forEach(button=>button.onclick=()=>{if(net.send('npc_hint',{npc:activeNpc,hint:button.dataset.hint})){beginDialogueWait();}});
+  requestId=null;waitingForReply=false;setDialogueBusy(false);$('#npc-text').textContent=message.ru||'';$('#npc-en').textContent=message.en||'';
+  if(!message.error)$('#hints').innerHTML=(message.hints||[]).map(hint=>`<button class="quiet-button" data-hint="${escape(hint.id)}">${escape(hint.ru)}</button>`).join('');
+  $('#hints').querySelectorAll('button').forEach(button=>button.onclick=()=>{if(sendNpc('npc_hint',{npc:activeNpc,hint:button.dataset.hint})){beginDialogueWait();}});
   stopNpcAudio();
-  if(message.audio){
-    const url=new URL(message.audio,location.href);
+  if(typeof message.audio==='string'&&message.audio){
+    let url;try{url=new URL(message.audio,location.href);}catch{return;}
     if(url.origin!==location.origin)return;
     npcAudio=new Audio(url.href);npcAudio.volume=settings.voices;
     gameEvents.emit('voice',{playing:true});
@@ -325,15 +451,23 @@ function openMenu(){
   $('#leave').onclick=logout;
 }
 function closeChat(){chatOpen=false;$('#chat-form').hidden=true;syncInput();}
-function logout(){narrative.stop();gameEvents.emit('logout',{});knownCards.clear();net?.disconnect();connected=false;scene={id:'lobby'};savedPosition=null;localStorage.removeItem('discovery.token');closeModal();closeChat();$('#chat-log').innerHTML='';$('#party').textContent='';login();}
+function logout(){vitals=freshVitals();itemUses={};money=0;itemCooldowns.clear();sceneProgress=null;renderSceneProgress();closeModal();equipItem(null);narrative.stop();gameEvents.emit('logout',{});knownCards.clear();net?.disconnect();connected=false;scene={id:'lobby'};savedPosition=null;localStorage.removeItem('discovery.token');closeModal();closeChat();$('#chat-log').innerHTML='';$('#party').textContent='';login();}
 function interact(){
   if(!currentTarget||modal||!connected)return;
+  if(sceneProgress?.phase==='departing'){notify('Готовимся к переходу.');return;}
   const {id,kind}=currentTarget;
   if(kind==='npc'){openDialogue(id);net.send('interact',{id});return;}
   net.send(kind==='pickup'||kind==='item'?'pickup':'interact',{id});
 }
 
 root.innerHTML=shellView();
+setInterval(renderSceneProgress,250);
+// Layout follows actual wrapped text height instead of guessed fixed offsets.
+if(typeof ResizeObserver!=='undefined'){
+  new ResizeObserver(entries=>{document.documentElement.style.setProperty('--hud-dock-height',`${entries[0].contentRect.height}px`);}).observe($('#hud-dock'));
+  new ResizeObserver(entries=>{document.documentElement.style.setProperty('--quest-height',`${entries[0].contentRect.height}px`);}).observe($('#quest'));
+  new ResizeObserver(entries=>{document.documentElement.style.setProperty('--scene-progress-height',`${entries[0].contentRect.height}px`);}).observe($('#scene-progress'));
+}
 if(!preview)new WorldAudio(gameEvents);
 if(!preview)new WorldConnection({
   events:gameEvents,send:sendGameMessage,attach:attachWorld,canvas,
@@ -343,7 +477,7 @@ if(!preview)new WorldConnection({
     $('#world-status').hidden=status==='ready';
   },
 });
-$('#menu-button').onclick=openMenu;$('#inventory-button').onclick=openInventory;
+$('#menu-button').onclick=openMenu;$('#inventory-button').onclick=openInventory;$('#journal-button').onclick=openJournal;
 $('#chat-form').onsubmit=event=>{event.preventDefault();const input=$('#chat-form input'),text=input.value.trim();if(text){net.send('chat',{text});input.value='';}closeChat();};
 $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick=()=>{
   if(!net?.mock)return;
@@ -353,7 +487,7 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
   if(type==='astrolabe')openAstrolabe();
   if(type==='quest')net.emit('quest',{id:'q_astrolabe',title:'Определить широту',step:'Измерьте высоту Солнца.',status:'active',progress:0,total:1});
 });
-canvas.addEventListener('click',()=>{if(screen==='game'&&!modal&&!chatOpen&&connected)runtime?.controller.lock();});
+canvas.addEventListener('click',()=>{unlockItemAudio();if(screen==='game'&&!modal&&!chatOpen&&connected){if(runtime?.controller.hasControl)useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
@@ -361,6 +495,8 @@ window.addEventListener('keydown',event=>{
   if(typing)return;
   if(event.code==='F3'){event.preventDefault();$('#debug').hidden=!$('#debug').hidden;if(!runtime)$('#debug').textContent='Мир не подключён';return;}
   if(event.code==='Tab'){event.preventDefault();if(modal==='inventory')closeModal();else if(!modal)openInventory();return;}
+  if(event.code==='KeyJ'&&!event.repeat){event.preventDefault();if(modal==='journal')closeModal();else if(!modal)openJournal();return;}
+  if(/^Digit[1-9]$/.test(event.code)&&!modal&&!chatOpen){const id=inventory[Number(event.code.slice(5))-1];if(id)equipItem(itemId(id));return;}
   if(event.code==='Enter'&&!modal){event.preventDefault();chatOpen=true;$('#chat-form').hidden=false;syncInput();$('#chat-form input').focus();return;}
   if(event.code==='KeyE'&&!event.repeat){if(modal==='knowledge')closeModal();else if(modal==='dialogue'&&$('#next-line'))nextScriptLine();else if(!modal)interact();}
 });

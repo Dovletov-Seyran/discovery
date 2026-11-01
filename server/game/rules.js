@@ -1,5 +1,7 @@
 // Действия игрока в мире: подбор, взаимодействие, передача предметов, мини-игры, торговля, «Бу!», разговор с NPC.
 // Сервер решает всё сам; клиент присылает только намерения.
+import {applyItemUse,advanceStamina} from './item-actions.js';
+import {ITEM_RULES} from '../../shared/item-actions.js';
 import { CONFIG } from '../../shared/config.js';
 import { S2C } from '../../shared/protocol.js';
 import { loadContent } from '../content.js';
@@ -14,7 +16,7 @@ const ASTROLABE_ANSWER = 33; // 90 − 73 + 16
 
 const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
 const sceneId = () => director.scene().id;
-const playable = () => director.acceptsMove();
+const playable = () => director.acceptsMove() && !director.isTransitioning();
 
 function event(p, ev) {
   const boatScene = !!director.scene().readyAt;
@@ -44,6 +46,7 @@ function removeItem(p, item) {
   const i = p.inventory.indexOf(item);
   if (i < 0) return false;
   p.inventory.splice(i, 1);
+  if(!p.inventory.includes(item)&&p.itemUses)delete p.itemUses[item];
   return true;
 }
 
@@ -77,14 +80,26 @@ function deliver(p, item, target) {
 }
 
 export function use(p, msg) {
-  const item = msg.item;
-  if (!playable() || typeof item !== 'string' || !p.inventory.includes(item)) return;
-  if (msg.target) {
-    if (!deliver(p, item, msg.target)) notice(p, 'Это здесь не нужно');
-    return;
+  const item=msg.item,rule=ITEM_RULES[item];
+  if(!playable()||typeof item!=='string'||!p.inventory.includes(item))return;
+  if(msg.target){
+    if(rule?.target!==msg.target)return notice(p,'Этот предмет здесь не нужен.');
+    if(!entities.isNear(p,msg.target))return notice(p,'Подойди ближе.');
+    return interact(p,{id:msg.target});
   }
-  if (item === 'wine') event(p, { type: 'interact', target: 'wine_barrel' }); // глоток из бурдюка = выпить с командой
-  event(p, { type: 'use', item });
+  const result=applyItemUse(p,item);
+  if(result.error)return notice(p,result.error);
+  players.send(p,{t:S2C.ITEM_USED,...result});
+  players.sendInventory(p);players.save(p,{now:true});
+  if(item==='wine'||item==='rum')event(p,{type:'interact',target:'wine_barrel'});
+  event(p,{type:'use',item});
+}
+export function tickVitals(now=Date.now()){
+  for(const p of players.connected()){
+    const before=JSON.stringify(p.vitals);
+    advanceStamina(p,(now-(p.lastVitalsAt??now))/1000,now);p.lastVitalsAt=now;
+    if(JSON.stringify(p.vitals)!==before){players.send(p,{t:S2C.VITALS,...p.vitals,serverNow:now});players.save(p);}
+  }
 }
 
 // --- Взаимодействие (E) ---
@@ -110,6 +125,7 @@ export function interact(p, msg) {
     case 'well':
       if (!p.inventory.includes('barrel')) return notice(p, 'Нужен пустой бочонок');
       p.inventory[p.inventory.indexOf('barrel')] = 'barrel_full';
+      p.itemUses??={};p.itemUses.barrel_full=3;
       players.sendInventory(p);
       players.save(p, { now: true });
       break;
@@ -144,7 +160,7 @@ export function minigame(p, msg) {
   let success = msg.result?.success === true;
   if (msg.game === 'astrolabe') {
     if (!p.inventory.includes('astrolabe')) return notice(p, 'Нужна астролябия');
-    success = Number(msg.result?.answer) === ASTROLABE_ANSWER;
+    success = Number(msg.result?.answer) === ASTROLABE_ANSWER && Number.isFinite(msg.result?.angle) && Math.abs(msg.result.angle - 73) <= 2;
     if (!success) notice(p, 'Неверно. Широта = 90° − высота Солнца + склонение');
   }
   event(p, { type: 'minigame', game: msg.game, success });
@@ -157,44 +173,75 @@ export function context(p) {
     role: p.role, name: p.name, scene: sceneId(), inventory: p.inventory,
     questsDone: Object.keys(p.quests).filter((id) => p.quests[id]?.status === 'done'), log: p.log,
     // для ИИ: подсказка по текущему шагу задания и кто ещё в экипаже
-    quests: p.quests, party: players.party().map((x) => ({ name: x.name, role: x.role })),
+    quests: { ...p.quests, ...Object.fromEntries(Object.entries(entities.shared()).map(([id,state])=>[id,{...state,shared:true}])) }, party: players.party().map((x) => ({ name: x.name, role: x.role })),
   };
 }
 
+// Разговор живёт, пока окно открыто. Потерянная вкладка не держит всю команду навсегда.
+export function dialogue(p, msg) {
+  if (msg.active === false) {
+    if (p.dialogue?.id === msg.dialogueId) { p.dialogue = null; p.npcRequest = null; }
+    return;
+  }
+  if (!playable() || director.isTransitioning() || !NPCS.has(msg.npc) || !entities.isNear(p, msg.npc, 3)) return;
+  if (typeof msg.dialogueId !== 'string' || msg.dialogueId.length > 80) return;
+  p.dialogue = { id: msg.dialogueId, npc: msg.npc, until: Date.now() + 30000 };
+}
+
+function replyError(p, npc, req, text) {
+  players.send(p, { t: S2C.NPC_SAY, npc, requestId: req.requestId, dialogueId: req.dialogueId,
+    error: true, ru: text, en: '', hints: [], audio: null });
+}
+
 async function askAi(p, npc, req) {
-  players.send(p, { t: S2C.NPC_THINKING, npc });
+  const token = {}, started = director.startAt(), socket = p.ws;
+  p.npcRequest = token;
+  const tags = { npc, requestId: req.requestId, dialogueId: req.dialogueId };
+  const current = () => p.npcRequest === token && p.connected && p.ws === socket && director.startAt() === started
+    && (!req.dialogueId || p.dialogue?.id === req.dialogueId);
+  players.send(p, { t: S2C.NPC_THINKING, ...tags });
+  let timer;
   try {
-    const res = await ai.talk({ userId: p.id, npc, context: context(p), ...req });
-    players.send(p, { t: S2C.NPC_SAY, npc, en: res.en, ru: res.ru, audio: res.audio ?? null, hints: res.hints ?? [] });
+    const {requestId, dialogueId, ...payload} = req;
+    const res = await Promise.race([
+      ai.talk({ userId: p.id, npc, context: context(p), ...payload }),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('NPC timeout')), 45000); }),
+    ]);
+    if (!current()) return null;
+    players.send(p, { t: S2C.NPC_SAY, ...tags, en: res.en, ru: res.ru, audio: res.audio ?? null, hints: res.hints ?? [] });
     return res;
   } catch (e) {
-    console.error('[ai] talk', e);
-    players.send(p, { t: S2C.NPC_SAY, npc, en: '...', ru: '…', audio: null, hints: [] });
+    console.error('[ai] talk', e.message);
+    if (current()) replyError(p, npc, req, 'Не удалось расслышать. Спроси ещё раз.');
     return null;
-  }
+  } finally { clearTimeout(timer); if (p.npcRequest === token) p.npcRequest = null; }
 }
 
-// На LLM говорят только Колумб, Старый Хуан и Торговец; остальные NPC — готовые реплики на клиенте
 async function npcRequest(p, npc, req) {
   if (typeof npc !== 'string' || NPCS.get(npc)?.type !== 'llm' || !playable()) return;
-  if (entities.def(npc)?.zone !== p.zone) return;
+  if (director.isTransitioning() || !entities.isNear(p, npc, 3)) return replyError(p, npc, req, 'Подойди ближе к собеседнику.');
+  if (req.dialogueId && (p.dialogue?.id !== req.dialogueId || p.dialogue.npc !== npc)) return replyError(p, npc, req, 'Открой разговор заново.');
   const now = Date.now();
-  if (now - p.lastNpcTalkAt < CONFIG.NPC_TALK_COOLDOWN_MS) return;
+  if (p.npcRequest || now - p.lastNpcTalkAt < CONFIG.NPC_TALK_COOLDOWN_MS) return replyError(p, npc, req, 'Подожди немного и повтори вопрос.');
   p.lastNpcTalkAt = now;
+  const started = director.startAt();
   const res = await askAi(p, npc, req);
-  if (!res) return;
+  if (!res || started !== director.startAt()) return;
   event(p, { type: 'talk', npc });
-  if (res.topicsTold?.length) event(p, { type: 'topics', npc, topics: res.topicsTold });
+  const topics=res.topicsDiscussed??res.topicsTold??[];
+  if (topics.length) event(p, { type: 'topics', npc, topics });
 }
 
+const requestTags = (msg) => ({
+  requestId: typeof msg.requestId === 'string' ? msg.requestId.slice(0, 80) : undefined,
+  dialogueId: typeof msg.dialogueId === 'string' ? msg.dialogueId.slice(0, 80) : undefined,
+});
 export function npcTalk(p, msg) {
-  // Пустой текст — игрок подошёл (E): агент здоровается с учётом прошлых разговоров
   const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, CONFIG.CHAT_MAX_LEN) : '';
-  return npcRequest(p, msg.npc, { text });
+  return npcRequest(p, msg.npc, { text, ...requestTags(msg) });
 }
-
 export function npcHint(p, msg) {
-  if (typeof msg.hint === 'string' && msg.hint) return npcRequest(p, msg.npc, { hintId: msg.hint });
+  if (typeof msg.hint === 'string' && msg.hint) return npcRequest(p, msg.npc, { hintId: msg.hint, ...requestTags(msg) });
 }
 
 // --- Торговля ---
@@ -206,7 +253,7 @@ function tradeState(p, npc) {
     t: S2C.TRADE_STATE, npc, money: p.money,
     goods: goods.map((g) => {
       const t = p.trade[`${npc}:${g.item}`];
-      return { item: g.item, price: t?.price ?? g.basePrice, sold: !!t?.sold };
+      return { item: g.item, price: t?.price ?? g.basePrice, sold: !!t?.sold||p.inventory.includes(g.item) };
     }),
   };
 }
@@ -215,16 +262,23 @@ export async function trade(p, msg) {
   const npc = msg.npc;
   const good = NPCS.get(npc)?.goods?.find((g) => g.item === msg.item);
   if (!good || !playable()) return;
+  if (msg.dialogueId && (p.dialogue?.id !== msg.dialogueId || p.dialogue.npc !== npc)) return replyError(p,npc,requestTags(msg),'Открой разговор заново.');
+  if (p.npcRequest) return replyError(p, npc, requestTags(msg), 'Дождись ответа торговца.');
   if (!entities.isNear(p, npc, 2)) return notice(p, 'Подойди к торговцу');
   const now = Date.now();
-  if (now - p.lastTradeAt < CONFIG.TRADE_COOLDOWN_MS) return;
+  if (now - p.lastTradeAt < CONFIG.TRADE_COOLDOWN_MS) return replyError(p,npc,requestTags(msg),'Подожди немного.');
   const offer = Math.round(Number(msg.offer));
-  if (!Number.isFinite(offer) || offer <= 0 || offer > 10000) return;
+  if (!Number.isFinite(offer) || offer <= 0 || offer > 10000) return replyError(p,npc,requestTags(msg),'Укажи цену от 1 до 10000.');
   p.lastTradeAt = now;
 
   const t = (p.trade[`${npc}:${good.item}`] ??= { price: good.basePrice, low: 0, sold: false });
-  if (t.sold) return notice(p, 'Это уже куплено');
+  if (t.sold||p.inventory.includes(good.item)) return replyError(p,npc,requestTags(msg),'Это уже куплено');
 
+  const task=quests.stateOf(p,sceneId(),'q_trade');
+  if(task&&task.status!=='done'&&offer>=good.minPrice&&offer<=p.money){
+    const reserve=NPCS.get(npc).goods.filter(g=>g.item!==good.item&&!p.inventory.includes(g.item)&&!p.trade[`${npc}:${g.item}`]?.sold).reduce((sum,g)=>sum+g.minPrice,0);
+    if(p.money-offer<reserve)return replyError(p,npc,requestTags(msg),`Оставь деньги на остальные припасы. За этот товар — не больше ${p.money-reserve} м.`);
+  }
   let outcome;
   if (offer > p.money) {
     outcome = 'no_money';
@@ -251,7 +305,7 @@ export async function trade(p, msg) {
     event(p, { type: 'trade_complete', item: good.item });
   }
   p.lastNpcTalkAt = now;
-  await askAi(p, npc, { text: '', tradeResult: { item: good.item, offer, outcome, price: t.price } });
+  await askAi(p, npc, { ...requestTags(msg), text: '', tradeResult: { item: good.item, offer, outcome, price: t.price } });
 }
 
 // --- «Бу!» (только night_story) ---

@@ -1,3 +1,4 @@
+import {ITEM_RULES,freshVitals} from '../../../shared/item-actions.js';
 import {Events} from './socket.js';
 
 // UI fixtures only. No map, models, NPC behavior or local game server.
@@ -22,6 +23,7 @@ export class MockClient extends Events {
       this.ready=payload.value;this.lobby();
       if(this.ready)this.emit('scene',{id:'ship_day',type:'play',zone:'ship',startAt:Date.now()});
     }
+    if(type==='use'&&this.items.includes(payload.item)){const r=ITEM_RULES[payload.item];if(r)this.emit('item_used',{item:payload.item,effect:r.effect,cooldownUntil:Date.now()+r.cooldown,serverNow:Date.now(),vitals:freshVitals(),money:100});}
     if(type==='chat')this.emit('chat',{from:'preview',name:this.name,text:payload.text});
     if(type==='pickup'&&payload.id==='astrolabe'&&!this.items.length){this.items=['astrolabe'];this.emit('inventory',{items:this.items});}
     if(type==='minigame'&&payload.game==='astrolabe')this.emit('quest',{id:'q_astrolabe',title:'Определить широту',status:'done',progress:1,total:1});

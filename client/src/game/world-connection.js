@@ -29,6 +29,7 @@ export class WorldConnection {
       // Остров и другие зоны — через менеджер чанков мира (кеш ≤ 10%); корабль — раскладкой ниже
       if(message.zone!=='ship'){this.world.chunks?.receive?.(message.zone,message.key,message.data);return;}
       if(message.key!=='0,0')return;
+      this.world.chunks?.setStaticData?.('ship-layout',new TextEncoder().encode(JSON.stringify(message.data)).length);
       const layout=layoutForWorld(message.data);
       this.world.loadLayout(layout);
       this.hourglasses.clear();
@@ -107,10 +108,11 @@ export class WorldConnection {
       // Пока идёт интро, канвас рисует оно само (world.frame вызывать нельзя)
       if(this.introPlaying){this.previous=null;this.frameId=requestAnimationFrame(loop);return;}
       const dt=this.previous===null||this.previous===undefined?0:Math.min((ms-this.previous)/1000,0.05);
-      this.previous=ms;this.gameplay.update(dt,ms/1000);
+      this.previous=ms;
       if(this.scene?.zone&&this.scene.zone!=='ship')this.world.chunks?.update?.(this.world.camera.position,dt);
+      this.gameplay.update(dt,ms/1000);
       for(const [id,clock] of this.hourglasses)this.world.setEntityState?.(id,{fill:Math.min(1,Math.max(0,(clock.emptyAt-Date.now())/(clock.period*1000)))});
-      this.world.frame(dt);this.frameId=requestAnimationFrame(loop);
+      this.world.frame(dt);this.gameplay.renderOverlay?.();this.frameId=requestAnimationFrame(loop);
     };
     this.frameId=requestAnimationFrame(loop);
   }

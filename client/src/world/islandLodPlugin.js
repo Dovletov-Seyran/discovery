@@ -1,7 +1,7 @@
 // Vite plugin (runs in Node at dev/build time): `import lod from 'virtual:island-lod'` gives the client a coarse
 // summary of La Gomera for the far view — heights every 8 m, the trees and the buildings. It is computed from the
 // server's own generator, so it always matches the real chunks; the generator itself never reaches the browser.
-// Size: 65×65 heights + a few hundred objects ≈ 2% of the full chunk data, the chunk rule (≤10% cached) still holds.
+// The summary is part of the 10% budget: export its UTF-8 size so Chunks reserves space before loading nearby chunks.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -31,7 +31,9 @@ export default function islandLod() {
           else if (o.id) buildings.push({ m: o.m, p: o.p, r: o.r ?? 0 });
         }
       }
-      return `export default ${JSON.stringify({ size: layout.size, step: STEP, res, h, trees, buildings })};`;
+      const data={size:layout.size,step:STEP,res,h,trees,buildings};
+      data.byteLength=Buffer.byteLength(JSON.stringify(data),'utf8')+64;
+      return `export default ${JSON.stringify(data)};`;
     },
   };
 }
