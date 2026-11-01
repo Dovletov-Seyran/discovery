@@ -1,5 +1,6 @@
 // Игровая логика: вход/выход игрока, обработчики сообщений, циклы.
 import { statSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { CONFIG } from '../../shared/config.js';
 import { C2S, S2C, ANIMS, CLOSE } from '../../shared/protocol.js';
 import { worldMeta, resetProgress } from '../db.js';
@@ -11,11 +12,13 @@ import {place,throwItem,toggle,syncWorld,tickObjects} from './objects.js';
 import * as rules from './rules.js';
 import * as worldState from './world-state.js';
 import * as ai from './ai-bridge.js';
+import {tickNpcBrain,resetNpcBrain} from './npc-brain.js';
 import { onChunkReq, onChunkDrop } from '../world/chunks.js';
 
 director.setHooks({
   onSceneStart: (scene, party) => {
     rules.onSceneStart(scene, party);
+    resetNpcBrain();
     worldState.onSceneStart(scene);
     ai.onSceneStart(scene, director.startAt());
   },
@@ -37,7 +40,7 @@ const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
 // Номер сборки клиента (время сборки client/dist). Вкладка, открытая до перезапуска сервера с новой
 // сборкой, переподключается со старым кодом — по несовпадению build клиент перезагружает страницу.
 const BUILD = (() => {
-  try { return String(Math.round(statSync(new URL('../../client/dist/index.html', import.meta.url)).mtimeMs)); } catch { return 'dev'; }
+  try { return String(Math.round(statSync(process.env.CLIENT_DIST ? resolve(process.env.CLIENT_DIST,'index.html') : new URL('../../client/dist/index.html', import.meta.url)).mtimeMs)); } catch { return 'dev'; }
 })();
 
 const isVec3 = (v) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
@@ -105,9 +108,9 @@ export function leave(p, ws) {
   if (p.ws !== ws) return; // это старая вкладка, игрок уже переподключился
   p.dialogue = null;
   p.npcRequest = null;
+  p.connected = false;
   rules.syncNpcDialogues();
   p.ws = null;
-  p.connected = false;
   p.disconnectedAt = Date.now(); // готовность сохраняем: 60 с игрок остаётся в партии
   players.save(p, { now: true });
   players.broadcast({ t: S2C.PLAYER_LEAVE, ...players.publicInfo(p) });
@@ -268,7 +271,8 @@ export function start() {
   director.init();
   const timers = [
     setInterval(sendSnapshots, 1000 / CONFIG.TICK_HZ),
-    setInterval(() => director.tick(), 250),
+    setInterval(() => {director.tick();rules.syncNpcDialogues();}, 250),
+    setInterval(() => {tickNpcBrain().catch(error=>console.error('[npc-ai]',error.message));}, 1000),
     setInterval(() => director.broadcastTod(), CONFIG.TOD_INTERVAL_MS),
     setInterval(() => players.saveAll(), CONFIG.SAVE_INTERVAL_MS),
     setInterval(()=>rules.tickVitals(),1000),

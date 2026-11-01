@@ -1,0 +1,1044 @@
+{
+  "columbus": {
+    "profession": "Admiral: inspect navigation and visit crew",
+    "scenes": {
+      "ship_day": {
+        "nodes": [
+          [
+            2.55,
+            1.95,
+            5.75
+          ],
+          [
+            2.3,
+            1.95,
+            8.7
+          ],
+          [
+            2.35,
+            1.95,
+            6.45
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            0
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "watch",
+            "title": "Watch the fleet",
+            "node": 0,
+            "pose": "admiral",
+            "r": 0.25,
+            "seat": false
+          },
+          {
+            "id": "chart",
+            "title": "Study the chart",
+            "node": 1,
+            "pose": "chart",
+            "r": 1.5708,
+            "seat": false
+          },
+          {
+            "id": "compass",
+            "title": "Check the compass",
+            "node": 2,
+            "pose": "compass",
+            "r": 1.5708,
+            "seat": false
+          }
+        ]
+      },
+      "ship_evening": {
+        "nodes": [
+          [
+            2.55,
+            1.95,
+            5.75
+          ],
+          [
+            0.1,
+            1.95,
+            5.85
+          ],
+          [
+            -2.35,
+            1.95,
+            5.65
+          ],
+          [
+            -2.35,
+            1.95,
+            4.85
+          ],
+          [
+            -2.35,
+            0,
+            2.25
+          ],
+          [
+            -1.65,
+            0,
+            1.6
+          ],
+          [
+            -1.65,
+            0,
+            0.5
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            1,
+            0
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "stern",
+            "title": "Watch from the stern",
+            "node": 0,
+            "pose": "admiral",
+            "r": 0.25,
+            "seat": false
+          },
+          {
+            "id": "crew",
+            "title": "Visit and greet the crew",
+            "node": 6,
+            "pose": "greet",
+            "r": -1.57,
+            "seat": false
+          },
+          {
+            "id": "ladder",
+            "title": "Inspect the lower deck",
+            "node": 5,
+            "pose": "admiral",
+            "r": 0,
+            "seat": false
+          }
+        ]
+      }
+    }
+  },
+  "boatswain": {
+    "profession": "Boatswain: inspect deck, direct sailors and check rigging",
+    "scenes": {
+      "ship_day": {
+        "nodes": [
+          [
+            1.3,
+            0,
+            -1.1
+          ],
+          [
+            1.7,
+            0,
+            1
+          ],
+          [
+            1.6,
+            0,
+            3.9
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "orders",
+            "title": "Direct deck work",
+            "node": 0,
+            "pose": "akimbo",
+            "r": -2.84,
+            "seat": false
+          },
+          {
+            "id": "inspect",
+            "title": "Inspect the deck",
+            "node": 1,
+            "pose": "stand",
+            "r": 1.57,
+            "seat": false
+          },
+          {
+            "id": "check",
+            "title": "Check the aft watch",
+            "node": 2,
+            "pose": "akimbo",
+            "r": 0,
+            "seat": false
+          }
+        ]
+      },
+      "ship_evening": {
+        "nodes": [
+          [
+            -3.05,
+            0,
+            0
+          ],
+          [
+            -3.05,
+            0,
+            1.2
+          ],
+          [
+            -2.75,
+            0,
+            1.2
+          ],
+          [
+            -2.75,
+            0,
+            0
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            0
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "port",
+            "title": "Watch along port rail",
+            "node": 0,
+            "pose": "akimbo",
+            "r": -1.57,
+            "seat": false
+          },
+          {
+            "id": "aft",
+            "title": "Inspect aft rail",
+            "node": 1,
+            "pose": "stand",
+            "r": 0,
+            "seat": false
+          },
+          {
+            "id": "rest",
+            "title": "Rest between rounds",
+            "node": 2,
+            "pose": "stand",
+            "r": -1.57,
+            "seat": false
+          }
+        ]
+      }
+    }
+  },
+  "cook": {
+    "profession": "Cook: tend the galley and carry food",
+    "scenes": {
+      "ship_day": {
+        "nodes": [
+          [
+            1.4,
+            0,
+            -5.75
+          ],
+          [
+            2.45,
+            0,
+            -5.7
+          ],
+          [
+            2.65,
+            0,
+            -4.8
+          ],
+          [
+            2.7,
+            0,
+            -3.6
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "cook",
+            "title": "Stir the pot at the galley",
+            "node": 0,
+            "pose": "stir",
+            "r": 0,
+            "seat": false
+          },
+          {
+            "id": "prepare",
+            "title": "Prepare the next serving",
+            "node": 1,
+            "pose": "serve",
+            "r": 1.57,
+            "seat": false
+          },
+          {
+            "id": "serve",
+            "title": "Carry food to the crew",
+            "node": 3,
+            "pose": "serve",
+            "r": 1.57,
+            "seat": false
+          }
+        ]
+      },
+      "ship_evening": {
+        "nodes": [
+          [
+            2.45,
+            0,
+            -5.7
+          ],
+          [
+            2.65,
+            0,
+            -4.8
+          ],
+          [
+            2.7,
+            0,
+            -3.6
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "prepare",
+            "title": "Fetch food from the galley",
+            "node": 0,
+            "pose": "serve",
+            "r": 1.57,
+            "seat": false
+          },
+          {
+            "id": "serve",
+            "title": "Offer food to the crew",
+            "node": 2,
+            "pose": "serve",
+            "r": 1.57,
+            "seat": false
+          },
+          {
+            "id": "pause",
+            "title": "Pause with the tray",
+            "node": 1,
+            "pose": "serve",
+            "r": 1.57,
+            "seat": false
+          }
+        ]
+      }
+    }
+  },
+  "sailor_1": {
+    "profession": "Sailor: mend ropes, inspect rigging, rest after watch",
+    "scenes": {
+      "ship_day": {
+        "nodes": [
+          [
+            -1.0,
+            0,
+            -2.5
+          ],
+          [
+            -1.4,
+            0,
+            -1.6
+          ],
+          [
+            -1.65,
+            0,
+            -0.9
+          ],
+          [
+            -1.8,
+            0,
+            0.5
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "mend",
+            "title": "Kneel to mend a rope",
+            "node": 0,
+            "pose": "kneel",
+            "r": 1.89,
+            "seat": false
+          },
+          {
+            "id": "inspect",
+            "title": "Inspect a line",
+            "node": 1,
+            "pose": "stand",
+            "r": 1.57,
+            "seat": false
+          },
+          {
+            "id": "rigging",
+            "title": "Check deck rigging",
+            "node": 3,
+            "pose": "haul",
+            "r": 1.57,
+            "seat": false
+          }
+        ]
+      },
+      "ship_evening": {
+        "nodes": [
+          [
+            0.8,
+            0,
+            -2.2
+          ],
+          [
+            1.5,
+            0,
+            -3
+          ],
+          [
+            1,
+            0,
+            -3.7
+          ],
+          [
+            0.6,
+            0,
+            -2.9
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            0
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "dance",
+            "title": "Dance with the crew",
+            "node": 0,
+            "pose": "dance",
+            "r": 1.57,
+            "seat": false
+          },
+          {
+            "id": "toast",
+            "title": "Raise a cup to the crew",
+            "node": 1,
+            "pose": "toast",
+            "r": 1.57,
+            "seat": false
+          },
+          {
+            "id": "rest",
+            "title": "Rest after dancing",
+            "node": 2,
+            "pose": "stand",
+            "r": 0,
+            "seat": false
+          }
+        ]
+      }
+    }
+  },
+  "sailor_2": {
+    "profession": "Sailor: haul lines, check rail and join the evening gathering",
+    "scenes": {
+      "ship_day": {
+        "nodes": [
+          [
+            -2.75,
+            0,
+            1.0
+          ],
+          [
+            -3.05,
+            0,
+            0
+          ],
+          [
+            -2.1,
+            0,
+            -1.1
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "haul",
+            "title": "Haul a working line",
+            "node": 0,
+            "pose": "haul",
+            "r": -1.69,
+            "seat": false
+          },
+          {
+            "id": "inspect",
+            "title": "Inspect the port side",
+            "node": 1,
+            "pose": "stand",
+            "r": -1.57,
+            "seat": false
+          },
+          {
+            "id": "rest",
+            "title": "Rest between hauling",
+            "node": 2,
+            "pose": "stand",
+            "r": 0,
+            "seat": false
+          }
+        ]
+      },
+      "ship_evening": {
+        "nodes": [
+          [
+            -0.9,
+            0,
+            -1.6
+          ],
+          [
+            -0.75,
+            0,
+            -2.2
+          ],
+          [
+            -0.75,
+            0,
+            -3.5
+          ],
+          [
+            -0.75,
+            0,
+            -4.1
+          ],
+          [
+            -0.75,
+            0,
+            -5.3
+          ],
+          [
+            -1.75,
+            0,
+            -5.3
+          ],
+          [
+            -1.75,
+            0,
+            -5.65
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "dance",
+            "title": "Join the dance",
+            "node": 0,
+            "pose": "dance",
+            "r": -1.57,
+            "seat": false
+          },
+          {
+            "id": "company",
+            "title": "Listen to the crew",
+            "node": 3,
+            "pose": "greet",
+            "r": 0,
+            "seat": false
+          },
+          {
+            "id": "wine",
+            "title": "Raise a cup near the wine",
+            "node": 6,
+            "pose": "toast",
+            "r": 1.57,
+            "seat": false
+          }
+        ]
+      }
+    }
+  },
+  "sailor_3": {
+    "profession": "Lookout: scan sea from the forecastle, then rest and join the crew",
+    "scenes": {
+      "ship_day": {
+        "nodes": [
+          [
+            1.3,
+            1.6,
+            -9.2
+          ],
+          [
+            0,
+            1.6,
+            -10
+          ],
+          [
+            -1.1,
+            1.6,
+            -9.7
+          ],
+          [
+            0.7,
+            1.6,
+            -10.3
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "starboard",
+            "title": "Scan starboard horizon",
+            "node": 0,
+            "pose": "stand",
+            "r": -1.57,
+            "seat": false
+          },
+          {
+            "id": "port",
+            "title": "Scan port horizon",
+            "node": 2,
+            "pose": "stand",
+            "r": 1.57,
+            "seat": false
+          },
+          {
+            "id": "bow",
+            "title": "Watch straight ahead",
+            "node": 3,
+            "pose": "stand",
+            "r": 0,
+            "seat": false
+          }
+        ]
+      },
+      "ship_evening": {
+        "nodes": [
+          [
+            -1.75,
+            0,
+            -5.65
+          ],
+          [
+            -1.75,
+            0,
+            -5.3
+          ],
+          [
+            -0.75,
+            0,
+            -5.3
+          ],
+          [
+            -0.75,
+            0,
+            -4.1
+          ],
+          [
+            -0.75,
+            0,
+            -3.5
+          ],
+          [
+            -0.75,
+            0,
+            -2.2
+          ],
+          [
+            -0.9,
+            0,
+            -1.6
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "toast",
+            "title": "Rest by the wine barrel",
+            "node": 0,
+            "pose": "toast",
+            "r": 1.57,
+            "seat": false
+          },
+          {
+            "id": "company",
+            "title": "Join the gathering",
+            "node": 3,
+            "pose": "greet",
+            "r": 0,
+            "seat": false
+          },
+          {
+            "id": "dance",
+            "title": "Join the dance",
+            "node": 6,
+            "pose": "dance",
+            "r": -1.57,
+            "seat": false
+          }
+        ]
+      }
+    }
+  },
+  "storyteller": {
+    "profession": "Old sailor: rest, tell stories and keep the crew company",
+    "scenes": {
+      "ship_day": {
+        "nodes": [
+          [
+            -2.55,
+            0.2,
+            -3.6
+          ]
+        ],
+        "edges": [],
+        "jobs": [
+          {
+            "id": "rest",
+            "title": "Rest on the barrel",
+            "node": 0,
+            "pose": "sit",
+            "r": -1.57,
+            "seat": false
+          },
+          {
+            "id": "tale",
+            "title": "Tell a tale to nearby sailors",
+            "node": 0,
+            "pose": "tell",
+            "r": -1.57,
+            "seat": false
+          },
+          {
+            "id": "cup",
+            "title": "Rest with a cup",
+            "node": 0,
+            "pose": "seated_toast",
+            "r": -1.57,
+            "seat": false
+          }
+        ]
+      },
+      "ship_evening": {
+        "nodes": [
+          [
+            1.7,
+            0,
+            0.8
+          ],
+          [
+            1.7,
+            0,
+            1.7
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "company",
+            "title": "Keep the musician company",
+            "node": 0,
+            "pose": "toast",
+            "r": 1.57,
+            "seat": false
+          },
+          {
+            "id": "tale",
+            "title": "Sit and tell a short tale",
+            "node": 0,
+            "pose": "tell",
+            "r": 1.57,
+            "seat": true
+          },
+          {
+            "id": "stroll",
+            "title": "Take a short stroll",
+            "node": 1,
+            "pose": "stand",
+            "r": 0,
+            "seat": false
+          }
+        ]
+      }
+    }
+  },
+  "musician": {
+    "profession": "Sailor musician: play guitar, rest, and move between safe playing spots",
+    "scenes": {
+      "ship_day": {
+        "nodes": [
+          [
+            -1.4,
+            0,
+            -3.4
+          ]
+        ],
+        "edges": [],
+        "jobs": [
+          {
+            "id": "play",
+            "title": "Play the guitar",
+            "node": 0,
+            "pose": "guitar",
+            "r": -1.04,
+            "seat": false
+          },
+          {
+            "id": "tune",
+            "title": "Tune the guitar quietly",
+            "node": 0,
+            "pose": "tune",
+            "r": -1.04,
+            "seat": false
+          },
+          {
+            "id": "rest",
+            "title": "Rest with the guitar",
+            "node": 0,
+            "pose": "tune",
+            "r": -1.04,
+            "seat": false
+          }
+        ]
+      },
+      "ship_evening": {
+        "nodes": [
+          [
+            0.15,
+            0,
+            0.25
+          ],
+          [
+            -0.6,
+            0,
+            0.25
+          ],
+          [
+            -1.1,
+            0,
+            -0.4
+          ]
+        ],
+        "edges": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "jobs": [
+          {
+            "id": "center",
+            "title": "Play for the gathering",
+            "node": 0,
+            "pose": "guitar",
+            "r": 0,
+            "seat": true
+          },
+          {
+            "id": "port",
+            "title": "Play from another safe spot",
+            "node": 2,
+            "pose": "guitar",
+            "r": -1.57,
+            "seat": true
+          },
+          {
+            "id": "tune",
+            "title": "Pause to tune the instrument",
+            "node": 1,
+            "pose": "tune",
+            "r": 0,
+            "seat": true
+          }
+        ]
+      }
+    }
+  }
+}

@@ -14,6 +14,7 @@ import * as quests from './quests.js';
 import * as ai from './ai-bridge.js';
 
 const NPCS = new Map(loadContent('npcs.json', []).map((n) => [n.id, n]));
+const ROUTINES = loadContent('npc-routines.json', {});
 const ASTROLABE_ANSWER = 33; // 90 − 73 + 16
 
 const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
@@ -124,6 +125,7 @@ export function interact(p, msg) {
   if (d.kind === 'item') return pickup(p, msg);
   if (d.kind === 'toggle') return toggle(p,msg);
   if (!entities.isNear(p, id)) return notice(p, 'Подойди ближе');
+  if (d.kind === 'npc' && npcOwner(id) && npcOwner(id) !== p) return claimNpc(p, id);
 
   switch (d.kind) {
     case 'hourglass': {
@@ -181,8 +183,12 @@ export function minigame(p, msg) {
 
 // --- Разговор с NPC ---
 
-export function context(p) {
+export function context(p, npc) {
+  const behavior = entities.stateOf(npc)?.behavior;
+  const job = behavior?.scene === `${sceneId()}@${director.startAt()}`
+    ? ROUTINES[npc]?.scenes?.[sceneId()]?.jobs.find(j => j.id === behavior.job) : null;
   return {
+    ...(job ? { activity: job.title } : {}),
     role: p.role, name: p.name, scene: sceneId(), inventory: p.inventory,
     questsDone: Object.keys(p.quests).filter((id) => p.quests[id]?.status === 'done'), log: p.log,
     // для ИИ: подсказка по текущему шагу задания и кто ещё в экипаже
@@ -197,20 +203,42 @@ export function syncNpcDialogues(now = Date.now()) {
   }
 }
 
+export function npcOwner(npc, now = Date.now()) {
+  return players.connected().find(other => other.dialogue?.npc === npc
+    && other.scene === `${sceneId()}@${director.startAt()}`
+    && (other.dialogue.until > now || !!other.npcRequest));
+}
+
+function claimNpc(p, npc, req = {}) {
+  const owner = npcOwner(npc);
+  if (owner && owner !== p) {
+    replyError(p, npc, req, `Сейчас разговаривает с ${owner.name}. Подожди, пока они закончат.`, { busy: true });
+    return false;
+  }
+  if (p.dialogue?.npc !== npc || p.dialogue.until <= Date.now()) {
+    p.npcRequest = null;
+    p.dialogue = { id: req.dialogueId ?? `auto:${p.id}:${npc}`, npc, until: Date.now() + 30000 };
+  }
+  syncNpcDialogues();
+  return true;
+}
+
 export function dialogue(p, msg) {
   if (msg.active === false) {
     if (p.dialogue?.id === msg.dialogueId) { p.dialogue = null; p.npcRequest = null; syncNpcDialogues(); }
     return;
   }
-  if (!playable() || director.isTransitioning() || !NPCS.has(msg.npc) || !entities.isNear(p, msg.npc, 3)) return;
-  if (typeof msg.dialogueId !== 'string' || msg.dialogueId.length > 80) return;
+  if (!playable() || !NPCS.has(msg.npc) || !entities.isNear(p, msg.npc, 3)) return;
+  if (typeof msg.dialogueId !== 'string' || !msg.dialogueId || msg.dialogueId.length > 80) return;
+  if (!claimNpc(p, msg.npc, msg)) return;
+  if(p.dialogue?.id!==msg.dialogueId)p.npcRequest=null;
   p.dialogue = { id: msg.dialogueId, npc: msg.npc, until: Date.now() + 30000 };
   syncNpcDialogues();
 }
 
-function replyError(p, npc, req, text) {
+function replyError(p, npc, req, text, extra = {}) {
   players.send(p, { t: S2C.NPC_SAY, npc, requestId: req.requestId, dialogueId: req.dialogueId,
-    error: true, ru: text, en: '', hints: [], audio: null });
+    error: true, ru: text, en: '', hints: [], audio: null, ...extra });
 }
 
 async function askAi(p, npc, req) {
@@ -224,7 +252,7 @@ async function askAi(p, npc, req) {
   try {
     const {requestId, dialogueId, ...payload} = req;
     const res = await Promise.race([
-      ai.talk({ userId: p.id, npc, context: context(p), ...payload }),
+      ai.talk({ userId: p.id, npc, context: context(p, npc), isCurrent: current, ...payload }),
       new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('NPC timeout')), 45000); }),
     ]);
     if (!current()) return null;
@@ -234,15 +262,17 @@ async function askAi(p, npc, req) {
     console.error('[ai] talk', e.message);
     if (current()) replyError(p, npc, req, 'Не удалось расслышать. Спроси ещё раз.');
     return null;
-  } finally { clearTimeout(timer); if (p.npcRequest === token) p.npcRequest = null; }
+  } finally { clearTimeout(timer); if (p.npcRequest === token) p.npcRequest = null; syncNpcDialogues(); }
 }
 
 async function npcRequest(p, npc, req) {
   if (typeof npc !== 'string' || NPCS.get(npc)?.type !== 'llm' || !playable()) return;
   if (director.isTransitioning() || !entities.isNear(p, npc, 3)) return replyError(p, npc, req, 'Подойди ближе к собеседнику.');
+  if (npcOwner(npc) && npcOwner(npc) !== p) return claimNpc(p, npc, req);
   if (req.dialogueId && (p.dialogue?.id !== req.dialogueId || p.dialogue.npc !== npc)) return replyError(p, npc, req, 'Открой разговор заново.');
   const now = Date.now();
   if (p.npcRequest || now - p.lastNpcTalkAt < CONFIG.NPC_TALK_COOLDOWN_MS) return replyError(p, npc, req, 'Подожди немного и повтори вопрос.');
+  if (!claimNpc(p, npc, req)) return;
   p.lastNpcTalkAt = now;
   const started = director.startAt();
   const res = await askAi(p, npc, req);
@@ -282,6 +312,7 @@ export async function trade(p, msg) {
   const npc = msg.npc;
   const good = NPCS.get(npc)?.goods?.find((g) => g.item === msg.item);
   if (!good || !playable()) return;
+  if (npcOwner(npc) && npcOwner(npc) !== p) return claimNpc(p, npc, requestTags(msg));
   if (msg.dialogueId && (p.dialogue?.id !== msg.dialogueId || p.dialogue.npc !== npc)) return replyError(p,npc,requestTags(msg),'Открой разговор заново.');
   if (p.npcRequest) return replyError(p, npc, requestTags(msg), 'Дождись ответа торговца.');
   if (!entities.isNear(p, npc, 2)) return notice(p, 'Подойди к торговцу');
@@ -289,6 +320,7 @@ export async function trade(p, msg) {
   if (now - p.lastTradeAt < CONFIG.TRADE_COOLDOWN_MS) return replyError(p,npc,requestTags(msg),'Подожди немного.');
   const offer = Math.round(Number(msg.offer));
   if (!Number.isFinite(offer) || offer <= 0 || offer > 10000) return replyError(p,npc,requestTags(msg),'Укажи цену от 1 до 10000.');
+  if (!claimNpc(p, npc, requestTags(msg))) return;
   p.lastTradeAt = now;
 
   const t = (p.trade[`${npc}:${good.item}`] ??= { price: good.basePrice, low: 0, sold: false });

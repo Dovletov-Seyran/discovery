@@ -43,7 +43,7 @@ const OPENER = '(The player comes up to you.)';
  * @param {{userId, npc, text?, hintId?, context?, tradeResult?}} req
  * @returns {Promise<{en, ru, audio, hints, topicsTold, timings}>}
  */
-export async function talk({ userId, npc, text = '', hintId, context = {}, tradeResult }) {
+export async function talk({ userId, npc, text = '', hintId, context = {}, tradeResult, isCurrent = () => true }) {
   const t0 = performance.now();
   const agent = getAgent(npc);
   const mem = loadMemory(userId, npc);
@@ -142,6 +142,7 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   // Разрешённое действие выполняется вместе с ответом: мир меняется, когда агент отдаёт приказ
   let action = null;
   if (intent.kind === 'action') {
+    if (!isCurrent()) intent.verdict = {ok:false,reason:'cancelled'};
     const done = intent.verdict.ok ? perform(agent, intent.action) : null;
     action = { id: intent.action.id, ok: !!intent.verdict.ok && done?.ok !== false, reason: intent.verdict.reason ?? null };
   }
