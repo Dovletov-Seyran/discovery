@@ -40,7 +40,7 @@ export class SocketClient extends Events {
 
 // Сообщения мира проходят из сокета через UI в WorldConnection.
 export function forwardGameEvents(client, events) {
-  for (const type of ['chunk','chunk_denied','entity','world_patch','world_event','player_equipment','player_action','scene_progress','scared','inventory','quest','npc_say','trade_state']) {
+  for (const type of ['chunk','chunk_denied','entity','world_patch','world_event','player_equipment','player_action','scene_progress','scared','inventory','quest','npc_say','trade_state','combat','hit']) {
     client.on(type, message => events.emit(type, message));
   }
 }

@@ -356,6 +356,9 @@ export class Fauna {
       case 'scare': // выстрел эспингарды и «Бу!»: разбегаются все в округе
         if (d < 18) { a.mode = 'flee'; a.goal = away(FLYING.has(kind) ? 14 : 8); a.until = now + 3500; }
         break;
+      case 'alarm': // деревня таино подняла тревогу (бой, docs/tz-combat.md): все в деревне разбегаются подальше
+        if (d < 45) { a.mode = 'flee'; a.goal = away(FLYING.has(kind) ? 16 : 14); a.until = now + 8000; }
+        break;
       case 'eat':
         if (BEGS.has(kind) && d < 8) { a.mode = 'beg'; a.target = [ex, ez]; const k = d > 0.01 ? (d - 1.1) / d : 0; a.goal = [a.p[0] + (ex - a.p[0]) * k, a.p[1] + (ez - a.p[1]) * k]; a.until = now + 7000; }
         break;

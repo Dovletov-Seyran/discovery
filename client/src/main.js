@@ -200,6 +200,7 @@ function bindNetwork(client){
     if(added&&!modal&&!knownCards.has(itemId(added))){knownCards.add(itemId(added));openKnowledge(itemId(added));}else if(modal==='inventory')openInventory();
   });
   client.on('vitals',message=>applyVitals(message,message.serverNow));
+  client.on('hit',onHit);
   client.on('item_used',receiveItemUse);
   client.on('player_equipment',message=>{
     if(message.id!==you.id||message.equipmentRev<ownEquipmentRev)return;
@@ -365,8 +366,9 @@ function applyVitals(next,serverNow=Date.now()+serverOffset){
 function renderVitals(){
   const el=$('#vitals');if(!el)return;
   const energy=Math.round(runtime?.controller.stamina??vitals.stamina),left=Math.max(0,Math.ceil((vitals.drunkUntil-Date.now()-serverOffset)/1000));
-  el.hidden=energy>=99&&!left;
-  const html=`<span>Силы <progress max="100" value="${energy}" aria-label="Запас сил"></progress> ${energy}</span>${left?`<span>Опьянение ${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}</span>`:''}`;
+  const hp=Math.round(vitals.hp??100);
+  el.hidden=energy>=99&&!left&&hp>=100;
+  const html=`${hp<100?`<span class="hp">Здоровье <progress max="100" value="${hp}" aria-label="Здоровье"></progress> ${hp}</span>`:''}<span>Силы <progress max="100" value="${energy}" aria-label="Запас сил"></progress> ${energy}</span>${left?`<span>Опьянение ${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}</span>`:''}`;
   if(el.innerHTML!==html)el.innerHTML=html;
 }
 function receiveItemUse(message){
@@ -386,6 +388,23 @@ function openMap(){
   const position=runtime?.controller.position.toArray()||savedPosition||[0,0,0],yaw=runtime?.controller.yaw||0;
   showModal('map',`<section class="menu-panel map-panel">${closeButton()}<h2>Морская карта</h2><canvas id="local-map" width="540" height="380" aria-label="Карта загруженных окрестностей"></canvas><small>Координаты: ${position[0].toFixed(0)}, ${position[2].toFixed(0)} · север наверху</small></section>`);
   drawLocalMap($('#local-map'),world,position,yaw,scene.zone);
+}
+// Бой на Гуанахани (docs/tz-combat.md): ЛКМ по таино или воину — удар. Только когда мышь уже в игре
+// или в руке предмет: первый щелчок, которым захватывают мышь, никого не бьёт.
+const TAINO_TARGETS=new Set(['cacique','elder','villager_1','villager_2','villager_3']);
+function attackTarget(){
+  const t=currentTarget;
+  if(!t||scene.zone!=='guanahani'||!isPlay(scene)||!connected||modal||chatOpen)return null;
+  if(t.kind!=='warrior'&&!TAINO_TARGETS.has(t.id))return null;
+  return document.pointerLockElement===canvas||equipped?t.id:null;
+}
+// Попадание по мне — красная вспышка; оглушили — затемнение, пока сервер переносит на берег
+function onHit(message){
+  if(message.target!==you.id)return;
+  const flash=$('#hurt')??document.body.appendChild(Object.assign(document.createElement('div'),{id:'hurt',className:'hurt'}));
+  flash.classList.remove('show','out');void flash.offsetWidth;flash.classList.add(message.down?'out':'show');
+  if(message.down)flash.textContent='Тебя оглушили';else flash.textContent='';
+  applyVitals({hp:message.hp});
 }
 function useEquipped(){
   if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!isPlay(scene)||sceneProgress?.phase==='departing')return;
@@ -533,7 +552,7 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
   if(type==='astrolabe')openAstrolabe();
   if(type==='quest')net.emit('quest',{id:'q_astrolabe',title:'Определить широту',step:'Измерьте высоту Солнца.',status:'active',progress:0,total:1});
 });
-canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){useEquipped();runtime?.controller.lock();}});
+canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){const target=attackTarget();if(target)net.send('attack',{target});else useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
