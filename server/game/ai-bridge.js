@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { loadContent } from '../content.js';
 import { loadAgentMemory, saveAgentMemory, deleteAgentMemory } from '../db.js';
+import * as world from './world-state.js';
 
 const AI_MODULE = new URL('../ai/index.js', import.meta.url);
 
@@ -20,6 +21,8 @@ if (process.env.AI === '0') {
 
 // Память агентов — в SQLite (agent_memory), а не в JSON-файле модуля ИИ
 impl?.setStore?.({ load: loadAgentMemory, save: saveAgentMemory, reset: deleteAgentMemory });
+// Действия агентов меняют мир игры: проверка «уже сделано», патч и рассылка — в world-state
+impl?.setWorld?.({ isApplied: world.isApplied, apply: world.apply, hasFlag: world.hasFlag, setFlag: world.setFlag });
 
 // Прогрев модели и Kokoro при старте сервера (в фоне)
 export async function initAi() {
@@ -75,8 +78,37 @@ function stubTalk({ npc, text = '', hintId, tradeResult }) {
 
 // → Promise<{ en, ru, audio, hints: [{id, ru}], topicsTold: [] }>
 export async function talk(req) {
+  // Купили товар — с прилавка он исчезает у всех (если торговец его выкладывал)
+  if (req.tradeResult?.outcome === 'sold') {
+    const id = `goods_${req.tradeResult.item}`;
+    if (world.has(id)) world.apply([{ op: 'remove', id }], { source: `${req.npc}:trade` });
+  }
   if (impl?.talk) return impl.talk(req);
   return stubTalk(req);
+}
+
+// --- Действия агентов по расписанию: ночная история Старого Хуана (туман густеет, фонарь тускнеет) ---
+let storyTimers = [];
+export function onSceneStart(scene, startAt = Date.now()) {
+  storyTimers.forEach(clearTimeout);
+  storyTimers = [];
+  if (!impl?.storyPlan || !impl.loadAgents) return;
+  const story = scene.id === 'night_story' ? loadContent('night_story.json', null) : null;
+  const segments = story?.segments ?? [];
+  const agents = [...impl.loadAgents().values()].filter((a) => a.actions?.some((x) => x.at));
+  const plan = impl.storyPlan(agents, {
+    scene: scene.id, segments, durations: segments.map((seg) => playLine(seg.line)?.duration || 0),
+    maxDuration: scene.duration,
+  });
+  for (const { ms, agent, action } of plan) {
+    storyTimers.push(setTimeout(() => world.apply(action.patch ?? [], { source: `${agent.id}:${action.id}` }), Math.max(0, startAt + ms - Date.now())));
+  }
+}
+
+// --- Для админки (вкладка «Агенты») ---
+export const aiModule = () => impl;
+export function metrics() {
+  return impl?.metrics ? impl.metrics() : { queue: { waiting: 0, busy: false }, answers: 0, avgMs: {}, lastAt: null, stub: true };
 }
 
 // → { npc, en, ru, audio, duration? } — готовая реплика из content/lines.json

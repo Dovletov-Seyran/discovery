@@ -6,6 +6,8 @@ const queue = [];
 let busy = false;
 // Транспорт к модели; тесты подменяют его заглушкой (без Ollama)
 let transport = (messages, opts) => request(messages, opts);
+// Для админки: сколько запросов ждёт модель и занята ли она сейчас
+export const queueStats = () => ({ waiting: queue.length, busy });
 export const setTransport = (fn) => { transport = fn ?? ((messages, opts) => request(messages, opts)); };
 
 // format — JSON-схема: Ollama ограничивает ответ этой схемой (structured outputs), модель не может выйти за список вариантов

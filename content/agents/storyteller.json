@@ -182,5 +182,157 @@
     "You lost a front tooth in a tavern fight in Lisbon and still claim you won.",
     "You signed on because the Pinzons sailed and because the pay is good, and because an old man should see one more wonder.",
     "You are superstitious: you touch wood, you never whistle on deck, and you watch the birds for signs."
+  ],
+  "actions": [
+    {
+      "id": "story_calm",
+      "en": "(night story begins: light fog, bright lantern)",
+      "scenes": [
+        "night_story"
+      ],
+      "at": {
+        "segment": 0,
+        "offset": 0
+      },
+      "patch": [
+        {
+          "op": "set",
+          "id": "fog",
+          "kind": "fog",
+          "zone": "ship",
+          "state": {
+            "density": 0.15
+          }
+        },
+        {
+          "op": "set",
+          "id": "lantern",
+          "kind": "lantern",
+          "state": {
+            "brightness": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "story_fog_1",
+      "en": "(the black island: the fog rises)",
+      "scenes": [
+        "night_story"
+      ],
+      "at": {
+        "segment": 2,
+        "offset": 0
+      },
+      "patch": [
+        {
+          "op": "set",
+          "id": "fog",
+          "kind": "fog",
+          "zone": "ship",
+          "state": {
+            "density": 0.35
+          }
+        },
+        {
+          "op": "set",
+          "id": "lantern",
+          "kind": "lantern",
+          "state": {
+            "brightness": 0.85
+          }
+        }
+      ]
+    },
+    {
+      "id": "story_fog_2",
+      "en": "(the beast: fog thickens, lantern dims)",
+      "scenes": [
+        "night_story"
+      ],
+      "at": {
+        "segment": 4,
+        "offset": 0
+      },
+      "patch": [
+        {
+          "op": "set",
+          "id": "fog",
+          "kind": "fog",
+          "zone": "ship",
+          "state": {
+            "density": 0.6
+          }
+        },
+        {
+          "op": "set",
+          "id": "lantern",
+          "kind": "lantern",
+          "state": {
+            "brightness": 0.65
+          }
+        }
+      ]
+    },
+    {
+      "id": "story_fog_3",
+      "en": "(drifting in the fog: densest, lantern barely burns)",
+      "scenes": [
+        "night_story"
+      ],
+      "at": {
+        "segment": 5,
+        "offset": 0
+      },
+      "patch": [
+        {
+          "op": "set",
+          "id": "fog",
+          "kind": "fog",
+          "zone": "ship",
+          "state": {
+            "density": 0.85
+          }
+        },
+        {
+          "op": "set",
+          "id": "lantern",
+          "kind": "lantern",
+          "state": {
+            "brightness": 0.4
+          }
+        }
+      ]
+    },
+    {
+      "id": "story_relief",
+      "en": "(only tales: the fog thins, lantern relit)",
+      "scenes": [
+        "night_story"
+      ],
+      "at": {
+        "segment": 7,
+        "offset": 0
+      },
+      "patch": [
+        {
+          "op": "set",
+          "id": "fog",
+          "kind": "fog",
+          "zone": "ship",
+          "state": {
+            "density": 0.4
+          }
+        },
+        {
+          "op": "set",
+          "id": "lantern",
+          "kind": "lantern",
+          "state": {
+            "brightness": 0.9
+          }
+        }
+      ]
+    }
   ]
 }
