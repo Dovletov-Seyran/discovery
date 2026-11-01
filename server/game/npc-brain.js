@@ -3,7 +3,7 @@ import {Vector3} from 'three';
 import {loadContent} from '../content.js';
 import {chat,queueStats} from '../ai/llm.js';
 import {npcActivity} from '../../shared/npc-activity.js';
-import {npcRoute,routeLength} from '../../shared/npc-navigation.js';
+import {npcRoute,legSeconds} from '../../shared/npc-navigation.js';
 import {shipCollision} from '../world/object-collision.js';
 import * as entities from './entities.js';
 import * as director from './director.js';
@@ -11,8 +11,11 @@ import {players} from './players.js';
 import * as world from './world-state.js';
 
 const routines=loadContent('npc-routines.json',{});
-let busy=false,nextAttempt=0;
-export const resetNpcBrain=()=>{nextAttempt=Date.now()+12000;};
+// Работа выбирается сразу, как только прежняя кончилась; модель спрашиваем не чаще раза в 45 с
+// и только когда она свободна — иначе берём следующую работу из списка, и экипаж не стоит без дела.
+const CHECK_MS=2000,MODEL_MS=45000,WORK_S=55;
+let busy=false,nextAttempt=0,nextModel=0;
+export const resetNpcBrain=()=>{nextAttempt=Date.now()+3000;nextModel=Date.now()+12000;};
 const sceneKey=s=>`${s.id}@${s.startAt}`;
 const clock=(s,paused,now)=>(now-(paused?.scene===sceneKey(s)?paused.offset??0:0)-s.startAt)/1000;
 export function npcPosition(def,scene,now=Date.now()) {
@@ -51,12 +54,31 @@ export function routeIsClear(path, scene, party=[]) {
   return !party.some(p=>p.connected&&p.zone==='ship'&&Math.abs(p.p[1]-target[1])<1&&Math.hypot(p.p[0]-target[0],p.p[2]-target[2])<.9);
 }
 
+// Работа из шагов content/npc-routines.json (job.steps: node, pose, wait, r, carry, hold) → ноги маршрута.
+// Одиночная работа (job.node без steps) — один переход и поза. Только узлы и рёбра раскладки.
+export function planJob(graph, from, job) {
+  const steps=job.steps??[{node:job.node,pose:job.pose,r:job.r,seat:job.seat}];
+  const legs=[];let at=from;
+  const leg=step=>{
+    const path=npcRoute(graph,at,step.node);if(!path)return null;
+    at=path.at(-1);
+    return {path,wait:step.wait??0,pose:step.pose,r:step.r??0,seat:!!step.seat,carry:step.carry??null,hold:step.hold??null};
+  };
+  for(const step of steps){const l=leg(step);if(!l)return null;legs.push(l);}
+  if(steps.length<2)return {legs,loop:null};
+  const back=leg(steps[0]);if(!back)return null;
+  legs.push(back);
+  return {legs,loop:1};
+}
+
 export async function tickNpcBrain(now=Date.now(), choose=chooseNpcJobs) {
-  if(process.env.NPC_AI==='0'||process.env.AI==='0'||busy||now<nextAttempt)return;
+  if(process.env.NPC_AI==='0'||busy||now<nextAttempt)return;
+  nextAttempt=now+CHECK_MS;
   const current=director.scene(),scene={id:current.id,startAt:director.startAt()};
   const party=players.connected();
   if(current.zone!=='ship'||current.type!=='play'||!party.length||director.isTransitioning())return;
-  if(queueStats().busy||queueStats().waiting||party.some(p=>p.npcRequest||p.dialogue?.until>now))return;
+  const modelFree=process.env.AI!=='0'&&now>=nextModel&&!queueStats().busy&&!queueStats().waiting
+    &&!party.some(p=>p.npcRequest||p.dialogue?.until>now);
   const generation=entities.generation(),candidates=[];
   for(const [id,profile]of Object.entries(routines)){
     const graph=profile.scenes[scene.id],def=entities.def(id),state=entities.stateOf(id);
@@ -65,9 +87,12 @@ export async function tickNpcBrain(now=Date.now(), choose=chooseNpcJobs) {
     candidates.push({id,profession:profile.profession,jobs:graph.jobs,previous:state?.behavior?.job,graph,def});
   }
   if(!candidates.length)return;
-  busy=true;nextAttempt=now+45000;
+  busy=true;
   let choices={},source='routine';
-  try{choices=await choose(candidates,scene);source='llm';}catch(error){console.warn('[npc-ai]',error.message);}
+  if(modelFree){
+    nextModel=now+MODEL_MS;
+    try{choices=await choose(candidates,scene);source='llm';}catch(error){console.warn('[npc-ai]',error.message);}
+  }
   try{
     const appliedAt=Date.now();
     if(director.scene().id!==scene.id||director.startAt()!==scene.startAt||generation!==entities.generation())return;
@@ -77,17 +102,23 @@ export async function tickNpcBrain(now=Date.now(), choose=chooseNpcJobs) {
       if(state?.paused?.at!=null||players.connected().some(p=>p.dialogue?.npc===c.id&&p.dialogue.until>appliedAt))continue;
       const current=npcPosition(c.def,scene,appliedAt),old=state?.behavior?.job;
       const suggested=c.jobs.find(j=>j.id===choices?.[c.id]);
-      // Невалидный выбор модели не превращается в координаты; безопасный вариант — из того же списка.
-      const options=[...(suggested&&suggested.id!==old?[suggested]:[]),...c.jobs.filter(j=>j.id!==old&&j!==suggested),...(suggested?[suggested]:[])];
+      // Невалидный выбор модели не превращается в координаты; безопасный вариант — из того же списка:
+      // следующая по кругу работа после прежней, чтобы занятия чередовались и без модели.
+      const after=c.jobs.findIndex(j=>j.id===old)+1,turn=[...c.jobs.slice(after),...c.jobs.slice(0,after)];
+      const options=[...(suggested&&suggested.id!==old?[suggested]:[]),...turn.filter(j=>j.id!==old&&j!==suggested),...turn.filter(j=>j.id===old)];
+      const others=entities.allDefs().filter(d=>d.kind==='npc'&&d.zone==='ship'&&d.id!==c.id).map(d=>npcPosition(d,scene,appliedAt).p);
       for(const job of options){
-        const path=npcRoute(c.graph,current.p,job.node);if(!path)continue;
-        const target=path.at(-1);
-        const occupied=reserved.some(p=>Math.hypot(p[0]-target[0],p[2]-target[2])<.8&&Math.abs(p[1]-target[1])<1)
-          ||entities.allDefs().some(d=>d.kind==='npc'&&d.zone==='ship'&&d.id!==c.id&&Math.abs(npcPosition(d,scene,appliedAt).p[1]-target[1])<1&&Math.hypot(npcPosition(d,scene,appliedAt).p[0]-target[0],npcPosition(d,scene,appliedAt).p[2]-target[2])<.7);
-        if(occupied||!routeIsClear(path,scene,players.connected()))continue;
-        const start=clock(scene,state?.paused,appliedAt)+.2;
-        const behavior={scene:sceneKey(scene),job:job.id,path,start,until:start+routeLength(path)/.55+35+(c.id.length%4)*6,pose:job.pose,r:job.r,seat:job.seat,source:job===suggested?source:'routine'};
-        const patch=entities.setState(c.id,{behavior});players.broadcast({t:'entity',id:c.id,state:patch});reserved.push(target);break;
+        const plan=planJob(c.graph,current.p,job);if(!plan)continue;
+        const spots=plan.legs.map(l=>l.path.at(-1));
+        const near=(a,b,r)=>Math.abs(a[1]-b[1])<1&&Math.hypot(a[0]-b[0],a[2]-b[2])<r;
+        const occupied=spots.some(s=>reserved.some(p=>near(p,s,.8))||others.some(p=>near(p,s,.7)));
+        if(occupied||!plan.legs.every(l=>routeIsClear(l.path,scene,players.connected())))continue;
+        const start=clock(scene,state?.paused,appliedAt)+.2,times=plan.legs.map(legSeconds);
+        const once=times.reduce((a,b)=>a+b,0),cycle=plan.loop==null?0:times.slice(plan.loop).reduce((a,b)=>a+b,0);
+        // одна работа — около минуты: целое число кругов, чтобы следующая начиналась с её первого места
+        const until=start+(cycle?once+cycle*Math.max(0,Math.ceil((WORK_S-once)/cycle)):once+35+(c.id.length%4)*6);
+        const behavior={scene:sceneKey(scene),job:job.id,...plan,start,until,pose:job.pose??job.steps?.[0]?.pose,r:job.r??plan.legs.at(-1).r,seat:!!job.seat,source:job===suggested?source:'routine'};
+        const patch=entities.setState(c.id,{behavior});players.broadcast({t:'entity',id:c.id,state:patch});reserved.push(...spots);break;
       }
     }
   }finally{busy=false;}
