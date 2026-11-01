@@ -22,6 +22,8 @@ export const C2S = {
   READY: 'ready',           // { value: true/false }
   SKIP_VOTE: 'skip_vote',   // —
   SCARE: 'scare',           // { target }
+  PING: 'ping',             // { ts } — раз в 2 с; сервер сразу отвечает pong, клиент считает задержку
+  CLIENT_STATS: 'client_stats', // { fps, ping, calls, chunks, pct, mem } — раз в 2 с, для админки
 };
 
 // Сервер → Клиент
@@ -54,6 +56,8 @@ export const S2C = {
   NOTICE: 'notice',             // { text }
   POS_CORRECT: 'pos_correct',   // { p, r } — сервер отклонил move (слишком быстро), вернуть игрока сюда
   TRADE_STATE: 'trade_state',   // { npc, money, goods: [{item, price, sold}] } — при E у торговца и после каждого trade
+  PONG: 'pong',                 // { ts, serverNow } — ответ на ping, ts — тот, что прислал клиент
+  WORLD_EVENT: 'world_event',   // { type: talk/eat/drink/run/swing/scare/dance, who, p } — для реагирующих NPC
 };
 
 // Коды закрытия WebSocket
@@ -61,6 +65,7 @@ export const CLOSE = {
   AUTH_FAIL: 4001,  // не авторизован — переподключаться без нового входа бессмысленно
   REPLACED: 4002,   // вошли с другой вкладки — НЕ переподключаться автоматически
   FULL: 4003,       // экипаж собран (CONFIG.MAX_PLAYERS) — НЕ переподключаться автоматически
+  KICKED: 4004,     // отключил администратор (/admin) — НЕ переподключаться автоматически
 };
 
 export const ROLES = ['grumete', 'piloto', 'lengua'];

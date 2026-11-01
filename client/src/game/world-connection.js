@@ -40,6 +40,7 @@ export class WorldConnection {
       const layout=layoutForWorld(message.data);
       this.world.loadLayout(layout);
       for(const entry of layout.interactables)if(entry.state)this.applyEntity(entry.id,entry.state);
+      for(const npc of layout.npcs||[])if(npc.state)this.applyEntity(npc.id,npc.state);
       this.world.objects?.loaded();
       this.onStatus('ready');
     });

@@ -5,8 +5,7 @@
 //   GET  /api/admin/agents/:id/memory?user=      — память агента об игроке (id или логин)
 //   POST /api/admin/agents/:id/memory/reset      — { user } — забыть игрока
 //   GET  /api/admin/ai                           — очередь к модели и средние времена ответа
-// Доступ — только с ADMIN_TOKEN.
-import { timingSafeEqual } from 'node:crypto';
+// Подключение — registerAgentRoutes(route) в server/admin/index.js: доступ, HTTPS и токен решает каркас Тамерлана.
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { AI } from '../ai/config.js';
@@ -16,16 +15,6 @@ import { loadAgentMemory, deleteAgentMemory, getUserById, getUserByLogin } from 
 import { loadContent } from '../content.js';
 import { players } from '../game/players.js';
 import * as ai from '../game/ai-bridge.js';
-
-// Проверка токена — в одном месте; когда появится server/admin/auth.js Тамерлана, заменить на него
-export function authorized(req, token = process.env.ADMIN_TOKEN) {
-  if (!token) return false;
-  const m = /^Bearer\s+(.+)$/i.exec(req.headers?.authorization ?? '');
-  if (!m) return false;
-  const a = Buffer.from(m[1].trim());
-  const b = Buffer.from(token);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 const SCENES = new Set(loadContent('scenes.json', []).map((s) => s.id));
 const ID = /^[a-z][a-z0-9_]{0,40}$/;
@@ -112,92 +101,57 @@ function memoryOf(userId, agentId) {
 }
 
 const fileOf = (id) => join(AI.AGENTS_DIR, `${id}.json`);
-const agentIds = () => [...loadAgents().keys()];
+const known = (id) => ID.test(id) && existsSync(fileOf(id));
+const notFound = (id) => ({ status: 404, body: { error: 'not_found', message: `Нет агента ${id}` } });
+const userParam = (req) => new URL(req.url, 'http://x').searchParams.get('user');
+const noUser = { status: 400, body: { error: 'bad_user', message: 'Укажи игрока: user=<id или логин>' } };
 
-// → true, если путь обработан
-export async function handle(req, res, path, { sendJson, readJson }) {
-  if (path !== '/api/admin/ai' && path !== '/api/admin/agents' && !path.startsWith('/api/admin/agents/')) return false;
-  if (!authorized(req)) {
-    sendJson(res, 401, { error: 'unauthorized', message: process.env.ADMIN_TOKEN ? 'Нужен заголовок Authorization: Bearer <ADMIN_TOKEN>' : 'Админка выключена: сервер запущен без ADMIN_TOKEN' });
-    return true;
-  }
-  if (!req.socket?.encrypted) {
-    sendJson(res, 403, { error: 'https_required', message: 'Админка доступна только по HTTPS' });
-    return true;
-  }
-  const url = new URL(req.url, 'http://x');
+export function registerAgentRoutes(route) {
+  route('GET', '/api/admin/ai', () => ai.metrics());
 
-  if (path === '/api/admin/ai' && req.method === 'GET') {
-    sendJson(res, 200, ai.metrics());
-    return true;
-  }
-
-  if (path === '/api/admin/agents' && req.method === 'GET') {
-    const list = agentIds().map((id) => {
+  route('GET', '/api/admin/agents', () => ({
+    agents: [...loadAgents().keys()].map((id) => {
       const a = getAgent(id);
       return { id, name: a.name, cards: a.cards?.length ?? 0, actions: a.actions?.length ?? 0 };
-    });
-    sendJson(res, 200, { agents: list, players: players.all().map((p) => ({ id: p.id, name: p.name, role: p.role, connected: p.connected })), scenes: [...SCENES] });
-    return true;
-  }
+    }),
+    players: players.all().map((p) => ({ id: p.id, name: p.name, role: p.role, connected: p.connected })),
+    scenes: [...SCENES],
+  }));
 
-  const m = /^\/api\/admin\/agents\/([^/]+)(\/memory(\/reset)?)?$/.exec(path);
-  const id = m?.[1];
-  if (!m || !ID.test(id) || !existsSync(fileOf(id))) {
-    sendJson(res, 404, { error: 'not_found', message: `Нет агента ${id ?? ''}` });
-    return true;
-  }
+  route('GET', '/api/admin/agents/:id', ({ params }) => (known(params.id) ? JSON.parse(readFileSync(fileOf(params.id), 'utf8')) : notFound(params.id)));
 
-  // Память агента об игроке
-  if (m[2]) {
-    const isReset = !!m[3];
-    if (isReset ? req.method !== 'POST' : req.method !== 'GET') {
-      sendJson(res, 405, { error: 'method' });
-      return true;
+  // Проверить, записать content/agents/<id>.json, применить без перезапуска
+  route('PUT', '/api/admin/agents/:id', ({ params, body }) => {
+    if (!known(params.id)) return notFound(params.id);
+    let agent;
+    try { agent = JSON.parse(body || ''); } catch {
+      return { status: 400, body: { error: 'bad_json', message: 'Не JSON: проверь запятые и кавычки' } };
     }
-    let q = url.searchParams.get('user');
-    if (isReset && !q) {
-      try { q = (await readJson(req)).user; } catch { q = null; }
-    }
-    const user = findUser(q);
-    if (!user) {
-      sendJson(res, 400, { error: 'bad_user', message: 'Укажи игрока: user=<id или логин>' });
-      return true;
-    }
-    if (isReset) {
-      deleteAgentMemory(user.id, id);
-      sendJson(res, 200, { ok: true, user: { id: user.id, login: user.login } });
-    } else {
-      sendJson(res, 200, { user: { id: user.id, login: user.login }, memory: memoryOf(user.id, id) });
-    }
-    return true;
-  }
-
-  if (req.method === 'GET') {
-    sendJson(res, 200, JSON.parse(readFileSync(fileOf(id), 'utf8')));
-    return true;
-  }
-
-  if (req.method === 'PUT') {
-    let body;
-    try { body = await readJson(req, 256 * 1024); } catch (e) {
-      sendJson(res, e.message === 'too_large' ? 413 : 400, { error: e.message === 'too_large' ? 'too_large' : 'bad_json', message: e.message === 'too_large' ? 'Слишком большой JSON' : 'Не JSON: проверь запятые и кавычки' });
-      return true;
-    }
-    const errors = validateAgent(body, id);
-    if (errors.length) {
-      sendJson(res, 400, { error: 'invalid_agent', message: errors[0], errors });
-      return true;
-    }
-    // Через временный файл: сервер не прочитает наполовину записанный JSON
-    const tmp = `${fileOf(id)}.tmp`;
-    writeFileSync(tmp, `${JSON.stringify(body, null, 2)}\n`);
-    renameSync(tmp, fileOf(id));
+    const errors = validateAgent(agent, params.id);
+    if (errors.length) return { status: 400, body: { error: 'invalid_agent', message: errors[0], errors } };
+    // через временный файл: сервер не прочитает наполовину записанный JSON
+    const tmp = `${fileOf(params.id)}.tmp`;
+    writeFileSync(tmp, `${JSON.stringify(agent, null, 2)}\n`);
+    renameSync(tmp, fileOf(params.id));
     loadAgents();
-    sendJson(res, 200, { ok: true, agent: getAgent(id) });
-    return true;
-  }
+    console.log(`[admin] агент ${params.id} обновлён`);
+    return { ok: true, agent: getAgent(params.id) };
+  });
 
-  sendJson(res, 405, { error: 'method' });
-  return true;
+  route('GET', '/api/admin/agents/:id/memory', ({ req, params }) => {
+    if (!known(params.id)) return notFound(params.id);
+    const user = findUser(userParam(req));
+    if (!user) return noUser;
+    return { user: { id: user.id, login: user.login }, memory: memoryOf(user.id, params.id) };
+  });
+
+  route('POST', '/api/admin/agents/:id/memory/reset', ({ req, params, json }) => {
+    if (!known(params.id)) return notFound(params.id);
+    let q = userParam(req);
+    if (!q) { try { q = json().user; } catch { q = null; } }
+    const user = findUser(q);
+    if (!user) return noUser;
+    deleteAgentMemory(user.id, params.id);
+    return { ok: true, user: { id: user.id, login: user.login } };
+  });
 }

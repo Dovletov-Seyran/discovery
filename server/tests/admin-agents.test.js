@@ -9,6 +9,7 @@ import { join } from 'node:path';
 process.env.DB_FILE = ':memory:';
 process.env.TTS = '0';
 process.env.ADMIN_TOKEN = 'test-admin-token';
+process.env.DEV = '1'; // админка Тамерлана: по http только с этого же компьютера и под DEV
 const { AI } = await import('../ai/config.js');
 const { setTransport } = await import('../ai/llm.js');
 const db = await import('../db.js');
@@ -122,11 +123,12 @@ test('метрики ИИ: очередь и средние времена', asy
 });
 
 
-test('валидный токен по незашифрованному HTTP не открывает админку', async () => {
-  const plain = createHttpServer(handleHttp);
-  await new Promise(resolve => plain.listen(0,'127.0.0.1',resolve));
-  try {
-    const res = await fetch(`http://127.0.0.1:${plain.address().port}/api/admin/agents`,{headers:auth});
-    assert.equal(res.status,403);assert.equal((await res.json()).error,'https_required');
-  } finally { await new Promise(resolve=>plain.close(resolve)); }
+test('валидный токен по незашифрованному HTTP с другого ноутбука не открывает админку', async () => {
+  const { handleAdmin } = await import('../admin/index.js');
+  let status, body;
+  const res = { writeHead: (code) => { status = code; }, end: (json) => { body = JSON.parse(json); } };
+  const req = { method: 'GET', url: '/api/admin/agents', headers: auth, socket: { encrypted: false, remoteAddress: '192.168.1.23' } };
+  await handleAdmin(req, res, '/api/admin/agents');
+  assert.equal(status, 403);
+  assert.equal(body.error, 'https_only');
 });
