@@ -4,7 +4,7 @@ import {drawLocalMap,unlockItemAudio,playShot} from './ui/item-feedback.js';
 import {ITEM_RULES,freshVitals} from '../../shared/item-actions.js';
 import {sceneProgressView} from './ui/scene-progress.js';
 import {Equipment,itemPictures} from './game/equipment.js';
-import {itemIcon,ITEM_ACTIONS} from './ui/item-icons.js';
+import {itemIcon,itemAction} from './ui/item-icons.js';
 import {CONFIG} from '../../shared/config.js';
 import {ASTROLABE,latitude,answers,signed} from '../../shared/astrolabe.js';
 import {SocketClient,Events,forwardGameEvents} from './net/socket.js';
@@ -94,7 +94,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
       const hint=$('#control-hint');
       if(hint){
         hint.hidden=screen!=='game'||!!modal||chatOpen||!connected||!PLAY_SCENES.has(scene.id)||document.pointerLockElement===canvas;
-        const text=runtime.controller.hasControl?'WASD — ходить · зажмите ПКМ — осмотреться · E — действие':'Щёлкните по игре, чтобы управлять';
+        const text=runtime.controller.hasControl?'WASD — ходить · тяните ЛКМ или ПКМ — обзор · клик ЛКМ — предмет · E — действие':'Щёлкните по игре, чтобы управлять';
         if(hint.textContent!==text)hint.textContent=text;
       }
       if(!$('#debug').hidden){
@@ -318,7 +318,7 @@ function equipItem(id,{sync=true}={}){throwMode=false;pendingUnequip=null;equipp
 function renderEquipment(){
   const hud=$('#equipment');if(!hud)return;
   hud.hidden=!equipped||!PLAY_SCENES.has(scene.id);
-  hud.innerHTML=equipped?`<img src="${picture(equipped)}" alt=""><span>${escape(ITEMS[equipped]?.name||equipped)}<small>${escape(throwMode?'Бросить · ЛКМ · F — отменить':`${ITEM_ACTIONS[equipped]||'В руке'} · ЛКМ`)}${itemUses[equipped]!=null?` · ${itemUses[equipped]} ост.`:''}</small><small>G — положить · F — бросок</small></span><output id="instrument"></output>`:'';
+  hud.innerHTML=equipped?`<img src="${picture(equipped)}" alt=""><span>${escape(ITEMS[equipped]?.name||equipped)}<small>${escape(throwMode?'Бросить · ЛКМ · F — отменить':`${itemAction(equipped,scene.zone)||'В руке'} · ЛКМ`)}${itemUses[equipped]!=null?` · ${itemUses[equipped]} ост.`:''}</small><small>G — положить · F — бросок</small></span><output id="instrument"></output>`:'';
 }
 function updateInstrument(){
   const output=$('#instrument');if(!output||!runtime)return;
@@ -336,7 +336,7 @@ function openInventory(){
   showModal('inventory',`<section class="menu-panel inventory-panel">${closeButton()}<h2>Снаряжение</h2><div class="inventory-layout"><div class="inventory-slots">${Array.from({length:Math.max(8,ids.length)},(_,index)=>{
     const id=ids[index];
     return `<button class="inventory-slot ${id===selectedItem?'selected':''}" ${id?`data-item="${escape(id)}" aria-pressed="${id===selectedItem}"`:'disabled aria-label="Пустое место"'}><small>${index+1}</small>${id?`<img src="${picture(id)}" alt=""><span>${escape(ITEMS[id]?.name||id)}</span>`:'<span>—</span>'}</button>`;
-  }).join('')}</div><div class="item-detail">${selectedItem?`<img src="${picture(selectedItem)}" alt=""><h3>${escape(data?.name||selectedItem)}</h3><p>${escape(ITEM_ACTIONS[selectedItem]||'Предмет из припасов')}</p><button id="equip-item" class="primary">${equipped===selectedItem?'Убрать':'Взять в руку'}</button>${data?.text?`<details><summary>О предмете</summary><p>${escape(data.text)}</p></details>`:''}`:'<p>Пока пусто</p>'}</div></div><small>1–9 — выбрать предмет · ЛКМ — использовать</small></section>`);
+  }).join('')}</div><div class="item-detail">${selectedItem?`<img src="${picture(selectedItem)}" alt=""><h3>${escape(data?.name||selectedItem)}</h3><p>${escape(itemAction(selectedItem,scene.zone)||'Предмет из припасов')}</p><button id="equip-item" class="primary">${equipped===selectedItem?'Убрать':'Взять в руку'}</button>${data?.text?`<details><summary>О предмете</summary><p>${escape(data.text)}</p></details>`:''}`:'<p>Пока пусто</p>'}</div></div><small>1–9 — выбрать предмет · ЛКМ — использовать</small></section>`);
   document.querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>{selectedItem=button.dataset.item;openInventory();});
   if($('#equip-item'))$('#equip-item').onclick=()=>{equipItem(equipped===selectedItem?null:selectedItem);closeModal();};
 }
@@ -382,7 +382,7 @@ function useEquipped(){
   if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!PLAY_SCENES.has(scene.id)||sceneProgress?.phase==='departing')return;
   if((itemCooldowns.get(equipped)||0)>Date.now())return;
   if(throwMode){if(world&&net.send('throw',launch(world,equipped))){throwMode=false;renderEquipment();}return;}
-  const target=ITEM_RULES[equipped]?.target===currentTarget?.id?currentTarget.id:undefined;
+  const target=ITEM_RULES[equipped]?.target&&ITEM_RULES[equipped].target===currentTarget?.id?currentTarget.id:undefined;
   net.send('use',{item:equipped,...(target?{target}:{})});
 }
 // Каждый раз другой день пути: своя высота Солнца и склонение (shared/astrolabe.js), ответ проверяет сервер
@@ -523,7 +523,7 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
   if(type==='astrolabe')openAstrolabe();
   if(type==='quest')net.emit('quest',{id:'q_astrolabe',title:'Определить широту',step:'Измерьте высоту Солнца.',status:'active',progress:0,total:1});
 });
-canvas.addEventListener('click',()=>{unlockItemAudio();if(screen==='game'&&!modal&&!chatOpen&&connected){useEquipped();runtime?.controller.lock();}});
+canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);

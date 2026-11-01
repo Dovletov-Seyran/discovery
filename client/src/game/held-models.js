@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {espingarda} from '../world/espingarda.js';
 
 const own=(color,roughness=.5,metalness=0)=>{const m=new THREE.MeshStandardMaterial({color,roughness,metalness});m.userData.equipmentOwned=true;return m;};
 const part=(root,geometry,material,p=[0,0,0],rotation=[0,0,0])=>{
@@ -72,7 +73,7 @@ function rumBottle(){
  for(let i=0;i<3;i++)part(g,new THREE.BoxGeometry(.06-i*.01,.006,.003),cork,[0,.16-i*.018,.072]);
  return {obj:g};
 }
-export const HELD_MODELS={sword,rum:rumBottle,purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit')};
+export const HELD_MODELS={sword,espingarda,rum:rumBottle,purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit')};
 
 export function releaseModel(obj){
   const geometries=new Set(),materials=new Set();

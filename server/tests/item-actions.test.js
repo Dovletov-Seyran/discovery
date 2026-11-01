@@ -43,3 +43,8 @@ test('merchant purchase state persists even after a purchased food has been eate
  applyItemUse(p,'cheese',0);db.savePlayer(id,{...p,role:'lengua',zone:'canary',p:[0,0,0],scene:'shop',quests:{},log:[]},{now:true});
  const saved=db.loadPlayer(id);assert.deepEqual(saved.inventory,[]);assert.equal(saved.trade['trader:cheese'].sold,true);
 });
+test('empty barrel: on the ship there is no well, the hint says water is filled on the Canaries',()=>{
+ const ship=applyItemUse({inventory:['barrel'],zone:'ship'},'barrel'),canary=applyItemUse({inventory:['barrel'],zone:'canary'},'barrel');
+ assert.match(ship.error,/на Канарах/);assert.doesNotMatch(ship.error,/Подойди к колодцу/);
+ assert.match(canary.error,/Подойди к колодцу/);
+});

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { pose, strum } from './people.js';
 import { bake } from './geom.js';
 import { npcActivity, npcScene } from '../../../shared/npc-activity.js';
+import {activePerformance} from '../../../shared/npc-performance.js';
 
 // Merge rigid details within each joint, retaining the articulated skeleton.
 export function prepareNpc(npc) {
@@ -34,7 +35,7 @@ export function prepareNpc(npc) {
       const loaf = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), food);
       loaf.scale.set(1, 0.45, 0.65); loaf.position.set((i % 2 - 0.5) * 0.17, 0.05, (Math.floor(i / 2) - 0.5) * 0.15); tray.add(loaf);
     }
-    tray.position.set(0, 0.12, 0.43); tray.visible = false; rig.torso.add(tray); rig.tray = tray;
+    tray.visible = false; rig.root.add(tray); rig.tray = tray;
   }
   const groups = [];
   rig.root.traverse(o => { if (o.isGroup) { groups.push(o); o.userData.noBake = true; } });
@@ -68,6 +69,7 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
   const { rig, definition, motion } = npc.userData;
   if (!rig || !motion) return;
   const state = npcActivity(definition, seconds, scene, npc.userData.paused, npc.userData.behavior);
+  if(activePerformance(npc.userData.performance,scene,seconds*1000)){state.action='guitar';state.walking=false;}
   const current = npcScene(definition, scene);
   const sceneId = typeof scene === 'string' ? scene : scene?.id;
   if (motion.sceneId !== sceneId) { motion.initialized = false; motion.sceneId = sceneId; }
@@ -199,11 +201,17 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
       rig.torso.rotation.z += Math.sin(t * 0.75) * 0.012;
     } else rig.torso.position.y = 0;
   }
-  if (rig.tray?.visible) for (const arm of rig.arms) {arm.ua.rotation.x=-.8;arm.fa.rotation.x=-.9;}
+  if (rig.tray?.visible) for (const arm of rig.arms) {arm.ua.rotation.x=-.8;arm.ua.rotation.z=-arm.s*.08;arm.fa.rotation.set(-.9,0,0);}
   if (rig.guitar?.visible && !['guitar','tune'].includes(state.action)) strum(rig,t,false);
   const blend = motion.initialized ? 1 - Math.exp(-dt * 9) : 1;
   motion.joints.forEach((j, i) => j.quaternion.slerp(motion.previous[i], 1 - blend));
   rig.hip.position.y = THREE.MathUtils.lerp(motion.hipY, rig.hip.position.y, blend);
+  if(rig.tray?.visible){
+    rig.root.updateMatrixWorld(true);
+    const hands=rig.arms.map(arm=>arm.fa.localToWorld(new THREE.Vector3(0,-.30,0)));
+    rig.tray.position.copy(rig.root.worldToLocal(hands[0].add(hands[1]).multiplyScalar(.5)));
+    rig.tray.position.y+=.025;
+  }
   motion.initialized = true;
   if(ownChart)alignChartToHands(npc);
 }

@@ -1,6 +1,7 @@
 // Звуки мира (Бэк 2): фоны по сценам и эффекты по событиям игры, Web Audio.
 // Файлы — client/public/audio/{amb,sfx}, список и длительности — /audio/sounds-manifest.json
 // (скачивает scripts/fetch-sounds.mjs, авторы — docs/credits-audio.md).
+import {SONGS} from '../../../shared/npc-performance.js';
 // Голоса NPC и рассказчика сюда не входят: их играет Фронт 2, фон под них приглушается.
 
 // Громкость слоёв фона по сценам (0..1). Сцены, которых нет, — тишина.
@@ -69,8 +70,9 @@ export class WorldAudio {
     events.on('quest', (message) => this.onQuest(message));
     events.on('npc_say', (message) => this.cues(LINE_CUES[message.line]));
     events.on('entity', (message) => this.onEntity(message));
+    events.on('chunk',message=>{for(const npc of message.data?.npcs??[])if(npc.id==='musician'&&npc.state&&'performance' in npc.state)this.onPerformance(npc.state.performance);});
     events.on('scared', () => this.play('sfx_scream', { volume: 1 }));
-    events.on('logout', () => { this.setAmbience({}); this.setMusic(null); this.inventory = null; this.doneQuests.clear(); });
+    events.on('logout', () => { clearTimeout(this.performanceEnd);this.performanceKey=null;this.setAmbience({}); this.setMusic(null); this.inventory = null; this.doneQuests.clear(); });
   }
 
   // Контекст создаётся при первом звуке; браузер запустит его после клика (audio_unlock)
@@ -114,6 +116,9 @@ export class WorldAudio {
   }
 
   onScene(scene) {
+    clearTimeout(this.performanceEnd);
+    this.scene=scene;this.performanceKey=null;
+    if(Number.isFinite(scene.progress?.serverNow))this.clockOffset=scene.progress.serverNow-Date.now();
     for (const t of this.timers) clearTimeout(t);
     this.timers.clear();
     this.setAmbience(SCENE_AMBIENCE[scene.id] ?? {});
@@ -124,7 +129,7 @@ export class WorldAudio {
   // Музыка сцены с её начала: вошедший посреди сцены слышит то же место, что и остальные
   async setMusic(music, startAt) {
     const ctx = this.context();
-    if (this.music && this.music.id === music?.id) return;
+    if (this.music && this.music.id === music?.id && this.music.startAt===startAt) return;
     if (this.music) {
       const { src, gain } = this.music;
       gain.gain.cancelScheduledValues(ctx.currentTime);
@@ -133,11 +138,12 @@ export class WorldAudio {
       this.music = null;
     }
     if (!music) return;
-    const current = (this.music = { id: music.id, gain: ctx.createGain(), src: null });
+    const current = (this.music = { id: music.id,startAt, gain: ctx.createGain(), src: null });
     const buffer = await this.buffer(music.id);
     if (this.music !== current || !buffer) return;
-    const offset = (Date.now() - (startAt ?? Date.now())) / 1000;
-    if (offset >= buffer.duration) return;
+    const offset = (Date.now()+(this.clockOffset??0) - (startAt ?? Date.now())) / 1000;
+    const duration=Math.min(buffer.duration,music.duration??buffer.duration);
+    if (offset >= duration) return;
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     // С середины — коротко вводим громкость, с начала — сразу (там тишина и тихий вход)
@@ -146,7 +152,23 @@ export class WorldAudio {
     src.connect(current.gain).connect(this.ambBus);
     if (offset < 0) src.start(ctx.currentTime - offset);
     else src.start(ctx.currentTime, offset);
+    if(music.duration){const end=ctx.currentTime+duration-offset;current.gain.gain.setValueAtTime(music.volume,Math.max(ctx.currentTime,end-1.5));current.gain.gain.linearRampToValueAtTime(0,end);src.stop(end+.02);}
     current.src = src;
+  }
+
+  onPerformance(performance){
+    const scene=this.scene,key=scene&&`${scene.id}@${scene.startAt}`,song=SONGS[performance?.song];
+    const now=Date.now()+(this.clockOffset??0);
+    const valid=song&&performance.scene===key&&performance.until>now;
+    const id=valid?`${performance.scene}:${performance.startAt}:${performance.song}`:null;
+    if(id===this.performanceKey)return;
+    this.performanceKey=id;
+    this.setMusic(valid?{id:song.track,volume:.72,duration:(performance.until-performance.startAt)/1000}:null,performance?.startAt);
+    // While Gil performs, avoid a second copy of the feast accompaniment underneath him.
+    const ambience={...(SCENE_AMBIENCE[scene?.id]??{})};if(valid)delete ambience.amb_feast_folia;
+    this.setAmbience(ambience);
+    clearTimeout(this.performanceEnd);
+    if(valid)this.performanceEnd=setTimeout(()=>{this.performanceKey=null;this.setMusic(null);this.setAmbience(SCENE_AMBIENCE[this.scene?.id]??{});},performance.until-now+30);
   }
 
   // Фон: новые слои плавно входят, лишние уходят, общие меняют громкость
@@ -249,7 +271,9 @@ export class WorldAudio {
   }
 
   // Песочные часы перевёрнуты: сервер сдвинул emptyAt вперёд
-  onEntity({ id, state }) {
+  onEntity({ id, state, serverNow }) {
+    if(Number.isFinite(serverNow))this.clockOffset=serverNow-Date.now();
+    if(id==='musician'&&state&&'performance' in state)this.onPerformance(state.performance);
     if (!state?.emptyAt) return;
     const prev = this.hourglass.get(id);
     this.hourglass.set(id, state.emptyAt);

@@ -57,6 +57,7 @@ export async function understand({ agent, text, turns = [], scene }) {
       '',
       'ACTIONS (field "action"): ONLY if the player clearly asks or orders you to do this right now. A question about these things, small talk or "what should I do" is "none":',
       ...actions.map((a) => `- ${a.id}: ${a.en}`),
+      ...(agent.id==='musician'?['For an unknown or modern named song, kind is unknown and action is none. Choose a performance only for an actual request from the permitted repertoire. A question about songs is not a request to play.']:[]),
     ] : []),
     '',
     'If the message is a short follow-up ("and him?", "why?", "а он?"), use the recent conversation to decide.',
@@ -74,7 +75,8 @@ export async function understand({ agent, text, turns = [], scene }) {
   try {
     const res = await chat([{ role: 'system', content: system }, { role: 'user', content: user }], { format: schema, temperature: 0, maxTokens: 60, priority: 2 });
     const out = JSON.parse(res.text);
-    return { ...normalize(out, { cards, people, keywordCards, keywordPerson, text }), action: pickAction(agent, { modelAction: out.action, text, scene }), agentId: agent.id, ms: res.ms, via: 'llm' };
+    if(agent.id==='musician'&&out.kind==='unknown')return {kind:'unknown',card:null,person:null,action:null,agentId:agent.id,ms:res.ms,via:'llm'};
+    return { ...normalize(out, { cards, people, keywordCards, keywordPerson, text }), action: agent.id==='musician'&&out.kind==='unknown'?null:pickAction(agent, { modelAction: out.action, text, scene }), agentId: agent.id, ms: res.ms, via: 'llm' };
   } catch {
     return { ...fallback({ keywordCards, keywordPerson }), action: pickAction(agent, { text, scene }), agentId: agent.id, ms: 0, via: 'keywords' };
   }

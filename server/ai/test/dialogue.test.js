@@ -106,3 +106,10 @@ test('each interactive character has a usable bounded profile and knows its curr
   assert.ok(agent.rules.length>0);
  }
 });
+
+test('a hungry player talking to the cook gets first-person facts, not directions to another cook',async()=>{
+ const {worldFacts}=await import('../agents.js');const facts=worldFacts({scene:'ship_day'},'cook');
+ assert.match(facts[0],/I am the cook/);assert.doesNotMatch(facts[0],/go to the cook|the cook .*hands out/i);
+ const msgs=buildMessages({agent:getAgent('cook'),context:{scene:'ship_day'},intent:{kind:'need'},mem:{told:[],turns:[]},text:'че пожрать есть?'});
+ assert.match(msgs.at(-2).content,/I am the cook/);assert.match(msgs[0].content,/first person/);
+});

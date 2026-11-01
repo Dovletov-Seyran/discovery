@@ -38,9 +38,10 @@ export function buildMessages({ agent, context = {}, intent, mem, repeat = false
     '',
     `TIME AND PLACE: It is ${k.when ?? '1492'}. You are ${k.where ?? 'on your ship'}. You know only what a person of your time and place could know. ${k.unknown ?? ''}`,
     `RULES: ${agent.rules.join(' ')}`,
+    'SELF: You are the speaker, not a narrator. Speak about your own work in the first person (I, my, me). Never refer to yourself as another person or tell the player to go and ask yourself.',
   ];
   if (agent.self?.length) lines.push('', 'ABOUT YOURSELF (use only what fits the question):', ...agent.self.map((s) => `- ${s}`));
-  if (context.activity) lines.push('', `YOUR CURRENT WORK: ${context.activity}. You have paused this to speak with the player. Describe it naturally if asked; never claim to have completed another task or changed any supplies.`);
+  if (context.activity) lines.push('', `YOUR CURRENT WORK: ${context.activity}. ${context.performing?'You are still playing softly while speaking.':'You have paused this to speak with the player.'} Describe it naturally if asked; never claim to have completed another task or changed any supplies.`);
 
   lines.push(
     '',
@@ -66,7 +67,7 @@ export function buildMessages({ agent, context = {}, intent, mem, repeat = false
   );
 
   // Инструкцию — последней, прямо перед репликой игрока: маленькая модель лучше всего слушает то, что ближе к концу
-  const todo = directive({ agent, intent, repeat, extraCard, steerCard, task, taskTold, tradeResult, returning, mem, text, facts: worldFacts(context) });
+  const todo = directive({ agent, intent, repeat, extraCard, steerCard, task, taskTold, tradeResult, returning, mem, text, facts: worldFacts(context,agent.id) });
   return [
     { role: 'system', content: lines.join('\n') },
     ...mem.turns.slice(-AI.HISTORY).map(({ role: r, content }) => ({ role: r, content })),
@@ -132,6 +133,7 @@ function directive({ intent, repeat, extraCard, steerCard, task, taskTold, trade
 
 // Просьба что-то сделать: решение уже принял код, модель лишь говорит его в образе
 const REFUSAL = {
+  playing: 'You are already playing that tune. Say so naturally; invite them to listen or ask for the other tune.',
   scene: 'It cannot be done here and now. Refuse politely in character and say briefly why.',
   cooldown: 'You gave this very order only a moment ago. Refuse politely in character: not again so soon.',
   done: 'It is already done: look around. Say so politely in character, in a few words.',
