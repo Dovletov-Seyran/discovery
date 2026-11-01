@@ -169,9 +169,9 @@ const DEEDS = {
   q_water: {
     scene: 'ship_evening',
     patch: [
-      { op: 'spawn', id: 'water_barrel_1', kind: 'prop', model: 'barrel', label: 'Бочка с водой с Гомеры', zone: 'ship', p: [-2.45, 0, 2.0], r: 0.2, state: { full: true } },
-      { op: 'spawn', id: 'water_barrel_2', kind: 'prop', model: 'barrel', label: 'Бочка с водой с Гомеры', zone: 'ship', p: [-2.5, 0, 2.75], r: 1.1, state: { full: true } },
-      { op: 'spawn', id: 'water_barrel_3', kind: 'prop', model: 'barrel', label: 'Бочка с водой с Гомеры', zone: 'ship', p: [-1.8, 0, 2.4], r: 2.3, state: { full: true } },
+      { op: 'spawn', id: 'water_barrel_1', kind: 'prop', model: 'barrel', label: 'Бочка с водой с Гомеры', zone: 'ship', p: [3, 0, 0.5], r: 0.2, state: { full: true } },
+      { op: 'spawn', id: 'water_barrel_2', kind: 'prop', model: 'barrel', label: 'Бочка с водой с Гомеры', zone: 'ship', p: [3, 0, 1.3], r: 1.1, state: { full: true } },
+      { op: 'spawn', id: 'water_barrel_3', kind: 'prop', model: 'barrel', label: 'Бочка с водой с Гомеры', zone: 'ship', p: [2.9, 0, 2.1], r: 2.3, state: { full: true } },
     ],
   },
   // Руль «Пинты» починен: Пинта уходит из ремонта

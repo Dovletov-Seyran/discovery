@@ -224,7 +224,7 @@ async function askAi(p, npc, req) {
   try {
     const {requestId, dialogueId, ...payload} = req;
     const res = await Promise.race([
-      ai.talk({ userId: p.id, npc, context: context(p), ...payload }),
+      ai.talk({ userId: p.id, npc, context: context(p), isCurrent: current, ...payload }),
       new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('NPC timeout')), 45000); }),
     ]);
     if (!current()) return null;

@@ -200,7 +200,8 @@ export class Environment {
     this.light.color.copy(p.light); this.light.intensity = p.li;
     this.renderer.toneMappingExposure = p.exp;
     // on the island a light coastal haze; the far side is the coarse island (islandLod.js), not an edge to hide
-    this.scene.fog.color.copy(p.fog); this.scene.fog.density = this.zone === 'canary' ? Math.max(p.fogD, 0.0035) : p.fogD;
+    // fogOverride — туман ночной истории (world_patch, world-patches.js)
+    this.scene.fog.color.copy(p.fog); this.scene.fog.density = this.fogOverride ?? (this.zone === 'canary' ? Math.max(p.fogD, 0.0035) : p.fogD);
     const du = this.dome.material.uniforms;
     du.color.value.copy(p.fog); du.aH.value = p.domeH; du.aT.value = p.domeT;
     this.dome.visible = p.domeH > 0.001;
@@ -260,9 +261,11 @@ export class Environment {
     slackSails(this.sails, slack);
     for (const f of this.fleet) slackSails(f.userData.sails, slack);
     // a cutscene may light them one by one (lampScale per lamp); they stay in the shader meanwhile, no recompiles
+    // lampPatch — фонари, зажжённые или притушенные агентом (world_patch, world-patches.js)
     this.lamps.forEach((l, i) => {
-      const k = this.lampScale ? this.lampScale[i] ?? 1 : 1;
-      l.visible = this.p.lamps > 0.01; l.intensity = this.p.lamps * k * 4 * flick;
+      const k = this.lampScale ? this.lampScale[i] ?? 1 : 1, o = this.lampPatch?.get(l);
+      const on = o?.lit === true ? Math.max(this.p.lamps, 1) : o?.lit === false ? 0 : this.p.lamps;
+      l.visible = on > 0.01; l.intensity = on * k * 4 * flick * (o?.brightness ?? 1);
     });
     this.apply();
   }

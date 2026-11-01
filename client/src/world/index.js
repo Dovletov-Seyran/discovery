@@ -21,6 +21,7 @@ import { Chunks } from './chunks.js';
 import {paths as canaryPaths} from '../../../content/canary_layout.json';
 import { Cutscenes } from './cutscene.js';
 import { prepareNpc, animateNpc, collideNpcs } from './npc-animation.js';
+import { WorldPatches } from './world-patches.js';
 import islandLod from 'virtual:island-lod';
 
 const SMOKE_PUFFS = 8;
@@ -75,6 +76,7 @@ export const world = {
     this.objects = new WorldObjects(this);
     this.players = new Players(this.scene, this.M);
     this.env.mirrorHide.push(this.zoneRoot, this.smoke, this.players.group);
+    this.patches = new WorldPatches(this);
     this.pipeline = new Pipeline(r, this.scene, this.camera);
     this.pipeline.build(quality);
     this.collider = new Collider(this.shipCollider);
@@ -107,6 +109,7 @@ export const world = {
     }
     this.collider = new Collider([...this.shipCollider, ...built.col]);
     this.objects?.loaded();
+    this.patches?.invalidate();
   },
 
   unloadLayout() {
@@ -121,7 +124,9 @@ export const world = {
   // what the player can use right now: the ship's or the island's visible chunks'
   get interactables() { return [...(this.zone === 'ship' ? this.shipInteractables : this.island.interactables),...(this.objects?.selectable??[])]; },
 
-  applyPatch(message) { this.objects?.applyPatch(message); },
+  // world_patch: предметы и декор (сухари, товар, бочки, брошенное игроками) — WorldObjects Санджара;
+  // изменения корабля и неба (паруса, флаг, фонари, туман) — WorldPatches
+  applyPatch(message) { this.objects?.applyPatch(message); this.patches?.apply(message); },
 
   entity(id) {
     return this.shipInteractables.find((o) => o.userData.id === id) ?? this.island.interactables.find((o) => o.userData.id === id) ?? this.objects?.records.get(id)?.obj ?? null;
@@ -144,6 +149,7 @@ export const world = {
   setZone(zone) {
     this.zone = zone;
     this.objects?.setZone(zone);
+    this.patches?.invalidate();
     const ship = zone === 'ship';
     this.ship.visible = ship; this.zoneRoot.visible = ship; this.smoke.visible = ship;
     this.island.group.visible = zone === 'canary';
@@ -187,6 +193,7 @@ export const world = {
     this.cutscene.update?.(dt); // takes the camera while a cutscene runs
     this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
     this.island.refresh();
+    this.patches?.update();
     this.players.update(dt);
     if (this.zone === 'ship') this.updateNpcs(dt);
     this.objects?.update();
