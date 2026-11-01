@@ -204,14 +204,15 @@ if (process.env.ADMIN_TOKEN) {
 } else console.log('  (ADMIN_TOKEN не задан — API админки не проверяем)');
 
 await l.walkTo(...at('columbus'));
-// Пока с Колумбом говорят, он стоит лицом к собеседнику — у всех одинаково (server/game/npc-pause.js)
+// Пока с Колумбом говорят, он стоит лицом к собеседнику — у всех одинаково (entities.syncNpcDialogues;
+// paused: { scene, at, offset — мс, lookAt: [x, y, z] }, shared/npc-activity.js)
 l.send('dialogue', { npc: 'columbus', dialogueId: 'smoke-talk', active: true });
 const stop = await g.wait('entity', (m) => m.id === 'columbus' && m.state.paused?.at, 2000);
-check(!!stop && Math.hypot(stop.state.paused.face[0] - l.pos[0], stop.state.paused.face[1] - l.pos[2]) < 1, 'разговор: Колумб остановился и повернулся к собеседнику — видят все');
+check(!!stop && Math.hypot(stop.state.paused.lookAt[0] - l.pos[0], stop.state.paused.lookAt[2] - l.pos[2]) < 1, 'разговор: Колумб остановился и повернулся к собеседнику — видят все');
 await sleep(400);
 l.send('dialogue', { npc: 'columbus', dialogueId: 'smoke-talk', active: false });
 const go = await g.wait('entity', (m) => m.id === 'columbus' && m.state.paused && m.state.paused.at === null, 2000);
-check(!!go && go.state.paused.offset >= 0.3, `разговор закончен → Колумб идёт дальше с того же места (простоял ${go?.state.paused.offset} с)`);
+check(!!go && go.state.paused.offset >= 300, `разговор закончен → Колумб идёт дальше с того же места (простоял ${go?.state.paused.offset} мс)`);
 l.send('npc_talk', { npc: 'columbus', text: 'Куда мы плывём?' });
 check(!!(await l.wait('npc_thinking')), 'npc_talk → npc_thinking');
 check(!!(await l.wait('npc_say', () => true, AI_MS)), 'npc_talk → npc_say');
