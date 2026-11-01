@@ -8,6 +8,7 @@ import * as director from './director.js';
 import * as entities from './entities.js';
 import * as quests from './quests.js';
 import * as rules from './rules.js';
+import * as npcPause from './npc-pause.js';
 import { onChunkReq, onChunkDrop } from '../world/chunks.js';
 
 director.setHooks({
@@ -170,7 +171,8 @@ const handlers = {
   [C2S.SKIP_VOTE]: (p) => director.onSkipVote(p),
   [C2S.CHUNK_REQ]: (p, msg) => onChunkReq(p, msg, {
     send: (m) => players.send(p, m),
-    entityState: entities.stateOf,
+    // NPC с маршрутом приходят в чанке корабля уже с паузой, если с ними сейчас говорят
+    entityState: (id) => { const state = entities.stateOf(id), paused = npcPause.pauseOf(id); return paused ? { ...state, paused } : state; },
   }),
   [C2S.CHUNK_DROP]: onChunkDrop,
 };
@@ -239,6 +241,7 @@ export function start() {
   const timers = [
     setInterval(sendSnapshots, 1000 / CONFIG.TICK_HZ),
     setInterval(() => director.tick(), 250),
+    setInterval(() => npcPause.update(), 250),
     setInterval(() => director.broadcastTod(), CONFIG.TOD_INTERVAL_MS),
     setInterval(() => players.saveAll(), CONFIG.SAVE_INTERVAL_MS),
     setInterval(()=>rules.tickVitals(),1000),

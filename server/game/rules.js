@@ -3,16 +3,17 @@
 import {applyItemUse,advanceStamina} from './item-actions.js';
 import {ITEM_RULES} from '../../shared/item-actions.js';
 import { CONFIG } from '../../shared/config.js';
+import { ASTROLABE, latitude } from '../../shared/astrolabe.js';
 import { S2C } from '../../shared/protocol.js';
 import { loadContent } from '../content.js';
 import { players } from './players.js';
 import * as director from './director.js';
 import * as entities from './entities.js';
 import * as quests from './quests.js';
+import * as npcPause from './npc-pause.js';
 import * as ai from './ai-bridge.js';
 
 const NPCS = new Map(loadContent('npcs.json', []).map((n) => [n.id, n]));
-const ASTROLABE_ANSWER = 33; // 90 − 73 + 16
 
 const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
 const sceneId = () => director.scene().id;
@@ -160,7 +161,9 @@ export function minigame(p, msg) {
   let success = msg.result?.success === true;
   if (msg.game === 'astrolabe') {
     if (!p.inventory.includes('astrolabe')) return notice(p, 'Нужна астролябия');
-    success = Number(msg.result?.answer) === ASTROLABE_ANSWER && Number.isFinite(msg.result?.angle) && Math.abs(msg.result.angle - 73) <= 2;
+    // вариант (дата, склонение, высота Солнца) выбирает клиент, ответ считаем здесь
+    const v = ASTROLABE.find((x) => x.id === msg.result?.variant), angle = Number(msg.result?.angle);
+    success = !!v && Number(msg.result?.answer) === latitude(v) && Number.isFinite(angle) && Math.abs(angle - v.sun) <= 2;
     if (!success) notice(p, 'Неверно. Широта = 90° − высота Солнца + склонение');
   }
   event(p, { type: 'minigame', game: msg.game, success });
@@ -180,12 +183,13 @@ export function context(p) {
 // Разговор живёт, пока окно открыто. Потерянная вкладка не держит всю команду навсегда.
 export function dialogue(p, msg) {
   if (msg.active === false) {
-    if (p.dialogue?.id === msg.dialogueId) { p.dialogue = null; p.npcRequest = null; }
+    if (p.dialogue?.id === msg.dialogueId) { p.dialogue = null; p.npcRequest = null; npcPause.update(); }
     return;
   }
   if (!playable() || director.isTransitioning() || !NPCS.has(msg.npc) || !entities.isNear(p, msg.npc, 3)) return;
   if (typeof msg.dialogueId !== 'string' || msg.dialogueId.length > 80) return;
   p.dialogue = { id: msg.dialogueId, npc: msg.npc, until: Date.now() + 30000 };
+  npcPause.update();
 }
 
 function replyError(p, npc, req, text) {

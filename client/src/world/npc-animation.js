@@ -22,10 +22,25 @@ export function prepareNpc(npc) {
   };
 }
 
-export function animateNpc(npc, dt, seconds, night = false) {
+// A chart in the hands, shown when he charts at the table but the table's chart was taken by a player.
+// It is part of the NPC, not an item: nothing to pick up.
+export function giveChart(npc, chart) {
+  const rig = npc.userData.rig;
+  if (!rig) return;
+  chart.scale.setScalar(0.62);
+  chart.rotation.x = -0.95; // the drawn side tilted up toward his eyes
+  chart.position.set(0, 0.34, 0.34);
+  chart.visible = false;
+  rig.torso.add(chart);
+  npc.userData.chart = chart;
+}
+
+export function animateNpc(npc, dt, seconds, night = false, chartTaken = false) {
   const { rig, definition, motion } = npc.userData;
   if (!rig || !motion) return;
-  const state = npcActivity(definition, seconds);
+  const state = npcActivity(definition, seconds, npc.userData.pause);
+  const ownChart = state.action === 'chart' && chartTaken && !!npc.userData.chart;
+  if (npc.userData.chart) npc.userData.chart.visible = ownChart;
   npc.position.fromArray(state.p);
   const yaw = state.r + Math.PI;
   const angle = Math.atan2(Math.sin(yaw - npc.rotation.y), Math.cos(yaw - npc.rotation.y));
@@ -40,7 +55,18 @@ export function animateNpc(npc, dt, seconds, night = false) {
   } else {
     switch (state.action) {
       case 'walk': break;
+      case 'talk': // stopped for a player: faces him, nods and gestures now and then
+        rig.head.rotation.set(0.08 + Math.max(0, beat) * 0.05, Math.sin(t * 0.5) * 0.12, 0);
+        rig.arms[1].ua.rotation.x = -0.35 - Math.max(0, Math.sin(t * 0.9)) * 0.35;
+        rig.arms[1].fa.rotation.x = -0.7 - Math.max(0, Math.sin(t * 0.9)) * 0.3;
+        break;
       case 'chart':
+        if (ownChart) { // reads his own chart, held in both hands
+          rig.torso.rotation.x = 0.08;
+          rig.head.rotation.set(0.5 + slow * 0.03, Math.sin(t * 0.4) * 0.12, 0);
+          for (const arm of rig.arms) { arm.ua.rotation.set(-0.85, 0, -arm.s * 0.28); arm.fa.rotation.set(-0.95, 0, 0); }
+          break;
+        }
         rig.torso.rotation.x = 0.38 + slow * 0.025;
         rig.head.rotation.set(0.42, Math.sin(t * 0.4) * 0.18, 0);
         rig.arms[0].ua.rotation.x = -1.15; rig.arms[0].fa.rotation.x = -0.35;

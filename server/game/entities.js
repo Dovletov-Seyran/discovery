@@ -3,6 +3,7 @@ import { npcActivity } from '../../shared/npc-activity.js';
 import { CONFIG } from '../../shared/config.js';
 import { loadContent } from '../content.js';
 import { resolveLayout } from '../world/terrain.js';
+import { pauseOf } from './npc-pause.js';
 
 // id → { id, zone, x, z, kind, item?, period?, ... } — интерактивные объекты и NPC
 const defs = new Map();
@@ -54,6 +55,6 @@ export function reset() {
 export function isNear(p, id, extra = 1) {
   const d = defs.get(id);
   if (!d || d.zone !== p.zone || !p.p) return false;
-  const position = d.zone === 'ship' && d.kind === 'npc' ? npcActivity(d).p : d.p;
+  const position = d.zone === 'ship' && d.kind === 'npc' ? npcActivity(d, Date.now() / 1000, pauseOf(d.id)).p : d.p;
   return Math.hypot(position[0] - p.p[0], position[2] - p.p[2]) <= CONFIG.INTERACT_DIST + extra;
 }

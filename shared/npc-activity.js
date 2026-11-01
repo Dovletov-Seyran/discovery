@@ -1,5 +1,17 @@
 // Pure timeline shared by rendering and server interaction checks. Time is Unix seconds.
-export function npcActivity(npc, seconds = Date.now() / 1000) {
+//
+// pause (from the server, entity state `paused`) — the NPC stops while a player talks to him:
+//   { at, offset, face }  at — the second he stopped (null — walking on), offset — seconds he has stood
+//   in total, so after the talk the route goes on from where he stopped; face — [x, z] of the speaker.
+// While stopped the time is frozen at `at`, so every client shows the same spot without a clock sync.
+export function npcActivity(npc, seconds = Date.now() / 1000, pause = null) {
+  const state = route(npc, (pause?.at ?? seconds) - (pause?.offset ?? 0));
+  if (pause?.at == null) return state;
+  const r = pause.face ? Math.atan2(state.p[0] - pause.face[0], state.p[2] - pause.face[1]) : state.r;
+  return { p: state.p, r, action: 'talk', walking: false };
+}
+
+function route(npc, seconds) {
   const stops = npc.activity;
   if (!stops?.length) return { p: npc.p, r: npc.r ?? 0, action: npc.pose ?? 'stand', walking: false };
   const speed = 0.55;

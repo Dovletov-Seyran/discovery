@@ -186,6 +186,14 @@ g.send('chat', { text: 'Земля!' });
 check(!!(await l.wait('chat', (m) => m.text === 'Земля!' && m.from === g.id)), 'чат доходит до других');
 
 await l.walkTo(...at('columbus'));
+// Пока с Колумбом говорят, он стоит лицом к собеседнику — у всех одинаково (server/game/npc-pause.js)
+l.send('dialogue', { npc: 'columbus', dialogueId: 'smoke-talk', active: true });
+const stop = await g.wait('entity', (m) => m.id === 'columbus' && m.state.paused?.at, 2000);
+check(!!stop && Math.hypot(stop.state.paused.face[0] - l.pos[0], stop.state.paused.face[1] - l.pos[2]) < 1, 'разговор: Колумб остановился и повернулся к собеседнику — видят все');
+await sleep(400);
+l.send('dialogue', { npc: 'columbus', dialogueId: 'smoke-talk', active: false });
+const go = await g.wait('entity', (m) => m.id === 'columbus' && m.state.paused && m.state.paused.at === null, 2000);
+check(!!go && go.state.paused.offset >= 0.3, `разговор закончен → Колумб идёт дальше с того же места (простоял ${go?.state.paused.offset} с)`);
 l.send('npc_talk', { npc: 'columbus', text: 'Куда мы плывём?' });
 check(!!(await l.wait('npc_thinking')), 'npc_talk → npc_thinking');
 check(!!(await l.wait('npc_say', () => true, AI_MS)), 'npc_talk → npc_say');
@@ -257,10 +265,12 @@ check(!!(await g2.wait('inventory',m=>m.items.includes('rum'))),'ром можн
 g2.send('use',{item:'rum'});
 const rumUse=await g2.wait('item_used',m=>m.item==='rum');
 check(!!rumUse&&rumUse.vitals.drunkUntil>rumUse.serverNow&&rumUse.uses===1,'ром: сервер подтвердил опьянение и расход глотка');
-p.send('minigame', { game: 'astrolabe', result: { answer: 17 } });
+p.send('minigame', { game: 'astrolabe', result: { variant: 'gomera', angle: 68, answer: 16 } });
 check(!!(await p.wait('notice', (m) => m.text.includes('Неверно'))), 'астролябия: неверная широта → подсказка');
-p.send('minigame', { game: 'astrolabe', result: { angle: 73, answer: 33 } });
-check(!!(await p.wait('quest', (m) => m.id === 'q_latitude' && m.status === 'done')), 'астролябия: 33° → задание выполнено');
+p.send('minigame', { game: 'astrolabe', result: { variant: 'gomera', angle: 73, answer: 28 } });
+check(!!(await p.wait('notice', (m) => m.text.includes('Неверно'))), 'астролябия: высота Солнца не та, что в варианте → не засчитано');
+p.send('minigame', { game: 'astrolabe', result: { variant: 'gomera', angle: 68, answer: 28 } });
+check(!!(await p.wait('quest', (m) => m.id === 'q_latitude' && m.status === 'done')), 'астролябия: 6 сентября, 68° и склонение +6° → 28°, задание выполнено');
 
 await l.walkTo(...at('columbus'));
 let askMark = l.msgs.length;
@@ -386,6 +396,7 @@ check(!!(await l.wait('scene', (m) => m.id === 'cut_night', CONFIG.TRANSITION_CO
 for (const b of [g3, p, l]) b.clear();
 g3.send('chat', { text: '/scene night_story' });
 const seat = await p.wait('scene', (m) => m.id === 'night_story');
+check(seat?.duration > 60 && seat.duration < 120, `ночной рассказ: сцена длится по озвучке (${seat?.duration} с), сон сразу после последней реплики`);
 check(Array.isArray(seat?.seat), `ночь: место у фонаря ${JSON.stringify(seat?.seat)}`);
 const sitSnap = await p.wait('snapshot', (m) => m.players.some((x) => x.id === g3.id));
 check(sitSnap?.players.every((x) => x.a === 'sit'), 'ночью все сидят (a: sit)');

@@ -2,7 +2,7 @@
 // API as agreed in docs/front-1-world.md, plus:
 //   world.frame(dt)              — update and draw one frame (call from the game loop)
 //   world.loadLayout(layout)     — props, interactables and NPCs of the ship (chunk `ship 0,0`)
-//   world.entity(id) / world.setEntityState(id, { visible, fill })
+//   world.entity(id) / world.setEntityState(id, { visible, fill, paused })
 //   world.applyEntity(id, state) — server `entity` state: { holder } hides an item, { emptyAt } drives the hourglass
 //   world.layout                 — spawn points and night seats from the current layout
 //   world.stats()                — numbers for the F3 overlay
@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import { generateTextures, Materials } from './materials.js';
 import { buildShip } from './ship.js';
-import { buildLayout, applyState } from './props.js';
+import { buildLayout, applyState, MODELS } from './props.js';
 import { Island } from './island.js';
 import { Environment } from './environment.js';
 import { Pipeline } from './pipeline.js';
@@ -19,7 +19,7 @@ import { Collider } from './collision.js';
 import { Chunks } from './chunks.js';
 import {paths as canaryPaths} from '../../../content/canary_layout.json';
 import { Cutscenes } from './cutscene.js';
-import { prepareNpc, animateNpc, collideNpcs } from './npc-animation.js';
+import { prepareNpc, animateNpc, collideNpcs, giveChart } from './npc-animation.js';
 import islandLod from 'virtual:island-lod';
 
 const SMOKE_PUFFS = 8;
@@ -92,6 +92,9 @@ export const world = {
     this.shipInteractables = [...built.interactables, ...built.npcs];
     this.npcs = built.npcs;
     for (const npc of this.npcs) prepareNpc(npc);
+    // Columbus keeps a chart of his own: when a player takes the one from the table, he reads that one
+    const columbus = this.npcs.find((n) => n.userData.id === 'columbus');
+    if (columbus) giveChart(columbus, MODELS.map(this.M).obj);
     this.updateNpcs(0);
     this.env.lamps = [];
     this.env.addLamps(built.lamps);
@@ -129,6 +132,7 @@ export const world = {
     if (!o) return;
     if ('visible' in state) o.visible = state.visible;
     if ('fill' in state) o.userData.setFill?.(state.fill);
+    if ('paused' in state) o.userData.pause = state.paused; // see shared/npc-activity.js
   },
 
   setZone(zone) {
@@ -160,7 +164,8 @@ export const world = {
 
   updateNpcs(dt) {
     const seconds = Date.now() / 1000;
-    for (const npc of this.npcs) animateNpc(npc, dt, seconds, this.env.t >= 0.82);
+    const chartTaken = this.entity('map')?.visible === false;
+    for (const npc of this.npcs) animateNpc(npc, dt, seconds, this.env.t >= 0.82, chartTaken);
   },
   groundHeight(x, z, fromY) { return this.zone === 'canary' ? this.island.groundHeight(x, z, fromY) : this.collider.groundHeight(x, z, fromY); },
 

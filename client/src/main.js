@@ -5,6 +5,7 @@ import {sceneProgressView} from './ui/scene-progress.js';
 import {Equipment,itemPictures} from './game/equipment.js';
 import {itemIcon,ITEM_ACTIONS} from './ui/item-icons.js';
 import {CONFIG} from '../../shared/config.js';
+import {ASTROLABE,latitude,answers,signed} from '../../shared/astrolabe.js';
 import {SocketClient,Events} from './net/socket.js';
 import {MockClient} from './net/mock.js';
 import {GameplayRuntime} from './game/runtime.js';
@@ -359,18 +360,22 @@ function useEquipped(){
   const target=ITEM_RULES[equipped]?.target===currentTarget?.id?currentTarget.id:undefined;
   net.send('use',{item:equipped,...(target?{target}:{})});
 }
+// Каждый раз другой день пути: своя высота Солнца и склонение (shared/astrolabe.js), ответ проверяет сервер
+let astrolabeVariant=null;
 function openAstrolabe(){
-  showModal('astrolabe',`<section class="menu-panel astrolabe-panel">${closeButton()}<h2>Астролябия</h2><div class="astrolabe-dial"><div id="alidade"></div><output id="angle-output">45°</output></div><label for="angle-input">Высота Солнца</label><input id="angle-input" type="range" min="0" max="90" value="45"><p id="alignment">Совместите с Солнцем: 73° ± 2°.</p><div id="latitude-question" hidden><p>Широта = 90° − 73° + 16°</p><div class="answers">${[17,33,49].map(value=>`<button data-answer="${value}" class="option-button">${value}°</button>`).join('')}</div></div><p id="answer-feedback" role="status"></p></section>`);
+  const others=ASTROLABE.filter(v=>v!==astrolabeVariant),v=astrolabeVariant=others[Math.floor(Math.random()*others.length)];
+  const align=`Совместите с Солнцем: ${v.sun}° ± 2°.`;
+  showModal('astrolabe',`<section class="menu-panel astrolabe-panel">${closeButton()}<h2>Астролябия</h2><p>${v.date}. Склонение Солнца ${signed(v.decl)}.</p><div class="astrolabe-dial"><div id="alidade"></div><output id="angle-output">45°</output></div><label for="angle-input">Высота Солнца</label><input id="angle-input" type="range" min="0" max="90" value="45"><p id="alignment">${align}</p><div id="latitude-question" hidden><p>Широта = 90° − ${v.sun}° ${signed(v.decl)}</p><div class="answers">${answers(v).map(value=>`<button data-answer="${value}" class="option-button">${value}°</button>`).join('')}</div></div><p id="answer-feedback" role="status"></p></section>`);
   $('#angle-input').oninput=event=>{
-    const angle=Number(event.target.value),aligned=Math.abs(angle-73)<=2;
+    const angle=Number(event.target.value),aligned=Math.abs(angle-v.sun)<=2;
     $('#angle-output').textContent=`${angle}°`;$('#alidade').style.transform=`rotate(${-angle}deg)`;
-    $('#latitude-question').hidden=!aligned;$('#alignment').textContent=aligned?'Определите широту.':'Совместите с Солнцем: 73° ± 2°.';
+    $('#latitude-question').hidden=!aligned;$('#alignment').textContent=aligned?'Определите широту.':align;
   };
   document.querySelectorAll('[data-answer]').forEach(button=>button.onclick=()=>{
-    const angle=Number($('#angle-input').value);
-    if(Math.abs(angle-73)>2)return;
-    if(Number(button.dataset.answer)!==33){$('#answer-feedback').textContent='Попробуйте ещё.';return;}
-    if(net.send('minigame',{game:'astrolabe',result:{angle,answer:33}}))closeModal();else notify('Нет связи с сервером.');
+    const angle=Number($('#angle-input').value),answer=Number(button.dataset.answer);
+    if(Math.abs(angle-v.sun)>2)return;
+    if(answer!==latitude(v)){$('#answer-feedback').textContent='Попробуйте ещё.';return;}
+    if(net.send('minigame',{game:'astrolabe',result:{variant:v.id,angle,answer}}))closeModal();else notify('Нет связи с сервером.');
   });
 }
 function openDialogue(npc){

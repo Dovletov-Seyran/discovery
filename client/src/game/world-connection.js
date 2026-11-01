@@ -37,6 +37,7 @@ export class WorldConnection {
         if(entry.state)this.applyEntity(entry.id,entry.state);
         if(entry.kind==='hourglass'&&entry.state?.emptyAt)this.hourglasses.set(entry.id,{emptyAt:entry.state.emptyAt,period:entry.period||60});
       }
+      for(const npc of layout.npcs||[])if(npc.state)this.applyEntity(npc.id,npc.state);
       this.onStatus('ready');
     });
     events.on('chunk_denied',message=>{if(message.zone!=='ship')this.world?.chunks?.denied?.(message.zone,message.key,message.reason);});

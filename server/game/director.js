@@ -1,5 +1,6 @@
 // Режиссёр сцен: content/scenes.json, условия перехода, страховочные таймеры, время суток.
 import { CONFIG } from '../../shared/config.js';
+import { storyDuration } from './story-length.js';
 import { S2C, ROLES, ROLE_NAMES } from '../../shared/protocol.js';
 import { loadContent } from '../content.js';
 import { loadGameState, saveGameState } from '../db.js';
@@ -76,10 +77,10 @@ const sceneType = () => scene().type;
 export const acceptsMove = () => sceneType() === 'play';
 export const isLocked = () => sceneType() === 'locked';
 
-// Секунды или null (сцена без таймера)
+// Секунды или null (сцена без таймера). fit — сцена длится, пока идёт озвученный рассказ (story-length.js)
 export function sceneDuration(s = scene()) {
   const d = CONFIG.DEMO_MODE ? (s.demoDuration ?? s.duration) : s.duration;
-  return d ?? null;
+  return (s.fit && storyDuration(s.fit)) || (d ?? null);
 }
 
 function currentTod(now = Date.now()) {
