@@ -13,6 +13,7 @@ import * as game from '../game/index.js';
 import * as ai from '../game/ai-bridge.js';
 import { clientHistory, serverStats } from '../game/stats.js';
 import * as world from './world.js';
+import * as combat from '../game/combat.js';
 import { registerAgentRoutes } from './agents.js';
 
 const TOKEN = (process.env.ADMIN_TOKEN ?? '').trim();
@@ -169,6 +170,14 @@ route('POST', '/api/admin/announce', (ctx) => {
   if (!text || text.length > CONFIG.CHAT_MAX_LEN) return bad(`Объявление — от 1 до ${CONFIG.CHAT_MAX_LEN} символов`);
   game.announce(text);
   console.log(`[admin] объявление: ${text}`);
+  return { ok: true };
+});
+
+// Бой на Гуанахани: ступень деревни таино, воины; «успокоить» — деревня снова спокойна (docs/tz-combat.md)
+route('GET', '/api/admin/combat', () => combat.state());
+route('POST', '/api/admin/combat/calm', () => {
+  combat.reset();
+  console.log('[admin] деревня успокоена');
   return { ok: true };
 });
 

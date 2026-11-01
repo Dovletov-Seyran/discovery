@@ -17,6 +17,7 @@ import * as ai from './ai-bridge.js';
 import {tickNpcBrain,resetNpcBrain} from './npc-brain.js';
 import { worldEvent, forget as forgetEvents } from './world-events.js';
 import { clientReport, countTick, forgetClient } from './stats.js';
+import * as combat from './combat.js';
 import { onChunkReq, onChunkDrop } from '../world/chunks.js';
 
 director.setHooks({
@@ -227,6 +228,7 @@ const handlers = {
   // Задержка до сервера и обратно: клиент сам вычтет свой ts (раз в 2 с, для HUD и админки)
   [C2S.PING]: (p, msg) => players.send(p, { t: S2C.PONG, ts: Number.isFinite(msg.ts) ? msg.ts : null, serverNow: Date.now() }),
   [C2S.CLIENT_STATS]: (p, msg) => clientReport(p.id, msg),
+  [C2S.ATTACK]: (p, msg) => combat.attack(p, msg), // бой на Гуанахани (docs/tz-combat.md)
 };
 
 export function handle(p, msg) {
@@ -330,6 +332,7 @@ export function start() {
     setInterval(() => director.broadcastTod(), CONFIG.TOD_INTERVAL_MS),
     setInterval(() => players.saveAll(), CONFIG.SAVE_INTERVAL_MS),
     setInterval(()=>rules.tickVitals(),1000),
+    setInterval(() => combat.tick(), 100),
     setInterval(()=>tickObjects(),100),
     setInterval(() => {
       const gone = players.expire();
