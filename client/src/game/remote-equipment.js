@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {swordMotion} from '../../../shared/sword-motion.js';
 import {bake} from '../world/geom.js';
 import {MODELS} from '../world/props.js';
 import {ISLAND_MODELS} from '../world/islandModels.js';
@@ -68,9 +69,9 @@ export class RemoteEquipment {
     if(!action||now<action.startedAt)return;
     const u=THREE.MathUtils.clamp((now-action.startedAt)/action.duration,0,1),wave=Math.sin(u*Math.PI);
     switch(action.kind){
-      case 'swing':
-        right.ua.rotation.set(-.65-wave*.85,-wave*.6,-.12-wave*1.65);right.fa.rotation.x=-.9+wave*.55;
-        this.rig.torso.rotation.y-=wave*.3;break;
+      case 'swing': {
+        const {cut,lift}=swordMotion(u);right.ua.rotation.set(-.55-cut*.55-lift,-cut*.4,-.12-cut);right.fa.rotation.x=-.9+cut*.35;
+        this.rig.torso.rotation.y-=cut*.2;break;}
       case 'shot':
         right.ua.rotation.x-=wave*.25;left.ua.rotation.x-=wave*.2;this.rig.torso.rotation.x-=wave*.09;
         if(this.flash)this.flash.visible=u<.3;break;

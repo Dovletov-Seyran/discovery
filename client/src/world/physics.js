@@ -4,8 +4,8 @@ import {createBody,advanceBody,stepBody,PHYSICS_STEP} from '../../../shared/obje
 export {createBody,advanceBody,stepBody,PHYSICS_STEP};
 
 // Physics uses the same static collider as walking, without NPC/shore rescue or step climbing.
-export function sphereContact(world,p,radius){
-  const start=new Vector3().fromArray(p),end=start.clone();
+export function sphereContact(world,p,radius,from=p){
+  const start=new Vector3().fromArray(from),end=new Vector3().fromArray(p);
   const capsule={start,end,radius};
   if(world.zone==='ship')world.collider?.collide(capsule);
   else for(const c of world.island.chunks.values()){
@@ -15,7 +15,7 @@ export function sphereContact(world,p,radius){
     c.collider.collide(capsule);
   }
   world.objects?.collide(capsule);
-  return start.toArray();
+  return end.toArray();
 }
 export function surfaceHit(world,origin,direction,maxDistance=3){
   const ray=new Ray(origin,direction),colliders=world.zone==='ship'?[world.collider]:[...world.island.chunks.values()].filter(c=>c.visible).map(c=>c.collider);

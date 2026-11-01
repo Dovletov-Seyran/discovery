@@ -7,7 +7,7 @@ import * as entities from './entities.js';
 import * as director from './director.js';
 import {S2C} from '../../shared/protocol.js';
 import {ITEM_RULES} from '../../shared/item-actions.js';
-import {createBody,advanceBody,objectProfile,finiteVec,PHYSICS_STEP,PHYSICS_MAX_SECONDS} from '../../shared/object-physics.js';
+import {createBody,advanceBody,objectProfile,supportHeight,resolveBody,finiteVec,PHYSICS_STEP,PHYSICS_MAX_SECONDS} from '../../shared/object-physics.js';
 import {boxContact,doorBox} from '../../shared/world-interact.js';
 import {contactAt,surfaceAt} from '../world/object-collision.js';
 import {emitWorldEvent} from './world-events.js';
@@ -19,8 +19,8 @@ const notice=(p,text)=>players.send(p,{t:S2C.NOTICE,text});
 const playable=()=>director.acceptsMove()&&!director.isTransitioning();
 const distance=(a,b)=>Math.hypot(...a.map((x,i)=>x-b[i]));
 
-export function contactWithDoors(zone,p,radius){
-  p=contactAt(zone,p,radius);
+export function contactWithDoors(zone,p,radius,from=p){
+  p=contactAt(zone,p,radius,from);
   for(const d of entities.allDefs())if(d.zone===zone&&d.toggleType==='door'&&entities.stateOf(d.id)?.visible!==false)p=boxContact(p,radius,doorBox(d,entities.stateOf(d.id)?.open));
   return p;
 }
@@ -42,7 +42,7 @@ function removeFromHand(p,item){
 }
 function put(p,msg,body){
   if(epoch!==entities.generation()){active.clear();epoch=entities.generation();}
-  const base=[msg.p[0],msg.p[1]-objectProfile(msg.item).radius,msg.p[2]];
+  const base=[msg.p[0],msg.p[1]-supportHeight(msg.item),msg.p[2]];
   const id=`drop:${randomUUID()}`,d=entities.register({id,zone:p.zone,kind:'item',item:msg.item,m:models[msg.item]??msg.item,label:items.get(msg.item).name,p:base,r:msg.r??0});
   if(!d)return notice(p,'На палубе слишком много предметов. Сначала подбери лежащие.');
   equipForUse(p,msg.item);
@@ -61,21 +61,21 @@ function clearSight(zone,origin,target){
 export function canPickup(p,id){
   const d=entities.def(id),st=entities.stateOf(id);
   if(!d?.dynamic)return true;
-  const base=st?.p??d.p,target=st?.body?.p??[base[0],base[1]+objectProfile(d.item).radius,base[2]];
+  const base=st?.p??d.p,target=st?.body?.p??[base[0],base[1]+supportHeight(d.item),base[2]];
   const origin=[p.p[0],p.p[1]+1.6,p.p[2]];
   return distance(origin,target)<4&&clearSight(p.zone,origin,target);
 }
 export function place(p,msg){
   if(!allowed(p,msg))return;
-  const radius=objectProfile(msg.item).radius,origin=[p.p[0],p.p[1]+1.6,p.p[2]];
+  const radius=supportHeight(msg.item),origin=[p.p[0],p.p[1]+1.6,p.p[2]];
   if(distance(origin,msg.p)>3.2)return notice(p,'Слишком далеко.');
   const surface=[msg.p[0],msg.p[1]-radius,msg.p[2]],len=distance(origin,surface);
   if(len<.1)return;
   const direction=surface.map((x,i)=>(x-origin[i])/len),hit=surfaceAt(p.zone,origin,direction,3.5);
   if(!hit||hit.face?.normal.y<.5||distance(hit.point.toArray(),surface)>.13)return notice(p,'Нужна свободная поверхность под прицелом.');
-  const resolved=contactWithDoors(p.zone,msg.p,radius);
+  const resolved=resolveBody(createBody({p:msg.p,item:msg.item,r:msg.r}),msg.p,(p,r)=>contactWithDoors(p.zone,p,r));
   if(distance(resolved,msg.p)>.08)return notice(p,'Здесь предмет не поместится.');
-  const now=Date.now(),body=createBody({p:msg.p,item:msg.item,startedAt:now,roll:p.zone==='ship'&&!!objectProfile(msg.item).roll});
+  const now=Date.now(),body=createBody({p:msg.p,item:msg.item,startedAt:now,roll:p.zone==='ship'&&!!objectProfile(msg.item).roll,r:msg.r??0});
   if(put(p,msg,body))performAction(p,'place',msg.item);
 }
 export function throwItem(p,msg){
@@ -85,7 +85,7 @@ export function throwItem(p,msg){
   if(!clearSight(p.zone,[p.p[0],p.p[1]+1.6,p.p[2]],msg.p))return notice(p,'Между рукой и местом броска есть препятствие.');
   if(distance(contactWithDoors(p.zone,msg.p,radius),msg.p)>.12)return notice(p,'Отойди от стены для броска.');
   if(active.size>=16)return notice(p,'Подожди, пока предметы упадут.');
-  const body=createBody({p:msg.p,v:msg.v,item:msg.item,startedAt:Date.now(),roll:p.zone==='ship'&&!!objectProfile(msg.item).roll});
+  const body=createBody({p:msg.p,v:msg.v,item:msg.item,startedAt:Date.now(),roll:p.zone==='ship'&&!!objectProfile(msg.item).roll,r:msg.r??0});
   const id=put(p,msg,body);if(id){performAction(p,'throw',msg.item);emitWorldEvent(p,'throw',{id,item:msg.item});}
 }
 export function toggle(p,{id}){
@@ -136,13 +136,17 @@ export function tickObjects(now=Date.now()){
   if(epoch!==entities.generation()){active.clear();epoch=entities.generation();}
   // Loose mugs/kegs already on the deck react to the same server-time roll as drops.
   if(playable())for(const d of entities.allDefs())if(d.loose&&!entities.stateOf(d.id)?.holder&&!entities.stateOf(d.id)?.body){
-    const body=createBody({p:[d.p[0],d.p[1]+objectProfile(d.item).radius+.015,d.p[2]],item:d.item,startedAt:now,roll:d.zone==='ship'});
-    entities.setState(d.id,{p:[body.p[0],body.p[1]-body.radius,body.p[2]],body});
+    const body=createBody({p:[d.p[0],d.p[1]+supportHeight(d.item)+.015,d.p[2]],item:d.item,startedAt:now,roll:d.zone==='ship',r:d.r??0});
+    entities.setState(d.id,{p:[body.p[0],body.p[1]-supportHeight(body.item),body.p[2]],body});
   }
   // On reload, continue saved flights; long offline intervals finish within the bounded simulation.
   for(const d of entities.allDefs()){
     const st=entities.stateOf(d.id);
     if(st?.holder||!st?.body||active.has(d.id))continue;
+    if(st.body.version!==2){
+      const base=st.p??d.p,body=createBody({p:[base[0],base[1]+supportHeight(d.item)+.02,base[2]],item:d.item,r:st.r??d.r??0,startedAt:now,roll:d.zone==='ship'});
+      entities.setState(d.id,{body});st.body=body;
+    }
     if(!st.body.sleeping&&(st.body.roll||st.body.step<PHYSICS_MAX_SECONDS/PHYSICS_STEP))active.set(d.id,{body:structuredClone(st.body),zone:d.zone,safeP:d.p,last:now});
   }
   for(const [id,entry] of active){
@@ -152,14 +156,14 @@ export function tickObjects(now=Date.now()){
     if(inertia&&body.step>=PHYSICS_MAX_SECONDS/PHYSICS_STEP){body.startedAt=now;body.step=0;body.sleeping=false;}
     // Work is bounded after a server pause. Never perform thousands of catch-up steps in one tick.
     const target=Math.min(now,body.startedAt+(body.step+36)*PHYSICS_STEP*1000);
-    advanceBody(body,target,(pos,r)=>contactWithDoors(entry.zone,pos,r),{inertia});
+    advanceBody(body,target,(pos,r,from)=>contactWithDoors(entry.zone,pos,r,from),{inertia});
     let final=body.sleeping||(!inertia&&body.step>=PHYSICS_MAX_SECONDS/PHYSICS_STEP);
     if(body.p[1]<(entry.zone==='ship'?-2:0)||body.p.some(n=>!Number.isFinite(n))){
       const safe=entry.safeP,hit=surfaceAt(entry.zone,[safe[0],safe[1]+2,safe[2]],[0,-1,0],5);
-      body.p=[safe[0],(hit?.point.y??safe[1])+body.radius+.02,safe[2]];final=true;
+      body.p=[safe[0],(hit?.point.y??safe[1])+supportHeight(body.item)+.02,safe[2]];final=true;
     }
     if(final){body.sleeping=true;body.v=[0,0,0];}
-    if(now-entry.last>=200||final){entities.setState(id,{p:[body.p[0],body.p[1]-body.radius,body.p[2]],body:structuredClone(body)});entry.last=now;}
+    if(now-entry.last>=200||final){entities.setState(id,{p:[body.p[0],body.p[1]-supportHeight(body.item),body.p[2]],body:structuredClone(body)});entry.last=now;}
     if(final){active.delete(id);director.persistNow();}
   }
   syncAll();
