@@ -66,6 +66,16 @@ class Bot {
   }
   send(t, payload = {}) { this.ws.send(JSON.stringify({ t, ...payload })); }
   last(t) { return this.msgs.findLast((m) => m.t === t); }
+  // Ждать НОВОЕ сообщение — пришедшее после отметки mark (длина буфера до отправки), а не старое из буфера
+  async waitNew(mark, t, pred = () => true, ms = 8000) {
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      const m = this.msgs.slice(mark).find((x) => x.t === t && pred(x));
+      if (m) return m;
+      await sleep(20);
+    }
+    return null;
+  }
   async wait(t, pred = () => true, ms = 8000) {
     const end = Date.now() + ms;
     while (Date.now() < end) {
@@ -253,8 +263,11 @@ p.send('minigame', { game: 'astrolabe', result: { angle: 73, answer: 33 } });
 check(!!(await p.wait('quest', (m) => m.id === 'q_latitude' && m.status === 'done')), 'астролябия: 33° → задание выполнено');
 
 await l.walkTo(...at('columbus'));
+let askMark = l.msgs.length;
 l.send('npc_talk', { npc: 'columbus', text: 'Зачем мы плывём на запад?' });
 check(!!(await l.wait('quest', (m) => m.id === 'q_ask_columbus' && m.count === 1, AI_MS)), 'Колумб: тема 1 из 2');
+// Колумб должен договорить: пока NPC отвечает, сервер не принимает следующий вопрос (с настоящим ИИ это 5–7 с)
+await l.waitNew(askMark, 'npc_say', (m) => m.npc === 'columbus', AI_MS);
 await sleep(2100);
 l.send('npc_hint', { npc: 'columbus', hint: 'reward' });
 check(!!(await l.wait('quest', (m) => m.id === 'q_ask_columbus' && m.status === 'done', AI_MS)), 'Колумб: подсказка → тема 2, задание выполнено');
@@ -326,7 +339,15 @@ async function traderFlow() {
   const counter = await l.wait('trade_state');
   check(counter?.goods.find((g) => g.item === 'cheese').price === 30, 'сыр за 20 → встречная цена 30');
   check(!!(await l.wait('npc_say', (m) => m.npc === 'trader', AI_MS)), 'торговец отвечает на предложение');
-  const buy = async (item, offer) => { await sleep(2100); l.send('trade', { npc: 'trader', item, offer }); return l.wait('trade_state', (m) => m.goods.find((g) => g.item === item).sold); };
+  // после каждой сделки торговец говорит — дождаться его реплики, иначе следующий торг сервер отклонит
+  const buy = async (item, offer) => {
+    await sleep(2100);
+    const mark = l.msgs.length;
+    l.send('trade', { npc: 'trader', item, offer });
+    const st = await l.wait('trade_state', (m) => m.goods.find((g) => g.item === item).sold);
+    await l.waitNew(mark, 'npc_say', (m) => m.npc === 'trader', AI_MS);
+    return st;
+  };
   await buy('cheese', 30);
   await buy('meat', 30);
   const last = await buy('biscuit', 25);

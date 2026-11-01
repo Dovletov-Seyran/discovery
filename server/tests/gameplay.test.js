@@ -118,7 +118,7 @@ test('missing roles after restart get shared tasks; expired roles retain their p
 });
 test('server publishes timed cutscene deadline and task-gated play phase',()=>{
   director.setScene('cut_night');const timed=director.progressMessage();
-  assert.equal(timed.phase,'timed');assert.equal(timed.endsAt,director.startAt()+25000);
+  assert.equal(timed.phase,'timed');assert.equal(timed.endsAt,director.startAt()+director.sceneDuration()*1000); // длительность — из content/scenes.json (Фронт 1 её меняет)
   director.setScene('ship_day');complete=false;
   assert.equal(director.progressMessage().phase,'objectives');assert.equal(director.progressMessage().endsAt,null);
   assert.equal(director.sceneMessage(p).progress.scene,'ship_day');
