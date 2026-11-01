@@ -145,3 +145,25 @@ test('AI job paths animate on the shared clock and resume at the same place afte
   }
  }
 });
+
+test('captain holds the chart by its scroll edges, above the hands and clear of his coat',async()=>{
+ const {giveChart}=await import('../src/world/npc-animation.js'),{MODELS}=await import('../src/world/props.js');
+ const {obj}=buildNpc(M,captain,true);prepareNpc(obj);giveChart(obj,MODELS.map(M).obj);
+ const scene='ship_day';let chartTime=null;
+ for(let t=0;t<120;t+=.2)if(npcActivity(captain,t,scene).action==='chart'){chartTime=t+.01;break;}
+ assert.ok(chartTime!==null);
+ for(let frame=0;frame<90;frame++)animateNpc(obj,1/60,chartTime+frame/60,false,scene,true);
+ obj.updateMatrixWorld(true);const {rig,chart}=obj.userData;assert.equal(chart.visible,true);
+ for(const arm of rig.arms){
+  const hand=chart.worldToLocal(arm.fa.localToWorld(new Vector3(0,-.3,0)));
+  assert.ok(Math.abs(hand.x)>.49,'hand goes through the middle of the parchment');
+  assert.ok(hand.y<-.06,'parchment passes through the knuckles');
+ }
+ chart.traverse(mesh=>{const positions=mesh.geometry?.attributes.position;if(!positions)return;
+  for(let i=0;i<positions.count;i++){
+   const point=rig.torso.worldToLocal(new Vector3().fromBufferAttribute(positions,i).applyMatrix4(mesh.matrixWorld));
+   assert.ok(point.z>.34,'parchment intersects the front of the coat');
+  }
+ });
+ animateNpc(obj,1/60,chartTime+1.5,false,scene,false);assert.equal(chart.visible,false);
+});

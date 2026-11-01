@@ -49,9 +49,9 @@ export function prepareNpc(npc) {
 export function giveChart(npc, chart) {
   const rig = npc.userData.rig;
   if (!rig) return;
-  chart.scale.setScalar(0.62);
+  chart.scale.setScalar(0.50);
   chart.rotation.x = -0.95; // the drawn side tilted up toward his eyes
-  chart.position.set(0, 0.34, 0.34);
+  chart.position.set(0, 0.43, 0.49);
   chart.visible = false;
   rig.torso.add(chart);
   npc.userData.chart = chart;
@@ -131,7 +131,7 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
         if (ownChart) { // reads his own chart, held in both hands
           rig.torso.rotation.x = 0.08;
           rig.head.rotation.set(0.5 + slow * 0.03, Math.sin(t * 0.4) * 0.12, 0);
-          for (const arm of rig.arms) { arm.ua.rotation.set(-0.85, 0, -arm.s * 0.28); arm.fa.rotation.set(-0.95, 0, 0); }
+          for (const arm of rig.arms) { arm.ua.rotation.set(-0.85, 0, arm.s * 0.08); arm.fa.rotation.set(-0.95, 0, 0); }
           break;
         }
         rig.torso.rotation.x = 0.38 + slow * 0.025;
@@ -189,6 +189,20 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
   motion.joints.forEach((j, i) => j.quaternion.slerp(motion.previous[i], 1 - blend));
   rig.hip.position.y = THREE.MathUtils.lerp(motion.hipY, rig.hip.position.y, blend);
   motion.initialized = true;
+  if(ownChart)alignChartToHands(npc);
+}
+
+// Follow the final blended hand pose. Keep the parchment in front of the knuckles,
+// with the hands on the scroll edges rather than poking through the middle.
+export function alignChartToHands(npc){
+ const {rig,chart}=npc.userData;if(!rig||!chart)return;
+ npc.updateMatrixWorld(true);
+ const hands=rig.arms.map(a=>rig.torso.worldToLocal(a.fa.localToWorld(new THREE.Vector3(0,-.3,0))));
+ chart.scale.setScalar(THREE.MathUtils.clamp(Math.abs(hands[1].x-hands[0].x)/1.05,.35,.62));
+ chart.rotation.set(-.95,0,0);
+ chart.position.copy(hands[0]).add(hands[1]).multiplyScalar(.5);
+ chart.position.add(new THREE.Vector3(0,Math.cos(-.95),Math.sin(-.95)).multiplyScalar(.045));
+ chart.visible=chart.position.z>.43; // do not draw it through the coat while arms blend into the reading pose
 }
 
 // Dynamic NPC bodies are separate from the static ship BVH: no invisible body left at home.

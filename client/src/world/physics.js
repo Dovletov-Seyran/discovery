@@ -1,5 +1,5 @@
 import {Vector3,Ray} from 'three';
-import {doorBox,rayBox} from '../../../shared/world-interact.js';
+import {rayBox} from '../../../shared/world-interact.js';
 import {createBody,advanceBody,stepBody,PHYSICS_STEP} from '../../../shared/object-physics.js';
 export {createBody,advanceBody,stepBody,PHYSICS_STEP};
 
@@ -24,8 +24,8 @@ export function surfaceHit(world,origin,direction,maxDistance=3){
     const hit=c?.bvh.raycastFirst(ray,2);
     if(hit&&hit.distance<=maxDistance&&(!best||hit.distance<best.distance))best=hit;
   }
-  for(const record of world.objects?.records.values()??[])if(record.data.toggleType==='door'&&record.state.visible!==false){
-    const hit=rayBox(origin.toArray(),direction.toArray(),doorBox(record.data,record.state.open),maxDistance);
+  for(const box of world.objects?.collisionBoxes?.()??[]){
+    const hit=rayBox(origin.toArray(),direction.toArray(),box,maxDistance);
     if(hit&&(!best||hit.distance<best.distance))best={point:new Vector3().fromArray(hit.p),distance:hit.distance,face:{normal:new Vector3().fromArray(hit.normal)}};
   }
   return best;

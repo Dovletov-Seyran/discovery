@@ -7,7 +7,7 @@ import {MODELS,colliderFor} from '../../client/src/world/props.js';
 import {ISLAND_MODELS,VEGETATION} from '../../client/src/world/islandModels.js';
 import {getChunk} from '../db.js';
 import * as entities from '../game/entities.js';
-import {doorBox,rayBox} from '../../shared/world-interact.js';
+import {interactionBoxes,rayBox} from '../../shared/world-interact.js';
 import {loadContent} from '../content.js';
 const mat=new THREE.MeshBasicMaterial();
 const M={get:()=>mat,canvas:()=>mat,person:{get:()=>mat}};
@@ -59,9 +59,11 @@ export function contactAt(zone,p,radius,from=p){
 export function surfaceAt(zone,origin,direction,maxDistance){
   const ray=new THREE.Ray(new THREE.Vector3().fromArray(origin),new THREE.Vector3().fromArray(direction));let best=null;
   for(const c of objectColliders(zone,origin)){const hit=c.bvh.raycastFirst(ray,THREE.DoubleSide);if(hit&&hit.distance<=maxDistance&&(!best||hit.distance<best.distance))best=hit;}
-  for(const d of entities.allDefs())if(d.zone===zone&&d.toggleType==='door'&&entities.stateOf(d.id)?.visible!==false){
-    const hit=rayBox(origin,direction,doorBox(d,entities.stateOf(d.id)?.open),maxDistance);
+  for(const d of entities.allDefs())if(d.zone===zone&&(d.toggleType==='door'||d.toggleType==='lid')&&entities.stateOf(d.id)?.visible!==false){
+    for(const box of interactionBoxes(d,entities.stateOf(d.id)?.open)){
+    const hit=rayBox(origin,direction,box,maxDistance);
     if(hit&&(!best||hit.distance<best.distance))best={point:new THREE.Vector3().fromArray(hit.p),distance:hit.distance,face:{normal:new THREE.Vector3().fromArray(hit.normal)}};
+    }
   }
   return best;
 }
