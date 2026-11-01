@@ -15,10 +15,9 @@ const paths={
  meat:'<path d="M22 52c-30-26 29-54 43-30 12 22-14 47-34 38l-12 12-8-8z"/><ellipse cx="45" cy="36" rx="12" ry="8" transform="rotate(-35 45 36)"/>',
  biscuit:'<path d="M13 25l12-12 40 10 4 35-15 12-39-8zM13 25l40 10 12-12M53 35l1 35"/><path d="M25 37v2m14 5v2m-12 7v2m34-7v2"/>',
 };
-paths.rum='<path d="M32 8h16v20c17 10 16 35 10 43H22c-6-8-7-33 10-43zM31 9V4h18v5M23 43h34v18H23z"/>';
 paths.barrel_full=paths.barrel+'<path d="M34 38q6-14 12 0a6 6 0 01-12 0z"/>';
 export const itemIcon=id=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" stroke="#d6c7a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[id]||paths.purse}</svg>`);
 // Подпись действия с учётом места: колодец есть только на Канарах, на корабле бочонок не наполнить
 export const itemAction=(item,zone)=>item==='barrel'&&zone!=='canary'?'Пустой · воду наберём на Канарах':ITEM_ACTIONS[item];
-export const ITEM_ACTIONS={cup:'Рассмотреть кружку',compass:'Направление на север',astrolabe:'Измерить высоту Солнца',wine:'Выпить',rum:'Выпить ром',sword:'Взмахнуть',map:'Рассмотреть карту',barrel:'Наполнить у колодца',barrel_full:'Пить воду / передать у шлюпки',tar:'Отнести плотнику',planks:'Отнести плотнику',purse:'Открыть кошель',cheese:'Съесть · +35 сил',meat:'Съесть · +50 сил',biscuit:'Съесть · +20 сил',espingarda:'Выстрелить',
+export const ITEM_ACTIONS={cup:'Рассмотреть кружку',compass:'Направление на север',astrolabe:'Измерить высоту Солнца',wine:'Выпить',sword:'Взмахнуть',map:'Рассмотреть карту',barrel:'Наполнить у колодца',barrel_full:'Пить воду / передать у шлюпки',tar:'Отнести плотнику',planks:'Отнести плотнику',purse:'Открыть кошель',cheese:'Съесть · +35 сил',meat:'Съесть · +50 сил',biscuit:'Съесть · +20 сил',espingarda:'Выстрелить',
  spear:'Бить рыбу на отмели',fish:'Отнести касику',conch:'Отнести касику',cassava:'Натереть на тёрке',cassava_grated:'Отжать в жгуте',cassava_pulp:'Испечь на бурене',casabe:'Отнести касику',cotton:'Сплести гамак',hammock_gift:'Отнести касику',firewood:'Подбросить в костёр',torch:'Посветить',parrot:'Показать',gift_cotton:'Показать',bell:'Позвенеть',beads:'Рассмотреть',red_cap:'Рассмотреть' };

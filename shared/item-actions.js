@@ -3,7 +3,6 @@ export const ITEM_RULES={
  cup:{effect:'cup',cooldown:500},
  compass:{effect:'compass',cooldown:400},map:{effect:'map',cooldown:400},astrolabe:{effect:'astrolabe',cooldown:400},
  wine:{effect:'drink',cooldown:1200,servings:3,drunkMs:10000,strength:.35},
- rum:{effect:'drink',cooldown:1500,servings:2,drunkMs:20000,strength:.65},
  sword:{effect:'swing',cooldown:580},espingarda:{effect:'shot',cooldown:2500},
  barrel:{effect:'supplies',target:'well',cooldown:500},
  barrel_full:{effect:'water',target:'boat',cooldown:1000,servings:3,energy:12},

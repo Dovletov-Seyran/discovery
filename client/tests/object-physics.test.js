@@ -6,11 +6,11 @@ const ground=(p,r)=>[p[0],Math.max(r,p[1]),p[2]];
 test('a throw is identical at 30, 60 and 144 frames per second and after catchup',()=>{
   const results=[];
   for(const fps of [30,60,144]){
-    const b=createBody({p:[0,1.4,0],v:[2,2,-3],item:'rum',startedAt:1000});
+    const b=createBody({p:[0,1.4,0],v:[2,2,-3],item:'cup',startedAt:1000});
     for(let frame=1;frame<=fps*3;frame++)advanceBody(b,1000+frame/fps*1000,ground);
     results.push(b);
   }
-  const late=createBody({p:[0,1.4,0],v:[2,2,-3],item:'rum',startedAt:1000});advanceBody(late,4000,ground);
+  const late=createBody({p:[0,1.4,0],v:[2,2,-3],item:'cup',startedAt:1000});advanceBody(late,4000,ground);
   for(const b of results)assert.deepEqual(b,late);
 });
 test('gravity, bounce and friction settle an object on the surface, without tunnelling',()=>{

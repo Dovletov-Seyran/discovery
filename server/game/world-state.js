@@ -2,6 +2,7 @@
 // Мир меняет только сервер — агенты, поступки игроков, админка. Клиенты получают world_patch:
 // полный ({ ops, full: true }) — при входе, переподключении и сбросе; частичный — всем при каждом изменении.
 // Состояние сохраняется вместе со снапшотом entities.js (game_state в БД) и переживает рестарт.
+import {ITEM_RULES} from '../../shared/item-actions.js';
 import { S2C } from '../../shared/protocol.js';
 
 const OPS = new Set(['spawn', 'remove', 'set']);
@@ -23,6 +24,7 @@ export function validateOp(raw) {
   const { op, id } = raw;
   if (!OPS.has(op)) return `op: ожидается spawn | remove | set, получено ${JSON.stringify(op)}`;
   if (typeof id !== 'string' || !id || id.length > 64) return 'id: непустая строка до 64 символов';
+  if(raw.item&&!Object.hasOwn(ITEM_RULES,raw.item))return 'Неизвестный предмет';
   const out = { op, id };
   for (const k of ['kind', 'item', 'model', 'label', 'zone', 'at']) {
     if (raw[k] == null) continue;
@@ -137,7 +139,7 @@ export function setFlag(f) {
 // Сохранение: game_state.entities.world (через entities.snapshot)
 export const snapshot = () => ({ objects: [...objects.values()], flags: [...flags] });
 export function load(saved) {
-  objects = new Map((saved?.objects ?? []).filter((o) => o?.id).map((o) => [o.id, o]));
+  objects = new Map((saved?.objects ?? []).filter((o) => o?.id&&(!o.item||Object.hasOwn(ITEM_RULES,o.item))).map((o) => [o.id, o]));
   flags = new Set(saved?.flags ?? []);
   dirty = false;
 }

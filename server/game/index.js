@@ -1,6 +1,7 @@
 // Игровая логика: вход/выход игрока, обработчики сообщений, циклы.
 import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {ITEM_RULES} from '../../shared/item-actions.js';
 import { CONFIG } from '../../shared/config.js';
 import { C2S, S2C, ANIMS, CLOSE } from '../../shared/protocol.js';
 import { worldMeta, resetProgress } from '../db.js';
@@ -285,6 +286,7 @@ function devCommand(p, text) {
       break;
     case '/give':
       if (!arg) return notice(p, '/give <item>');
+      if(!Object.hasOwn(ITEM_RULES,arg))return notice(p,'Неизвестный предмет');
       p.inventory.push(arg);
       players.sendInventory(p);
       players.save(p);

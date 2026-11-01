@@ -279,12 +279,6 @@ check(!!(await g2.wait('entity', (m) => m.id === 'astrolabe' && m.state.holder =
 await g2.walkTo(...at('astrolabe'));
 g2.send('pickup', { id: 'astrolabe' });
 check(!!(await g2.wait('notice', (m) => m.text.includes('уже взял'))), 'второй раз взять нельзя');
-await g2.walkTo(...at('rum'));
-g2.send('pickup',{id:'rum'});
-check(!!(await g2.wait('inventory',m=>m.items.includes('rum'))),'ром можно подобрать на корабле');
-g2.send('use',{item:'rum'});
-const rumUse=await g2.wait('item_used',m=>m.item==='rum');
-check(!!rumUse&&rumUse.vitals.drunkUntil>rumUse.serverNow&&rumUse.uses===1,'ром: сервер подтвердил опьянение и расход глотка');
 p.send('minigame', { game: 'astrolabe', result: { variant: 'gomera', angle: 68, answer: 16 } });
 check(!!(await p.wait('notice', (m) => m.text.includes('Неверно'))), 'астролябия: неверная широта → подсказка');
 p.send('minigame', { game: 'astrolabe', result: { variant: 'gomera', angle: 73, answer: 28 } });
