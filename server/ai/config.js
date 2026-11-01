@@ -6,7 +6,7 @@ export const AI = {
   OLLAMA_URL: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',
   // Только instruct-версия: в Ollama тег qwen3:4b — «думающая» модель, рассуждения у неё не отключаются
   MODEL: process.env.AI_MODEL || 'qwen3:4b-instruct',
-  TIMEOUT_MS: 10_000,
+  TIMEOUT_MS: 25_000, // ответ ждёт своей очереди к одной модели на маке; выбор занятий экипажа задаёт свой (10 с)
   WARMUP_TIMEOUT_MS: 90_000,
   NUM_CTX: 2048,
   HISTORY: 10,           // последних реплик (5 обменов) дословно в промпте

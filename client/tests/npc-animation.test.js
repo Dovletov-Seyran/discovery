@@ -194,3 +194,18 @@ test('a job of steps loops on the shared clock and shows what the sailor carries
  assert.ok(p1.every((v,i)=>Math.abs(v-p2[i])<1e-6),'the same place one lap later');
  assert.ok(obj.userData.motion.joints.every(j=>j.quaternion.toArray().every(Number.isFinite)));
 });
+
+test('non-agent NPC turns his head to a player who comes close, and ignores one far away', () => {
+  const cook = layout.npcs.find(n => n.id === 'cook');
+  const headYaw = (viewerOffset) => {
+    const { obj } = buildNpc(M, cook, true); prepareNpc(obj);
+    animateNpc(obj, 1 / 60, 5, false, 'ship_day');
+    const p = obj.position, right = new Vector3(1, 0, 0).applyQuaternion(obj.quaternion);
+    const viewer = p.clone().add(right.multiplyScalar(viewerOffset)).setY(p.y + 1.6);
+    for (let i = 0; i < 60; i++) animateNpc(obj, 1 / 60, 5 + i / 60, false, 'ship_day', false, viewer);
+    return obj.userData.rig.head.rotation.y;
+  };
+  assert.ok(headYaw(2) > 0.6, 'player 2 m to his right: head turns right');
+  assert.ok(headYaw(-2) < -0.6, 'player 2 m to his left: head turns left');
+  assert.ok(Math.abs(headYaw(8)) < 0.6, 'player 8 m away: no reaction');
+});
