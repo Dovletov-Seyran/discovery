@@ -1,3 +1,4 @@
+import {freshVitals} from '../../shared/item-actions.js';
 // Игроки в памяти: Map<userId, player>. Отключённый игрок остаётся в партии DISCONNECT_GRACE_MS.
 import {heldItem,setHeldItem,presentation} from '../../shared/player-presentation.js';
 import { WebSocket } from 'ws';
@@ -24,7 +25,7 @@ function create(userId, name) {
     inventory: saved?.inventory ?? [],
     equipped:saved?.equipped??null,equipmentRev:0,action:null,actionSeq:0,
     money: saved?.money ?? 0,
-    itemUses:saved?.itemUses??{},vitals:saved?.vitals??{stamina:100,drunkUntil:0,drunkStrength:0},
+    itemUses:saved?.itemUses??{},vitals:saved?.vitals??freshVitals(),
     lastItemUse:{},lastVitalsAt:Date.now(),
     quests: saved?.quests ?? {},
     log: saved?.log ?? [],

@@ -1,3 +1,4 @@
+import {STAMINA} from './stamina.js';
 // Every inventory item has an explicit action. Quantities/effects are decided by the server.
 export const ITEM_RULES={
  cup:{effect:'cup',cooldown:500},
@@ -27,4 +28,4 @@ export const ITEM_RULES={
  parrot:{effect:'show',cooldown:800},gift_cotton:{effect:'show',cooldown:800},
  bell:{effect:'show',cooldown:800},beads:{effect:'show',cooldown:800},red_cap:{effect:'show',cooldown:800},
 };
-export const freshVitals=()=>({stamina:100,drunkUntil:0,drunkStrength:0});
+export const freshVitals=()=>({stamina:STAMINA.max,staminaMax:STAMINA.max,drunkUntil:0,drunkStrength:0});

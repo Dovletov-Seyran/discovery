@@ -21,14 +21,14 @@ test('food restores actual stamina, consumes the food, and water eventually leav
  const p=player(['cheese','meat','biscuit','barrel_full']);p.vitals.stamina=10;
  applyItemUse(p,'cheese',0);assert.equal(p.vitals.stamina,45);assert.ok(!p.inventory.includes('cheese'));
  applyItemUse(p,'meat',1000);assert.equal(p.vitals.stamina,95);
- applyItemUse(p,'biscuit',2000);assert.equal(p.vitals.stamina,100);
+ applyItemUse(p,'biscuit',2000);assert.equal(p.vitals.stamina,115);
  for(const now of [3000,5000,7000])applyItemUse(p,'barrel_full',now);
  assert.ok(p.inventory.includes('barrel'));assert.ok(!p.inventory.includes('barrel_full'));
 });
 test('sprinting spends stamina, rest restores it, gun cooldown prevents instant fire',()=>{
  const p=player(['espingarda']);p.a='run';p.lastMoveAt=1000;
- advanceStamina(p,1,1000);assert.equal(p.vitals.stamina,88);
- p.a='idle';advanceStamina(p,1,2000);assert.equal(p.vitals.stamina,94);
+ advanceStamina(p,1,1000);assert.equal(p.vitals.stamina,299.25);
+ p.a='idle';advanceStamina(p,1,2000);assert.equal(p.vitals.stamina,300);
  assert.equal(applyItemUse(p,'espingarda',3000).effect,'shot');assert.ok(applyItemUse(p,'espingarda',3200).error);
  assert.equal(applyItemUse(p,'espingarda',5600).effect,'shot');
 });

@@ -123,11 +123,13 @@ export class WorldConnection {
   requestShip(){if(this.active&&this.world&&this.scene?.zone==='ship'&&!this.shipRequested)this.shipRequested=this.send('chunk_req',{zone:'ship',keys:['0,0']});}
   applyScene(){
     if(!this.scene)return;
+    const runKey=`${this.scene.id}@${this.scene.startAt??0}`;
+    if(this.lastScene!==runKey)this.world.cutscene?.stop?.();
     this.world.setNpcScene?.(this.scene);
     if(this.scene.zone)this.world.setZone(this.scene.zone);
     if(Number.isFinite(this.scene.tod))this.world.setTimeOfDay(this.scene.tod);
-    if(this.lastScene!==this.scene.id){
-      this.lastScene=this.scene.id;this.requestShip();
+    if(this.lastScene!==runKey){
+      this.lastScene=runKey;this.requestShip();
       // часть 2: что есть на Гуанахани в этой сцене (люди Колумба — только 12 октября) и стоят ли корабли
       this.world.setScene?.(this.scene.id);
       if(this.scene.zone==='guanahani')this.world.setFleet?.('guanahani',!!this.scene.fleet);

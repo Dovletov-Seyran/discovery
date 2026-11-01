@@ -1,3 +1,5 @@
+import {restoreVitals} from '../shared/stamina.js';
+import {freshVitals} from '../shared/item-actions.js';
 // SQLite (node:sqlite). Схема — docs/README.md §8.
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
@@ -95,7 +97,7 @@ export function loadPlayer(userId) {
     inventory: (Array.isArray(inv) ? inv : inv.items ?? []).filter(id=>Object.hasOwn(ITEM_RULES,id)),
     equipped:Object.hasOwn(ITEM_RULES,inv.equipped)?inv.equipped:null,
     money: inv.money ?? 0,
-    trade:inv.trade??{},itemUses: Object.fromEntries(Object.entries(inv.itemUses??{}).filter(([id])=>Object.hasOwn(ITEM_RULES,id))),vitals: inv.vitals ?? {stamina:100,drunkUntil:0,drunkStrength:0},
+    trade:inv.trade??{},itemUses: Object.fromEntries(Object.entries(inv.itemUses??{}).filter(([id])=>Object.hasOwn(ITEM_RULES,id))),vitals: restoreVitals(inv.vitals),
     quests: parse(row.quests, {}),
     log: parse(row.log, []),
   };
@@ -108,7 +110,7 @@ export const loadScenePlayers=scene=>qScenePlayers.all(scene).map(row=>({id:row.
 function writePlayer(userId, s) {
   const p = s.p ?? [null, null, null];
   qSavePlayer.run(userId, s.role ?? null, s.zone ?? null, p[0], p[1], p[2], s.r ?? 0,
-    JSON.stringify({ items: s.inventory ?? [], equipped:s.equipped??null, money: s.money ?? 0,trade:s.trade??{},itemUses:s.itemUses??{},vitals:s.vitals??{stamina:100,drunkUntil:0,drunkStrength:0} }), JSON.stringify(s.quests ?? {}),
+    JSON.stringify({ items: s.inventory ?? [], equipped:s.equipped??null, money: s.money ?? 0,trade:s.trade??{},itemUses:s.itemUses??{},vitals:s.vitals??freshVitals() }), JSON.stringify(s.quests ?? {}),
     JSON.stringify(s.log ?? []), Date.now(), s.scene ?? null);
 }
 
