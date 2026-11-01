@@ -337,7 +337,7 @@ export function buildNpc(M, n, animated = false) {
   const g = animated || n.pose === 'guitar' ? rig.root : bake(rig.root);
   place(g, n);
   g.rotation.y += Math.PI; // r = camera-style yaw, the model faces +z
-  g.userData = { id: n.id, kind: 'npc', label: n.label, noBake: true, baseY: n.p[1], rig: animated || n.pose === 'guitar' ? rig : null, definition: n, animated };
+  g.userData = { id: n.id, kind: 'npc', label: n.label, noBake: true, baseY: n.p[1], rig: animated || n.pose === 'guitar' ? rig : null, definition: n, behavior: n.state?.behavior ?? null, speaker: n.state?.speaker ?? null, paused: n.state?.paused ?? null, animated };
   return { obj: g, col: animated ? [] : colliderFor([new THREE.CylinderGeometry(0.3, 0.3, 1.7, 8).translate(0, 0.85, 0)], n) };
 }
 

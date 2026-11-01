@@ -70,7 +70,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
     onTarget:target=>{
       currentTarget=target;
       $('#prompt').hidden=!target;
-      $('#prompt').textContent=target?`E  ${target.label||'Взаимодействовать'}`:'';
+      $('#prompt').textContent=target?(target.speaker&&target.speaker.id!==you.id?`${target.label} · разговаривает с ${target.speaker.name}`:`E  ${target.label||'Взаимодействовать'}`):'';
       $('#crosshair').classList.toggle('active',!!target);
     },
   });
@@ -390,6 +390,8 @@ function openAstrolabe(){
   });
 }
 function openDialogue(npc){
+  const owner=world?.entity?.(npc)?.userData.speaker;
+  if(owner&&owner.id!==you.id){notify(`Персонаж сейчас разговаривает с ${owner.name}.`);return;}
   const scripted=NPCS[npc]?.type==='script';
   scriptIndex=0;
   scriptLines=LINES.filter(line=>line.npc===npc&&!/hint|alarm|hourglass|task|wait|done|toast|cards|scare/.test(line.id));
@@ -436,6 +438,7 @@ function renderTrade(){
 }
 function setDialogueBusy(busy){$('#modal').querySelectorAll('#npc-form button,#hints button,.trade-row button').forEach(button=>button.disabled=busy);}
 function receiveDialogue(message){
+  if(message.busy&&matchesReply(message)){const text=message.ru;closeModal();notify(text);return;}
   if(!matchesReply(message)){
     if(message.line){
       notify(message.ru||'');

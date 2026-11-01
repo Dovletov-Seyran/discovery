@@ -1,6 +1,6 @@
 // HTTP: /api/*, статика клиента (client/dist) и аудио /audio/rt/ (data/audio/rt).
 import { createReadStream, statSync } from 'node:fs';
-import { extname, join, normalize, sep } from 'node:path';
+import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG } from '../shared/config.js';
 import { DATA_DIR } from './db.js';
@@ -10,7 +10,7 @@ import { players } from './game/players.js';
 import { chunkStats } from './game/stats.js';
 import { handleAdmin } from './admin/index.js';
 
-const CLIENT_DIST = fileURLToPath(new URL('../client/dist/', import.meta.url));
+const CLIENT_DIST = process.env.CLIENT_DIST ? resolve(process.env.CLIENT_DIST) : fileURLToPath(new URL('../client/dist/', import.meta.url));
 const DEV_PAGE = fileURLToPath(new URL('./dev/', import.meta.url));
 const SHARED = fileURLToPath(new URL('../shared/', import.meta.url));
 const AUDIO_RT = join(DATA_DIR, 'audio', 'rt');

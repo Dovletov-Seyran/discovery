@@ -96,7 +96,7 @@ export function isNear(p, id, extra = 1) {
   if (!d || d.zone !== p.zone || !p.p) return false;
   const [sceneId, started] = (p.scene ?? 'ship_day').split('@');
   const scene = { id: sceneId, ...(started ? { startAt: Number(started) } : {}) };
-  const position = d.zone === 'ship' && d.kind === 'npc' ? npcActivity(d, Date.now() / 1000, scene, objects[id]?.paused).p : objects[id]?.p ?? d.p;
+  const position = d.kind === 'npc' ? npcActivity(d, Date.now() / 1000, scene, objects[id]?.paused, objects[id]?.behavior).p : objects[id]?.p ?? d.p;
   return Math.hypot(position[0] - p.p[0], position[2] - p.p[2]) <= CONFIG.INTERACT_DIST + extra;
 }
 
@@ -106,16 +106,23 @@ export function isNear(p, id, extra = 1) {
 export function syncNpcDialogues(party, scene, now = Date.now()) {
   const key = `${scene.id}@${scene.startAt ?? 0}`, patches = [];
   for (const d of defs.values()) {
-    if (d.zone !== 'ship' || d.kind !== 'npc') continue;
+    if (d.kind !== 'npc') continue;
     const saved = objects[d.id]?.paused;
     const previous = saved?.scene === key ? saved : null;
-    const speaker = party.find(p => p.connected && p.zone === 'ship' && p.scene === key
-      && p.dialogue?.npc === d.id && p.dialogue.until > now);
+    const speaker = party.find(p => p.connected && p.zone === d.zone && p.scene === key
+      && p.dialogue?.npc === d.id && (p.dialogue.until > now || !!p.npcRequest));
     let paused = previous;
-    if (speaker) paused = { scene: key, at: previous?.at ?? now, offset: previous?.offset ?? 0, lookAt: [...speaker.p] };
-    else if (previous?.at != null) paused = { scene: key, at: null, offset: previous.offset + now - previous.at, lookAt: null };
-    if (JSON.stringify(saved ?? null) === JSON.stringify(paused)) continue;
-    patches.push({ id: d.id, state: setState(d.id, { paused }) });
+    const sampleAt=(previous?.at??now)/1000;
+    const moving=npcActivity(d,sampleAt,scene,previous?{...previous,at:null}:null,objects[d.id]?.behavior);
+    const ahead=npcActivity(d,sampleAt+1.2,scene,previous?{...previous,at:null}:null,objects[d.id]?.behavior);
+    const obstructed=!speaker&&moving.walking&&party.some(p=>p.connected&&p.zone===d.zone&&p.p
+      &&Math.abs(p.p[1]-ahead.p[1])<1.2&&Math.hypot(p.p[0]-ahead.p[0],p.p[2]-ahead.p[2])<.85);
+    if(obstructed) paused={scene:key,at:previous?.at??now,offset:previous?.offset??0,lookAt:null,kind:'obstacle'};
+    if (speaker) paused = { scene: key, at: previous?.at ?? now, offset: previous?.offset ?? 0, lookAt: [...speaker.p],kind:'dialogue' };
+    else if (!obstructed && previous?.at != null) paused = { scene: key, at: null, offset: previous.offset + now - previous.at, lookAt: null };
+    const speakerState = speaker ? { id: speaker.id, name: speaker.name } : null;
+    if (JSON.stringify(saved ?? null) === JSON.stringify(paused) && JSON.stringify(objects[d.id]?.speaker ?? null) === JSON.stringify(speakerState)) continue;
+    patches.push({ id: d.id, state: setState(d.id, { paused, speaker: speakerState }) });
   }
   return patches;
 }

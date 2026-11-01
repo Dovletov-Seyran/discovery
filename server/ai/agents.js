@@ -5,7 +5,7 @@ import { tokenize, wordsMatch } from './retrieval.js';
 
 const agents = new Map();
 // агент → его запись в crew.json (Старый Хуан там old_juan, торговец — gonzalo)
-const AGENT_PERSON = { columbus: 'columbus', storyteller: 'old_juan', trader: 'gonzalo' };
+const AGENT_PERSON = { columbus: 'columbus', storyteller: 'old_juan', trader: 'gonzalo', boatswain:'boatswain',cook:'cook',sailor_1:'sailor_diego',sailor_2:'sailor_pedro',sailor_3:'sailor_sancho',beatriz:'beatriz',carpenter:'carpenter' };
 let crew = null;
 let quests = null;
 let facts = null;
@@ -38,7 +38,7 @@ export function getAgent(id) {
 // Люди, которых знает агент: у кого есть его мнение (себя самого агент не «знает» как постороннего)
 export function knownPeople(agentId) {
   if (!crew) loadAgents();
-  return crew.filter((p) => p.opinions?.[agentId] && p.id !== agentId);
+  return crew.filter((p) => (p.opinions?.[agentId] || agents.get(agentId)?.knownCrew?.includes(p.id)) && p.id !== (AGENT_PERSON[agentId] ?? agentId));
 }
 
 // Человек из экипажа по имени в реплике игрока: самое точное совпадение («Хуан де ла Коса» важнее «Хуан»).
@@ -62,7 +62,7 @@ export function findPerson(agentId, text) {
   return best;
 }
 
-export const knowsPerson = (agentId, person) => !!person?.opinions?.[agentId];
+export const knowsPerson = (agentId, person) => !!person?.opinions?.[agentId] || !!agents.get(agentId)?.knownCrew?.includes(person?.id);
 
 // Текущее задание игрока в этой сцене: { title, step, aboutYou } (шаг — по-английски, из content/quests.json)
 export function currentTask(context = {}, agentId = null) {
