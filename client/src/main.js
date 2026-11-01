@@ -4,7 +4,7 @@ import {drawLocalMap,unlockItemAudio,playShot} from './ui/item-feedback.js';
 import {ITEM_RULES,freshVitals} from '../../shared/item-actions.js';
 import {sceneProgressView} from './ui/scene-progress.js';
 import {Equipment,itemPictures} from './game/equipment.js';
-import {itemIcon,ITEM_ACTIONS} from './ui/item-icons.js';
+import {itemIcon,itemAction} from './ui/item-icons.js';
 import {CONFIG} from '../../shared/config.js';
 import {ASTROLABE,latitude,answers,signed} from '../../shared/astrolabe.js';
 import {SocketClient,Events,forwardGameEvents} from './net/socket.js';
@@ -313,7 +313,7 @@ function equipItem(id,{sync=true}={}){throwMode=false;pendingUnequip=null;equipp
 function renderEquipment(){
   const hud=$('#equipment');if(!hud)return;
   hud.hidden=!equipped||!PLAY_SCENES.has(scene.id);
-  hud.innerHTML=equipped?`<img src="${picture(equipped)}" alt=""><span>${escape(ITEMS[equipped]?.name||equipped)}<small>${escape(throwMode?'Бросить · ЛКМ · F — отменить':`${ITEM_ACTIONS[equipped]||'В руке'} · ЛКМ`)}${itemUses[equipped]!=null?` · ${itemUses[equipped]} ост.`:''}</small><small>G — положить · F — бросок</small></span><output id="instrument"></output>`:'';
+  hud.innerHTML=equipped?`<img src="${picture(equipped)}" alt=""><span>${escape(ITEMS[equipped]?.name||equipped)}<small>${escape(throwMode?'Бросить · ЛКМ · F — отменить':`${itemAction(equipped,scene.zone)||'В руке'} · ЛКМ`)}${itemUses[equipped]!=null?` · ${itemUses[equipped]} ост.`:''}</small><small>G — положить · F — бросок</small></span><output id="instrument"></output>`:'';
 }
 function updateInstrument(){
   const output=$('#instrument');if(!output||!runtime)return;
@@ -331,7 +331,7 @@ function openInventory(){
   showModal('inventory',`<section class="menu-panel inventory-panel">${closeButton()}<h2>Снаряжение</h2><div class="inventory-layout"><div class="inventory-slots">${Array.from({length:Math.max(8,ids.length)},(_,index)=>{
     const id=ids[index];
     return `<button class="inventory-slot ${id===selectedItem?'selected':''}" ${id?`data-item="${escape(id)}" aria-pressed="${id===selectedItem}"`:'disabled aria-label="Пустое место"'}><small>${index+1}</small>${id?`<img src="${picture(id)}" alt=""><span>${escape(ITEMS[id]?.name||id)}</span>`:'<span>—</span>'}</button>`;
-  }).join('')}</div><div class="item-detail">${selectedItem?`<img src="${picture(selectedItem)}" alt=""><h3>${escape(data?.name||selectedItem)}</h3><p>${escape(ITEM_ACTIONS[selectedItem]||'Предмет из припасов')}</p><button id="equip-item" class="primary">${equipped===selectedItem?'Убрать':'Взять в руку'}</button>${data?.text?`<details><summary>О предмете</summary><p>${escape(data.text)}</p></details>`:''}`:'<p>Пока пусто</p>'}</div></div><small>1–9 — выбрать предмет · ЛКМ — использовать</small></section>`);
+  }).join('')}</div><div class="item-detail">${selectedItem?`<img src="${picture(selectedItem)}" alt=""><h3>${escape(data?.name||selectedItem)}</h3><p>${escape(itemAction(selectedItem,scene.zone)||'Предмет из припасов')}</p><button id="equip-item" class="primary">${equipped===selectedItem?'Убрать':'Взять в руку'}</button>${data?.text?`<details><summary>О предмете</summary><p>${escape(data.text)}</p></details>`:''}`:'<p>Пока пусто</p>'}</div></div><small>1–9 — выбрать предмет · ЛКМ — использовать</small></section>`);
   document.querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>{selectedItem=button.dataset.item;openInventory();});
   if($('#equip-item'))$('#equip-item').onclick=()=>{equipItem(equipped===selectedItem?null:selectedItem);closeModal();};
 }

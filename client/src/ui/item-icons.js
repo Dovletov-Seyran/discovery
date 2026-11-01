@@ -18,4 +18,6 @@ const paths={
 paths.rum='<path d="M32 8h16v20c17 10 16 35 10 43H22c-6-8-7-33 10-43zM31 9V4h18v5M23 43h34v18H23z"/>';
 paths.barrel_full=paths.barrel+'<path d="M34 38q6-14 12 0a6 6 0 01-12 0z"/>';
 export const itemIcon=id=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" stroke="#d6c7a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[id]||paths.purse}</svg>`);
+// Подпись действия с учётом места: колодец есть только на Канарах, на корабле бочонок не наполнить
+export const itemAction=(item,zone)=>item==='barrel'&&zone!=='canary'?'Пустой · воду наберём на Канарах':ITEM_ACTIONS[item];
 export const ITEM_ACTIONS={cup:'Рассмотреть кружку',compass:'Направление на север',astrolabe:'Измерить высоту Солнца',wine:'Выпить',rum:'Выпить ром',sword:'Взмахнуть',map:'Рассмотреть карту',barrel:'Наполнить у колодца',barrel_full:'Пить воду / передать у шлюпки',tar:'Отнести плотнику',planks:'Отнести плотнику',purse:'Открыть кошель',cheese:'Съесть · +35 сил',meat:'Съесть · +50 сил',biscuit:'Съесть · +20 сил',espingarda:'Выстрелить' };
