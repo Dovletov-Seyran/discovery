@@ -26,6 +26,17 @@ export function prepareNpc(npc) {
   const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.42, 4, 3), new THREE.MeshStandardMaterial({ color: 0xe8dfc8, roughness: 0.95, side: THREE.DoubleSide }));
   cloth.rotation.x = -Math.PI / 2 + 0.12; cloth.position.set(0, 0.06, 0.26); cloth.visible = false; cloth.userData.noBake = true;
   rig.hip.add(cloth); rig.cloth = cloth;
+  // Что матрос носит по ходу работы (shared/npc-navigation.js: carry/hold): ведро в левой руке (пока моет
+  // палубу — стоит рядом на досках), бухту каната на плече
+  const stave = new THREE.MeshStandardMaterial({ color: 0x7a5232, roughness: 0.85 }), iron = new THREE.MeshStandardMaterial({ color: 0x3c3a36, roughness: 0.6, metalness: 0.4 });
+  const bucket = new THREE.Group(); bucket.userData.noBake = true;
+  const pail = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.24, 12, 1, true), stave); pail.material.side = THREE.DoubleSide; pail.position.y = -0.27; bucket.add(pail);
+  const water = new THREE.Mesh(new THREE.CircleGeometry(0.12, 12), new THREE.MeshStandardMaterial({ color: 0x4a6f7a, roughness: 0.2 })); water.rotation.x = -Math.PI / 2; water.position.y = -0.2; bucket.add(water);
+  const bail = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.008, 4, 16, Math.PI), iron); bail.position.y = -0.15; bucket.add(bail);
+  bucket.visible = false; rig.bucket = bucket;
+  const coil = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.045, 6, 18), new THREE.MeshStandardMaterial({ color: 0xb59a6a, roughness: 1 }));
+  coil.rotation.set(0.25, Math.PI / 2, 0.35); coil.position.set(-0.17, 0.5, 0.02); coil.visible = false; coil.userData.noBake = true;
+  rig.torso.add(coil); rig.coil = coil;
   if (npc.userData.id === 'cook') {
     const tray = new THREE.Group(); tray.userData.noBake = true;
     const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.03, 12), wood);
@@ -77,7 +88,15 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
   const chosenPose=npc.userData.behavior?.scene===key?npc.userData.behavior.pose:current.pose;
   rig.stool.visible = state.seat ?? (!!current.seat || ['guitar','tune'].includes(state.action) && sceneId === 'ship_evening');
   rig.cup.visible = ['toast','seated_toast'].includes(state.action);
-  if (rig.tray) rig.tray.visible = chosenPose === 'serve';
+  // Работа из шагов говорит сама, что в руках (carry по дороге, hold на месте); одиночная — по своей позе
+  const steps = !!npc.userData.behavior?.legs && npc.userData.behavior.scene === key;
+  if (rig.tray) rig.tray.visible = steps ? state.carry === 'tray' || state.action === 'serve' : chosenPose === 'serve';
+  rig.bucket.visible = state.carry === 'bucket';
+  if (rig.bucket.visible) {
+    const hand = rig.arms.find(a => a.s === -1).fa, home = state.walking ? hand : rig.root;
+    if (rig.bucket.parent !== home) { home.add(rig.bucket); state.walking ? rig.bucket.position.set(0, -0.3, 0) : rig.bucket.position.set(-0.4, 0.39, 0.3); }
+  }
+  rig.coil.visible = state.carry === 'coil';
   if (rig.guitar) {
     rig.guitar.visible = ['guitar','tune'].includes(state.action) || chosenPose === 'guitar' || chosenPose === 'tune';
     rig.guitar.position.y = ['guitar','tune','seated_talk'].includes(state.action) ? .62 : 1.05;
@@ -201,6 +220,9 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
       rig.torso.rotation.z += Math.sin(t * 0.75) * 0.012;
     } else rig.torso.position.y = 0;
   }
+  // руки под ношу: бухту придерживают на плече, ведро несут на опущенной руке
+  if (rig.coil.visible) { const a = rig.arms.find(x => x.s === -1); a.ua.rotation.set(-0.35, 0, a.s * 0.25); a.fa.rotation.set(-2.1, 0, 0); }
+  if (rig.bucket.visible && state.walking) { const a = rig.arms.find(x => x.s === -1); a.ua.rotation.set(Math.sin(t * 5) * 0.08, 0, a.s * 0.18); a.fa.rotation.set(-0.05, 0, 0); }
   if (rig.tray?.visible) for (const arm of rig.arms) {arm.ua.rotation.x=-.8;arm.ua.rotation.z=-arm.s*.08;arm.fa.rotation.set(-.9,0,0);}
   if (rig.guitar?.visible && !['guitar','tune'].includes(state.action)) strum(rig,t,false);
   const blend = motion.initialized ? 1 - Math.exp(-dt * 9) : 1;

@@ -129,7 +129,8 @@ test('AI job paths animate on the shared clock and resume at the same place afte
  for(const n of layout.npcs){
   const g=profiles[n.id].scenes.ship_day,{obj}=buildNpc(M,n,true);prepareNpc(obj);
   for(const job of g.jobs){
-   const behavior={scene:key,path:[g.nodes[0],g.nodes[job.node]],start:0,pose:job.pose,r:job.r,seat:job.seat};
+   const first=job.steps?.[0]??job; // работа из шагов: идёт к первому месту
+   const behavior={scene:key,path:[g.nodes[0],g.nodes[first.node]],start:0,pose:first.pose,r:first.r,seat:!!first.seat};
    obj.userData.behavior=behavior;
    for(const time of [100,101,160]){
     animateNpc(obj,1/60,time,false,scene);
@@ -176,4 +177,20 @@ test('cook supports the tray with both hands while serving, walking and speaking
   const tray=rig.tray.getWorldPosition(new Vector3());assert.equal(rig.tray.visible,true);
   for(const arm of rig.arms){const palm=arm.fa.localToWorld(new Vector3(0,-.3,0));assert.ok(Math.abs(tray.y-palm.y-.025)<.01);assert.ok(Math.hypot(palm.x-tray.x,palm.z-tray.z)<.25);}
  }
+});
+
+test('a job of steps loops on the shared clock and shows what the sailor carries',()=>{
+ const scene={id:'ship_day',startAt:100000},key='ship_day@100000',n=layout.npcs.find(x=>x.id==='sailor_1');
+ const {obj}=buildNpc(M,n,true);prepareNpc(obj);
+ // туда (ведро в руке), на месте трёт палубу (ведро стоит рядом), обратно — и снова по кругу
+ const a=[-1,0,-2.5],b=[-0.8,0,-1.3];
+ const legs=[{path:[a],wait:4,pose:'kneel',r:1.89,carry:'bucket',hold:'bucket'},{path:[a,b],wait:4,pose:'kneel',r:1.89,carry:'bucket',hold:'bucket'},{path:[b,a],wait:4,pose:'kneel',r:1.89,carry:'bucket',hold:'bucket'}];
+ obj.userData.behavior={scene:key,legs,loop:1,start:0,pose:'kneel'};
+ const walk=4+0.5/0.55,at=t=>{animateNpc(obj,1/60,100+t,false,scene);return npcActivity(n,100+t,scene,null,obj.userData.behavior);};
+ let s1=at(walk);assert.equal(s1.action,'walk');assert.ok(obj.userData.rig.bucket.visible);assert.equal(obj.userData.rig.bucket.parent,obj.userData.rig.arms.find(x=>x.s===-1).fa);
+ s1=at(2);assert.equal(s1.action,'kneel');assert.ok(obj.userData.rig.rag.visible);assert.equal(obj.userData.rig.bucket.parent,obj.userData.rig.root);
+ const cycle=2*(Math.hypot(0.2,1.2)/0.55+4),once=4+cycle;
+ const p1=npcActivity(n,100+once+1,scene,null,obj.userData.behavior).p,p2=npcActivity(n,100+once+cycle+1,scene,null,obj.userData.behavior).p;
+ assert.ok(p1.every((v,i)=>Math.abs(v-p2[i])<1e-6),'the same place one lap later');
+ assert.ok(obj.userData.motion.joints.every(j=>j.quaternion.toArray().every(Number.isFinite)));
 });
