@@ -8,10 +8,18 @@ const SERVER = `${process.env.HTTPS === '1' ? 'https' : 'http'}://localhost:${pr
 const to = (extra = {}) => ({ target: SERVER, secure: false, ...extra });
 
 // index.html (the game, Фронт 2) may not exist yet; world-dev.html is the stand-alone world page.
-const pages = ['index.html', 'world-dev.html', 'intro-dev.html'].filter((p) => existsSync(new URL(p, import.meta.url)));
+const pages = ['index.html', 'world-dev.html', 'intro-dev.html', 'admin.html'].filter((p) => existsSync(new URL(p, import.meta.url)));
+
+// /admin в dev — та же страница, что в сборке отдаёт сервер (server/http.js)
+const adminRoute = () => ({
+  name: 'admin-route',
+  configureServer(server) {
+    server.middlewares.use((req, _res, next) => { if (req.url === '/admin' || req.url === '/admin/') req.url = '/admin.html'; next(); });
+  },
+});
 
 export default defineConfig({
-  plugins: [islandLod()], // far view of La Gomera (src/world/islandLod.js)
+  plugins: [islandLod(), adminRoute()], // far view of La Gomera (src/world/islandLod.js); /admin
   server: {
     host: true, // доступно по LAN
     port: 5173,

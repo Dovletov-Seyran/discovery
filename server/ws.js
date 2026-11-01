@@ -4,6 +4,7 @@ import { CONFIG } from '../shared/config.js';
 import { C2S, S2C, CLOSE } from '../shared/protocol.js';
 import { getSession } from './db.js';
 import * as game from './game/index.js';
+import { countIn, countOut } from './game/stats.js';
 
 export function attachWs(server) {
   // Жёсткий предел ws — с запасом; мягкий (MAX_MSG_BYTES) проверяем сами и просто игнорируем
@@ -28,6 +29,9 @@ export function attachWs(server) {
 
 function onConnection(ws) {
   ws.isAlive = true;
+  // сообщения в секунду для админки: все исходящие идут через ws.send
+  const send = ws.send.bind(ws);
+  ws.send = (data, ...rest) => { countOut(data.length); return send(data, ...rest); };
   ws.on('pong', () => { ws.isAlive = true; });
 
   let player = null;
@@ -42,6 +46,7 @@ function onConnection(ws) {
 
   ws.on('message', (data, isBinary) => {
     const now = Date.now();
+    countIn(data.length);
     if (now - windowStart >= 1000) { windowStart = now; windowCount = 0; }
     if (++windowCount > CONFIG.MAX_MSG_PER_SEC) return;
     if (isBinary || data.length > CONFIG.MAX_MSG_BYTES) return player ? undefined : fail('bad_message');

@@ -184,8 +184,35 @@ check(!!(await g.wait('pos_correct')), 'телепорт на 100 м → pos_cor
 
 g.send('chat', { text: 'Земля!' });
 check(!!(await l.wait('chat', (m) => m.text === 'Земля!' && m.from === g.id)), 'чат доходит до других');
+check(!!(await l.wait('world_event', (m) => m.type === 'talk' && m.who === g.id)), 'world_event: игрок говорит — видят остальные (для реагирующих NPC)');
+
+// --- ping и метрики клиента (админка) ---
+g.send('ping', { ts: 123.5 });
+const pong = await g.wait('pong', (m) => m.ts === 123.5);
+check(!!pong && pong.serverNow > 0, 'ping → pong с тем же ts');
+g.send('client_stats', { fps: 59.6, ping: 12, calls: 310, chunks: 9, pct: 3.5, mem: 140, junk: 'x'.repeat(50) });
+if (process.env.ADMIN_TOKEN) {
+  await sleep(200);
+  const admin = (path) => fetch(`${BASE}/api/admin${path}`, { headers: { Authorization: `Bearer ${process.env.ADMIN_TOKEN}` } });
+  const bad = await fetch(`${BASE}/api/admin/server`, { headers: { Authorization: 'Bearer wrong-token-000' } });
+  check(bad.status === 401, 'админка: неверный токен → 401');
+  const clients = await (await admin('/clients')).json();
+  const mine = clients.clients?.find((c) => c.id === g.id)?.history.at(-1);
+  check(mine?.fps === 59.6 && mine.ping === 12 && mine.junk === undefined, `админка: client_stats игрока сохранены ${JSON.stringify(mine)}`);
+  const srv = await (await admin('/server')).json();
+  check(Array.isArray(srv.history) && srv.players?.connected >= 2, 'админка: метрики сервера');
+} else console.log('  (ADMIN_TOKEN не задан — API админки не проверяем)');
 
 await l.walkTo(...at('columbus'));
+// Пока с Колумбом говорят, он стоит лицом к собеседнику — у всех одинаково (entities.syncNpcDialogues;
+// paused: { scene, at, offset — мс, lookAt: [x, y, z] }, shared/npc-activity.js)
+l.send('dialogue', { npc: 'columbus', dialogueId: 'smoke-talk', active: true });
+const stop = await g.wait('entity', (m) => m.id === 'columbus' && m.state.paused?.at, 2000);
+check(!!stop && Math.hypot(stop.state.paused.lookAt[0] - l.pos[0], stop.state.paused.lookAt[2] - l.pos[2]) < 1, 'разговор: Колумб остановился и повернулся к собеседнику — видят все');
+await sleep(400);
+l.send('dialogue', { npc: 'columbus', dialogueId: 'smoke-talk', active: false });
+const go = await g.wait('entity', (m) => m.id === 'columbus' && m.state.paused && m.state.paused.at === null, 2000);
+check(!!go && go.state.paused.offset >= 300, `разговор закончен → Колумб идёт дальше с того же места (простоял ${go?.state.paused.offset} мс)`);
 l.send('npc_talk', { npc: 'columbus', text: 'Куда мы плывём?' });
 check(!!(await l.wait('npc_thinking')), 'npc_talk → npc_thinking');
 check(!!(await l.wait('npc_say', () => true, AI_MS)), 'npc_talk → npc_say');
@@ -258,10 +285,12 @@ check(!!(await g2.wait('inventory',m=>m.items.includes('rum'))),'ром можн
 g2.send('use',{item:'rum'});
 const rumUse=await g2.wait('item_used',m=>m.item==='rum');
 check(!!rumUse&&rumUse.vitals.drunkUntil>rumUse.serverNow&&rumUse.uses===1,'ром: сервер подтвердил опьянение и расход глотка');
-p.send('minigame', { game: 'astrolabe', result: { answer: 17 } });
+p.send('minigame', { game: 'astrolabe', result: { variant: 'gomera', angle: 68, answer: 16 } });
 check(!!(await p.wait('notice', (m) => m.text.includes('Неверно'))), 'астролябия: неверная широта → подсказка');
-p.send('minigame', { game: 'astrolabe', result: { angle: 73, answer: 33 } });
-check(!!(await p.wait('quest', (m) => m.id === 'q_latitude' && m.status === 'done')), 'астролябия: 33° → задание выполнено');
+p.send('minigame', { game: 'astrolabe', result: { variant: 'gomera', angle: 73, answer: 28 } });
+check(!!(await p.wait('notice', (m) => m.text.includes('Неверно'))), 'астролябия: высота Солнца не та, что в варианте → не засчитано');
+p.send('minigame', { game: 'astrolabe', result: { variant: 'gomera', angle: 68, answer: 28 } });
+check(!!(await p.wait('quest', (m) => m.id === 'q_latitude' && m.status === 'done')), 'астролябия: 6 сентября, 68° и склонение +6° → 28°, задание выполнено');
 
 await l.walkTo(...at('columbus'));
 let askMark = l.msgs.length;
@@ -387,6 +416,7 @@ check(!!(await l.wait('scene', (m) => m.id === 'cut_night', CONFIG.TRANSITION_CO
 for (const b of [g3, p, l]) b.clear();
 g3.send('chat', { text: '/scene night_story' });
 const seat = await p.wait('scene', (m) => m.id === 'night_story');
+check(seat?.duration > 60 && seat.duration < 120, `ночной рассказ: сцена длится по озвучке (${seat?.duration} с), сон сразу после последней реплики`);
 check(Array.isArray(seat?.seat), `ночь: место у фонаря ${JSON.stringify(seat?.seat)}`);
 const sitSnap = await p.wait('snapshot', (m) => m.players.some((x) => x.id === g3.id));
 check(sitSnap?.players.every((x) => x.a === 'sit'), 'ночью все сидят (a: sit)');

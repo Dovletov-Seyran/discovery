@@ -26,6 +26,7 @@ export class SocketClient extends Events {
       if (e.code === 4001) { this.stopped = true; this.emit('auth_fail',{reason:'session_expired'}); return; }
       if (e.code === 4002) { this.stopped = true; this.emit('connection',{status:'replaced'}); return; }
       if (e.code === 4003) { this.stopped = true; this.emit('connection',{status:'full'}); return; }
+      if (e.code === 4004) { this.stopped = true; this.emit('connection',{status:'kicked'}); return; } // CLOSE.KICKED — отключил администратор
       if (this.stopped) return;
       this.emit('connection',{status:'reconnecting'});
       this.timer = setTimeout(() => this.open(), [1000,2000,5000][Math.min(this.attempt++,2)]);
@@ -34,4 +35,12 @@ export class SocketClient extends Events {
   }
   send(t, payload = {}) { if (!this.authorized || this.ws?.readyState !== 1) return false; this.ws.send(JSON.stringify({...payload,t})); return true; }
   disconnect() { this.stopped = true; this.authorized = false; clearTimeout(this.timer); if (this.ws) { this.ws.onclose = null; this.ws.close(); } }
+}
+
+
+// Сообщения мира проходят из сокета через UI в WorldConnection.
+export function forwardGameEvents(client, events) {
+  for (const type of ['chunk','chunk_denied','entity','world_patch','world_event','player_equipment','player_action','scene_progress','scared','inventory','quest','npc_say','trade_state']) {
+    client.on(type, message => events.emit(type, message));
+  }
 }

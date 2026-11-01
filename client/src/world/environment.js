@@ -164,7 +164,12 @@ export class Environment {
     });
     patchWater(this.water);
     const reflect = this.water.onBeforeRender;
+    // Отражение — это вся сцена, нарисованная второй раз. Обновляем его через кадр (на «низком» — раз в 4 кадра):
+    // волны и качка размывают отражение, разницы не видно, а видеокарте вдвое меньше работы
+    const every = q === 'low' ? 4 : 2;
+    let frame = 0;
     this.water.onBeforeRender = (...args) => {
+      if (frame++ % every) return;
       const hidden = this.mirrorHide.filter((o) => o.visible);
       hidden.forEach((o) => (o.visible = false));
       reflect(...args);
@@ -200,7 +205,8 @@ export class Environment {
     this.light.color.copy(p.light); this.light.intensity = p.li;
     this.renderer.toneMappingExposure = p.exp;
     // on the island a light coastal haze; the far side is the coarse island (islandLod.js), not an edge to hide
-    this.scene.fog.color.copy(p.fog); this.scene.fog.density = this.zone === 'canary' ? Math.max(p.fogD, 0.0035) : p.fogD;
+    // fogOverride — туман ночной истории (world_patch, world-patches.js)
+    this.scene.fog.color.copy(p.fog); this.scene.fog.density = this.fogOverride ?? (this.zone === 'canary' ? Math.max(p.fogD, 0.0035) : p.fogD);
     const du = this.dome.material.uniforms;
     du.color.value.copy(p.fog); du.aH.value = p.domeH; du.aT.value = p.domeT;
     this.dome.visible = p.domeH > 0.001;
@@ -215,7 +221,8 @@ export class Environment {
     this.daylight = THREE.MathUtils.clamp(p.li / 7, 0, 1);
     this.M.get('sail').emissiveIntensity = this.M.get('sailCross').emissiveIntensity = 0.09 * this.daylight;
     const now = performance.now();
-    if (forceEnv || (Math.abs(this.t - this.envT) > 0.005 && now - this.envAt > 2000)) {
+    // карта окружения (PMREM) — тяжёлый пересчёт: только при заметной смене времени суток и не чаще раза в 6 с
+    if (forceEnv || (Math.abs(this.t - this.envT) > 0.02 && now - this.envAt > 6000)) {
       const old = this.envRT;
       this.envRT = this.pmrem.fromScene(this.envScene, 0, 1, 20000);
       this.scene.environment = this.envRT.texture;
@@ -260,9 +267,11 @@ export class Environment {
     slackSails(this.sails, slack);
     for (const f of this.fleet) slackSails(f.userData.sails, slack);
     // a cutscene may light them one by one (lampScale per lamp); they stay in the shader meanwhile, no recompiles
+    // lampPatch — фонари, зажжённые или притушенные агентом (world_patch, world-patches.js)
     this.lamps.forEach((l, i) => {
-      const k = this.lampScale ? this.lampScale[i] ?? 1 : 1;
-      l.visible = this.p.lamps > 0.01; l.intensity = this.p.lamps * k * 4 * flick;
+      const k = this.lampScale ? this.lampScale[i] ?? 1 : 1, o = this.lampPatch?.get(l);
+      const on = o?.lit === true ? Math.max(this.p.lamps, 1) : o?.lit === false ? 0 : this.p.lamps;
+      l.visible = on > 0.01; l.intensity = on * k * 4 * flick * (o?.brightness ?? 1);
     });
     this.apply();
   }

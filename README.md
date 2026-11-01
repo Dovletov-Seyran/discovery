@@ -94,9 +94,30 @@ Dev-команды в чате (только `DEV=1`): `/scene <id>`, `/reset`, 
 | `scene` | `+ type, duration, r?` | `r` — куда смотреть после появления в `spawn`/`seat` |
 | `npc_say` | `+ line?, duration?` | id готовой реплики из `content/lines.json` (по нему можно запускать звук события), длительность из манифеста озвучки |
 | `scared` | `by, target` | Рассылается всем: напуганный — тот, у кого `target` = он сам, остальные смеются |
-| закрытие WS | `4001` / `4002` | Неверный токен / вошли с другой вкладки (не переподключаться) |
+| `entity` | `+ paused: {at, offset, face}` | NPC с маршрутом (Колумб) стоит, пока с ним говорят: время маршрута замерло на `at`, `offset` — сколько он простоял всего, `face` — [x, z] собеседника (`shared/npc-activity.js`) |
+| `ping` → `pong` | `ts` → `ts, serverNow` | Раз в 2 с; задержка = сейчас − `ts` (`client/src/net/telemetry.js`) |
+| `client_stats` | `fps, ping, calls, chunks, pct, mem` | Раз в 2 с, для админки; сервер хранит 60 последних на игрока |
+| `world_event` | `type, who, p` | Сервер рассылает игрокам зоны: `talk` (чат, вопрос NPC), `eat`, `drink`, `swing` (предмет), `run` (раз в 3 с), `scare`, `dance` — для реагирующих NPC (`server/game/world-events.js`) |
+| `minigame astrolabe` | `result: {variant, angle, answer}` | Вариант — день пути из `shared/astrolabe.js`, широту считает сервер |
+| закрытие WS | `4001` / `4002` / `4004` | Неверный токен / вошли с другой вкладки / отключил администратор (не переподключаться) |
 
 Задания — `content/quests.json`, предметы — `content/items.json` (карточки знаний), NPC и цены торговца — `content/npcs.json`. E у объекта: `interact {id}` (для предмета сервер сам сделает `pickup`, у NPC и шлюпки сам отдаст то, что ждёт задание).
+
+## Админ-панель
+
+`/admin` — метрики клиентов (fps, ping, draw calls, чанки, память) и сервера (процессор, память, такт, сообщения, чанки), «Вселенная» (сцена, время суток, длительности, правка `scenes.json` и раскладок с проверкой и применением без перезапуска) и управление (сцена, сброс, выгнать, объявление). Код — `server/admin/`, `client/admin.html`, `client/src/admin/`.
+
+- Включается переменной `ADMIN_TOKEN` (от 12 символов). Без неё API выключен.
+- Только HTTPS (`npm run start:https`). Под `DEV=1` разрешён ещё http с этого же компьютера.
+
+```powershell
+$env:ADMIN_TOKEN = "длинный-случайный-токен"; npm run start:https     # Windows (PowerShell)
+```
+```bash
+ADMIN_TOKEN=длинный-случайный-токен npm run start:https               # macOS
+```
+
+Открыть `https://<IP>:3000/admin` и ввести токен. Прежние версии правленых файлов — в `data/admin/backup/`. Под `npm run dev` сервер после «Применить» ещё и перезапустится (следит за `content/`). `npm run smoke` с `ADMIN_TOKEN` проверяет и API админки.
 
 ## Папки
 

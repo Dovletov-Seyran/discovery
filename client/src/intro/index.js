@@ -9,6 +9,7 @@
 //   await intro.play({ startAt, duration });    // startAt from the server's `scene` message; duration 90 (45 in demo)
 //   intro.stop();                               // skip: fades out and resolves play()
 // While it plays the intro owns the canvas: do not call world.frame().
+import { frameDue, FPS_PLAY } from '../game/frame-limit.js';
 import * as THREE from 'three';
 import { Pipeline } from '../world/pipeline.js';
 import { Study, TABLE } from './study.js';
@@ -41,6 +42,7 @@ export function createIntro(world) {
     // Draw one moment: panel i at progress k (0..1), dt for animated things (candle, sea).
     render(i, k, dt = 1 / 60) {
       const s = SHOTS[i], e = sm(0, 1, k), el = r.domElement;
+      r.shadowMap.needsUpdate = true; // мир пересчитывает тени через кадр (world/index.js), интро — каждый свой кадр
       // follow the canvas size (window resize, devtools, a phone turned sideways)
       if (el.clientWidth !== this.w || el.clientHeight !== this.h) {
         this.w = el.clientWidth; this.h = el.clientHeight;
@@ -144,6 +146,7 @@ export function createIntro(world) {
         this._finish = finish;
         last = performance.now();
         const tick = (now) => {
+          if (!frameDue(now, last, FPS_PLAY)) { raf = requestAnimationFrame(tick); return; } // экран 120 Гц — рисуем 60
           const dt = Math.min(0.1, (now - last) / 1000); last = now;
           const t = (Date.now() - startAt) / 1000;
           if (t < 0) { this.fade(1); raf = requestAnimationFrame(tick); return; } // waiting for the common start

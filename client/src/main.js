@@ -6,8 +6,11 @@ import {sceneProgressView} from './ui/scene-progress.js';
 import {Equipment,itemPictures} from './game/equipment.js';
 import {itemIcon,ITEM_ACTIONS} from './ui/item-icons.js';
 import {CONFIG} from '../../shared/config.js';
-import {SocketClient,Events} from './net/socket.js';
+import {ASTROLABE,latitude,answers,signed} from '../../shared/astrolabe.js';
+import {SocketClient,Events,forwardGameEvents} from './net/socket.js';
 import {MockClient} from './net/mock.js';
+import {Telemetry} from './net/telemetry.js';
+import {FPS_PLAY,FPS_CALM} from './game/frame-limit.js';
 import {GameplayRuntime} from './game/runtime.js';
 import {WorldConnection} from './game/world-connection.js';
 import {ROLES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,escape,itemId} from './ui/content.js';
@@ -42,7 +45,8 @@ let sceneProgress=null,serverOffset=0,vitals=freshVitals(),itemUses={},money=0,p
 const itemCooldowns=new Map();
 let scriptIndex=0,scriptLines=[],tradeState=null,partyReady={},serverBuild=null;
 const knownCards=new Set();
-const settings={quality:'high',sensitivity:2,voices:0.8};
+const telemetry=new Telemetry(()=>world); // ping и метрики клиента для админки
+const settings={quality:'high',sensitivity:2,voices:0.8,fps:FPS_PLAY};
 const voices=new VoiceLibrary({onVoice:playing=>gameEvents.emit('voice',{playing})});
 const narrative=new NarrativePlayer(voices,{
   onFrame:frame=>{
@@ -98,7 +102,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
         if(time-fpsAt>=0.7){
           const fps=Math.round(frameCount/(time-fpsAt));frameCount=0;fpsAt=time;
           const stats=world.stats?.();
-          $('#debug').textContent=`${fps} FPS${Number.isFinite(stats?.calls)?` · ${stats.calls} draw calls`:''}${stats?.chunks?`\nМир: ${stats.chunks.loaded}/${stats.chunks.total} · ${stats.chunks.pct.toFixed(1)}%`:''}`;
+          $('#debug').textContent=`${fps} FPS${Number.isFinite(telemetry.ping)?` · ping ${telemetry.ping} мс`:''}${Number.isFinite(stats?.calls)?` · ${stats.calls} draw calls`:''}${stats?.chunks?`\nМир: ${stats.chunks.loaded}/${stats.chunks.total} · ${stats.chunks.pct.toFixed(1)}%`:''}`;
         }
       }
     },
@@ -121,10 +125,14 @@ function notify(text){
 }
 function connectionStatus(status){
   connected=status==='online'||status==='demo';
-  const messages={connecting:'Подключение…',reconnecting:'Связь потеряна. Переподключение…',replaced:'Аккаунт открыт в другой вкладке'};
+  const messages={connecting:'Подключение…',reconnecting:'Связь потеряна. Переподключение…',replaced:'Аккаунт открыт в другой вкладке',kicked:'Администратор отключил вас от игры'};
   $('#connection').textContent=messages[status]||'';$('#connection').hidden=!messages[status];
   if(status==='replaced')showModal('ended',`<section class="menu-panel"><h2>Сессия завершена</h2><p>Аккаунт открыт в другой вкладке.</p><button class="primary" id="session-exit">Ко входу</button></section>`);
   if(status==='replaced')$('#session-exit').onclick=logout;
+  if(status==='kicked'){
+    showModal('ended',`<section class="menu-panel"><h2>Вы отключены</h2><p>Администратор отключил вас от игры.</p><button class="primary" id="session-exit">Ко входу</button></section>`);
+    $('#session-exit').onclick=logout;
+  }
   if(status==='full'){
     showModal('ended',`<section class="menu-panel"><h2>Экипаж уже собран</h2><p>В игре уже 3 из 3 игроков — по одному на каждую роль. Дождитесь, пока кто-нибудь выйдет.</p><button class="primary" id="session-exit">Ко входу</button></section>`);
     $('#session-exit').onclick=logout;
@@ -156,7 +164,7 @@ async function authenticate(register){
 function connect(credential){
   closeModal();equipItem(null,{sync:false});net?.disconnect();connected=false;players=[];inventory=[];quests={};
   net=preview?new MockClient():new SocketClient();
-  bindNetwork(net);net.connect(credential);
+  bindNetwork(net);telemetry.attach(net);net.connect(credential);
 }
 function bindNetwork(client){
   client.on('connection',({status})=>connectionStatus(status));
@@ -216,7 +224,7 @@ function bindNetwork(client){
   client.on('player_join',message=>gameEvents.emit('player_join',message));
   client.on('player_leave',message=>gameEvents.emit('player_leave',message));
   client.on('tod',message=>{scene.tod=message.value;world?.setTimeOfDay?.(message.value);gameEvents.emit('tod',message);});
-  for(const type of ['chunk','chunk_denied','entity','world_patch','world_event','player_equipment','player_action','scared','inventory','quest','npc_say','trade_state'])client.on(type,message=>gameEvents.emit(type,message));
+  forwardGameEvents(client,gameEvents);
 }
 function renderLobby(){
   $('#screen').innerHTML=lobbyView(players,you,connected);
@@ -372,18 +380,22 @@ function useEquipped(){
   const target=ITEM_RULES[equipped]?.target===currentTarget?.id?currentTarget.id:undefined;
   net.send('use',{item:equipped,...(target?{target}:{})});
 }
+// Каждый раз другой день пути: своя высота Солнца и склонение (shared/astrolabe.js), ответ проверяет сервер
+let astrolabeVariant=null;
 function openAstrolabe(){
-  showModal('astrolabe',`<section class="menu-panel astrolabe-panel">${closeButton()}<h2>Астролябия</h2><div class="astrolabe-dial"><div id="alidade"></div><output id="angle-output">45°</output></div><label for="angle-input">Высота Солнца</label><input id="angle-input" type="range" min="0" max="90" value="45"><p id="alignment">Совместите с Солнцем: 73° ± 2°.</p><div id="latitude-question" hidden><p>Широта = 90° − 73° + 16°</p><div class="answers">${[17,33,49].map(value=>`<button data-answer="${value}" class="option-button">${value}°</button>`).join('')}</div></div><p id="answer-feedback" role="status"></p></section>`);
+  const others=ASTROLABE.filter(v=>v!==astrolabeVariant),v=astrolabeVariant=others[Math.floor(Math.random()*others.length)];
+  const align=`Совместите с Солнцем: ${v.sun}° ± 2°.`;
+  showModal('astrolabe',`<section class="menu-panel astrolabe-panel">${closeButton()}<h2>Астролябия</h2><p>${v.date}. Склонение Солнца ${signed(v.decl)}.</p><div class="astrolabe-dial"><div id="alidade"></div><output id="angle-output">45°</output></div><label for="angle-input">Высота Солнца</label><input id="angle-input" type="range" min="0" max="90" value="45"><p id="alignment">${align}</p><div id="latitude-question" hidden><p>Широта = 90° − ${v.sun}° ${signed(v.decl)}</p><div class="answers">${answers(v).map(value=>`<button data-answer="${value}" class="option-button">${value}°</button>`).join('')}</div></div><p id="answer-feedback" role="status"></p></section>`);
   $('#angle-input').oninput=event=>{
-    const angle=Number(event.target.value),aligned=Math.abs(angle-73)<=2;
+    const angle=Number(event.target.value),aligned=Math.abs(angle-v.sun)<=2;
     $('#angle-output').textContent=`${angle}°`;$('#alidade').style.transform=`rotate(${-angle}deg)`;
-    $('#latitude-question').hidden=!aligned;$('#alignment').textContent=aligned?'Определите широту.':'Совместите с Солнцем: 73° ± 2°.';
+    $('#latitude-question').hidden=!aligned;$('#alignment').textContent=aligned?'Определите широту.':align;
   };
   document.querySelectorAll('[data-answer]').forEach(button=>button.onclick=()=>{
-    const angle=Number($('#angle-input').value);
-    if(Math.abs(angle-73)>2)return;
-    if(Number(button.dataset.answer)!==33){$('#answer-feedback').textContent='Попробуйте ещё.';return;}
-    if(net.send('minigame',{game:'astrolabe',result:{angle,answer:33}}))closeModal();else notify('Нет связи с сервером.');
+    const angle=Number($('#angle-input').value),answer=Number(button.dataset.answer);
+    if(Math.abs(angle-v.sun)>2)return;
+    if(answer!==latitude(v)){$('#answer-feedback').textContent='Попробуйте ещё.';return;}
+    if(net.send('minigame',{game:'astrolabe',result:{variant:v.id,angle,answer}}))closeModal();else notify('Нет связи с сервером.');
   });
 }
 function openDialogue(npc){
@@ -457,8 +469,9 @@ function receiveDialogue(message){
 }
 function stopNpcAudio(){if(npcAudio){npcAudio.pause();npcAudio=null;gameEvents.emit('voice',{playing:false});}}
 function openMenu(){
-  showModal('menu',`<section class="menu-panel">${closeButton()}<h2>Настройки</h2><label for="quality">Качество</label><select id="quality"><option value="high">Высокое</option><option value="low">Низкое</option></select><label for="sensitivity">Чувствительность</label><input id="sensitivity" type="range" min="1" max="5" step="0.1" value="${settings.sensitivity}"><label for="voice-volume">Голос</label><input id="voice-volume" type="range" min="0" max="1" step="0.05" value="${settings.voices}"><button class="primary" data-close>Продолжить</button><button id="leave" class="quiet-button">Выйти</button></section>`);
+  showModal('menu',`<section class="menu-panel">${closeButton()}<h2>Настройки</h2><label for="quality">Качество</label><select id="quality"><option value="high">Высокое</option><option value="low">Низкое</option></select><label for="fps">Кадров в секунду</label><select id="fps"><option value="60">60 — плавно</option><option value="30">30 — тише и холоднее</option></select><label for="sensitivity">Чувствительность</label><input id="sensitivity" type="range" min="1" max="5" step="0.1" value="${settings.sensitivity}"><label for="voice-volume">Голос</label><input id="voice-volume" type="range" min="0" max="1" step="0.05" value="${settings.voices}"><button class="primary" data-close>Продолжить</button><button id="leave" class="quiet-button">Выйти</button></section>`);
   $('#quality').value=settings.quality;$('#quality').onchange=event=>{settings.quality=event.target.value;world?.setQuality?.(settings.quality);};
+  $('#fps').value=String(settings.fps);$('#fps').onchange=event=>{settings.fps=Number(event.target.value);};
   $('#sensitivity').oninput=event=>{settings.sensitivity=Number(event.target.value);if(runtime)runtime.controller.sensitivity=settings.sensitivity/1000;};
   $('#voice-volume').oninput=event=>{settings.voices=Number(event.target.value);if(npcAudio)npcAudio.volume=settings.voices;voices.volume=settings.voices;};
   $('#leave').onclick=logout;
@@ -484,6 +497,8 @@ if(typeof ResizeObserver!=='undefined'){
 if(!preview)new WorldAudio(gameEvents);
 if(!preview)new WorldConnection({
   events:gameEvents,send:sendGameMessage,attach:attachWorld,canvas,
+  // открыто меню, журнал или диалог — 30 кадров: игрок читает, сцене хватает (ноут не греется)
+  fpsLimit:()=>modal?FPS_CALM:settings.fps,
   onStatus:status=>{
     const labels={loading:'Загрузка…',missing:'Мир не подключён',error:'Не удалось загрузить сцену'};
     $('#world-status').textContent=labels[status]||'';
