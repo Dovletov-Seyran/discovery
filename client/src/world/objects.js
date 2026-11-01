@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import {MODELS,applyState,animateProp} from './props.js';
-import {ISLAND_MODELS} from './islandModels.js';
-import {HELD_MODELS,releaseModel} from '../game/held-models.js';
-import {objectProfile} from '../../../shared/object-physics.js';
+import {applyState,animateProp} from './props.js';
+import {releaseModel} from '../game/held-models.js';
+import {bodyQuaternion,supportHeight,OBJECT_PROFILES} from '../../../shared/object-physics.js';
 import {doorSpecs,doorBox,boxContact} from '../../../shared/world-interact.js';
+import {worldItemModel} from '../game/world-item-model.js';
 import {advanceBody,sphereContact} from './physics.js';
 
 // One bounded, streamed overlay for both player drops and agent/admin patches.
@@ -48,35 +48,28 @@ export class WorldObjects {
   applyRecord(record){
     const {data,state}=record;
     const original=this.staticEntity(data.id);
-    if(original){original.visible=!state.holder&&state.visible!==false;applyState(original,state);record.body=state.body?structuredClone(state.body):null;return;}
+    if(original&&!state.body){if(record.obj){record.obj.removeFromParent();releaseModel(record.obj);record.obj=null;}original.visible=!state.holder&&state.visible!==false;applyState(original,state);record.body=state.body?structuredClone(state.body):null;return;}
+    if(original&&state.body)original.visible=false;
     // A static NPC/door can arrive before its chunk. Never create a generic replacement for it.
     if(data.kind!=='item'&&data.kind!=='prop')return;
     // Original ship pickups already have a model once the ship layout arrives.
     if(data.zone==='ship'&&!this.world.layout)return;
     if(!record.obj){
-      const aliases={barrel_full:'barrel',tar:'tar_bucket'};
-      const make=MODELS[data.model]??ISLAND_MODELS[data.model]??HELD_MODELS[data.item]??MODELS[aliases[data.item]??data.item];
-      if(!make)return;
-      const built=make(this.world.M);built.col?.forEach(g=>g.dispose());
-      const content=built.obj,root=new THREE.Group(),profile=objectProfile(data.item);
-      // Ship pickups retain their original dimensions. Drops use a compact physical proxy.
-      if(data.id.startsWith('drop:')||data.item==='barrel'||data.item==='cup'){
-        const b=new THREE.Box3().setFromObject(content),size=b.getSize(new THREE.Vector3()),scale=Math.min(1,profile.radius*2/Math.max(size.x,size.y,size.z));
-        content.scale.setScalar(scale);
-      }
-      const box=new THREE.Box3().setFromObject(content),center=box.getCenter(new THREE.Vector3());
-      content.position.sub(new THREE.Vector3(center.x,box.min.y,center.z));root.add(content);root.userData={id:data.id,kind:data.kind,item:data.item,label:data.label,noBake:true};
+      const content=worldItemModel(this.world.M,data.item,data.model);if(!content)return;
+      const root=new THREE.Group();root.add(content);root.userData={id:data.id,kind:data.kind,item:data.item,label:data.label,noBake:true};
       this.root.add(root);record.obj=root;
     }
     const obj=record.obj;
-    obj.position.fromArray(state.p??data.p);obj.rotation.y=state.r??data.r??0;obj.visible=!state.holder&&state.visible!==false;
+    obj.position.fromArray(state.p??data.p);obj.position.y+=obj.children[0]?.userData.supportHeight??supportHeight(data.item);obj.rotation.set(0,state.r??data.r??0,0);
+    if(Object.hasOwn(OBJECT_PROFILES,data.item))obj.quaternion.fromArray(bodyQuaternion({item:data.item,r:state.r??data.r??0}));obj.visible=!state.holder&&state.visible!==false;
     record.body=state.body?structuredClone(state.body):null;
+    if(record.body){obj.position.fromArray(record.body.p);obj.quaternion.fromArray(bodyQuaternion(record.body));}
   }
   loaded(){
     // Called after the normal chunk builder; adopts its static model and discards a temporary one.
     for(const record of this.records.values()){
       const original=this.staticEntity(record.data.id);
-      if(original&&record.obj){record.obj.removeFromParent();releaseModel(record.obj);record.obj=null;}
+      if(original&&record.obj&&!record.state.body){record.obj.removeFromParent();releaseModel(record.obj);record.obj=null;}
       this.applyRecord(record);
     }
   }
@@ -94,7 +87,6 @@ export class WorldObjects {
     return capsule.start.clone().sub(start);
   }
   update(now=Date.now()+this.clockOffset){
-    const elapsed=Math.max(0,Math.min(.05,(now-(this.lastFrame??now))/1000));this.lastFrame=now;
     for(const record of this.records.values()){
       const obj=record.obj??this.staticEntity(record.data.id);if(!obj)continue;
       animateProp(obj,now);
@@ -102,9 +94,8 @@ export class WorldObjects {
       const body=record.body;
       // If a terrain chunk has not arrived, hold the last authoritative pose until it does.
       if(this.world.zone==='canary'&&!this.world.island.chunks.has(`${Math.floor(body.p[0]/32)},${Math.floor(body.p[2]/32)}`))continue;
-      advanceBody(body,Math.min(now,body.startedAt+(body.step+36)/120*1000),(p,r)=>sphereContact(this.world,p,r),{inertia:this.world.zone==='ship'&&body.roll});
-      obj.position.fromArray(body.p);obj.position.y-=body.radius;
-      if(body.roll){obj.rotation.z+=body.v[0]/body.radius*elapsed;obj.rotation.x+=body.v[2]/body.radius*elapsed;}
+      advanceBody(body,Math.min(now,body.startedAt+(body.step+36)/120*1000),(p,r,from)=>sphereContact(this.world,p,r,from),{inertia:this.world.zone==='ship'&&body.roll});
+      obj.position.fromArray(body.p);obj.quaternion.fromArray(bodyQuaternion(body));
     }
   }
 }

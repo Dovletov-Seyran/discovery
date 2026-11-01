@@ -155,6 +155,7 @@ export const world = {
   setZone(zone) {
     this.zone = zone;
     this.objects?.setZone(zone);
+    this.players?.setZone(zone);
     this.patches?.invalidate();
     const ship = zone === 'ship';
     this.ship.visible = ship; this.zoneRoot.visible = ship; this.smoke.visible = ship;

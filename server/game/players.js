@@ -1,4 +1,5 @@
 // Игроки в памяти: Map<userId, player>. Отключённый игрок остаётся в партии DISCONNECT_GRACE_MS.
+import {heldItem,setHeldItem,presentation} from '../../shared/player-presentation.js';
 import { WebSocket } from 'ws';
 import { CONFIG } from '../../shared/config.js';
 import { S2C } from '../../shared/protocol.js';
@@ -19,8 +20,9 @@ function create(userId, name) {
     zone: saved?.zone ?? null,
     p: saved?.p ?? null,
     r: saved?.r ?? 0,
-    a: 'idle',
+    a: 'idle',pitch:0,
     inventory: saved?.inventory ?? [],
+    equipped:saved?.equipped??null,equipmentRev:0,action:null,actionSeq:0,
     money: saved?.money ?? 0,
     itemUses:saved?.itemUses??{},vitals:saved?.vitals??{stamina:100,drunkUntil:0,drunkStrength:0},
     lastItemUse:{},lastVitalsAt:Date.now(),
@@ -35,12 +37,13 @@ function create(userId, name) {
     lastTradeAt: 0,
     lastScareAt: 0,
   };
+  p.equipped=heldItem(p);
   map.set(userId, p);
   return p;
 }
 
 const serialize = (p) => ({
-  role: p.role, scene: p.scene, zone: p.zone, p: p.p, r: p.r, inventory: p.inventory, money: p.money,trade:p.trade,itemUses:p.itemUses,vitals:p.vitals, quests: p.quests, log: p.log,
+  role: p.role, scene: p.scene, zone: p.zone, p: p.p, r: p.r, inventory: p.inventory, equipped:heldItem(p), money: p.money,trade:p.trade,itemUses:p.itemUses,vitals:p.vitals, quests: p.quests, log: p.log,
 });
 
 export const players = {
@@ -58,9 +61,14 @@ export const players = {
     return null;
   },
 
-  publicInfo: (p) => ({ id: p.id, name: p.name, role: p.role }),
+  publicInfo: (p) => ({ id: p.id, name: p.name, role: p.role,zone:p.zone,p:p.p,r:p.r,pitch:p.pitch??0,a:p.a,...presentation(p) }),
 
-  sendInventory(p) { players.send(p, { t: S2C.INVENTORY, items: p.inventory, money: p.money,itemUses:p.itemUses,vitals:p.vitals }); },
+  sendEquipment(p,onlySelf=false){
+    const message={t:S2C.PLAYER_EQUIPMENT,id:p.id,item:heldItem(p),equipmentRev:p.equipmentRev??0,zone:p.zone,serverNow:Date.now()};
+    if(onlySelf)players.send(p,message);else players.broadcast(message,other=>other.zone===p.zone);
+  },
+
+  sendInventory(p) { if(setHeldItem(p,heldItem(p)))players.sendEquipment(p);players.send(p, { t: S2C.INVENTORY, items: p.inventory, equipped:heldItem(p), equipmentRev:p.equipmentRev??0, money: p.money,itemUses:p.itemUses,vitals:p.vitals }); },
 
   addLog(p, code) {
     if (code && !p.log.includes(code)) p.log.push(code);
