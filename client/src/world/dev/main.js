@@ -7,10 +7,12 @@
 //   ?cam=x,y,z,yaw,pitch   fixed camera, no controls (for screenshots)
 //   ?bench       measure every preset on this machine (see bench.js)
 // Keys: C plays cut_canary (from the ship to the pier of La Gomera), V plays cut_evening (back to sea at sunset),
-//   N plays cut_night (dusk, calm and fog, down to the lantern).
+//   N plays cut_night (dusk, calm and fog, down to the lantern), P opens part 2 (p2_prologue on Guanahani),
+//   L the night alarm (p2_alarm).
 import * as THREE from 'three';
 import { world } from '../index.js';
 import layout from '../../../../content/ship_layout.json';
+import guanahani from '../../../../content/guanahani_layout.json';
 import { createFakeServer } from './fakeServer.js';
 
 const P = new URLSearchParams(location.search);
@@ -92,6 +94,17 @@ addEventListener('keydown', (e) => {
     world.setZone('ship');
     const { p, r } = layout.seats[1]; feet.set(p[0], p[1] + 0.05, p[2]); yaw = r; pitch = 0; vel.set(0, 0, 0);
     world.cutscene.play('cut_night');
+  }
+  // part 2 opens: the ships at dawn from above, the title, waking up in a hammock in one's own bohío
+  if (e.code === 'KeyP' && !world.cutscene.active) {
+    world.setZone('guanahani');
+    const { p, r } = guanahani.spawns.grumete; feet.set(p[0], fake.heightAt(p[0], p[1], 'guanahani') + 0.05, p[1]); yaw = r; pitch = 0; vel.set(0, 0, 0);
+    world.cutscene.play('p2_prologue');
+  }
+  if (e.code === 'KeyL' && !world.cutscene.active) { // the night alarm: lights on the sea
+    world.setZone('guanahani');
+    const { p, r } = guanahani.spawns.grumete; feet.set(p[0], fake.heightAt(p[0], p[1], 'guanahani') + 0.05, p[1]); yaw = r; pitch = 0; vel.set(0, 0, 0);
+    world.cutscene.play('p2_alarm');
   }
 });
 addEventListener('keyup', (e) => keys.delete(e.code));

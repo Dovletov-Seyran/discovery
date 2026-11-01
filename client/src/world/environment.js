@@ -45,7 +45,7 @@ const SHALLOW = /* glsl */ `
     if (all(greaterThan(suv, vec2(0.0))) && all(lessThan(suv, vec2(1.0)))) {
       float depth = -(texture2D(shoreMap, suv).r * 30.0 - 10.0);
       float k = 1.0 - smoothstep(0.3, 7.0, depth);
-      vec3 shallow = mix(shallowDeep, shallowEdge, 1.0 - smoothstep(0.1, 1.8, depth)) * (diffuseLight * 0.8 + 0.2);
+      vec3 shallow = mix(shallowDeep, shallowEdge, 1.0 - smoothstep(0.1, 1.8, depth)) * (diffuseLight * 0.9 + 0.03); // dark at night
       outgoingLight = mix(albedo, shallow + reflectionSample * 0.3 * reflectance + specularLight, k * 0.9);
     }
   }`;
