@@ -76,7 +76,8 @@ export function giveChart(npc, chart) {
   npc.userData.chart = chart;
 }
 
-export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', chartTaken = false) {
+const GLANCE_DIST = 3.5, _glance = new THREE.Vector3();
+export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', chartTaken = false, viewer = null) {
   const { rig, definition, motion } = npc.userData;
   if (!rig || !motion) return;
   const state = npcActivity(definition, seconds, scene, npc.userData.paused, npc.userData.behavior);
@@ -225,6 +226,16 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
   if (rig.bucket.visible && state.walking) { const a = rig.arms.find(x => x.s === -1); a.ua.rotation.set(Math.sin(t * 5) * 0.08, 0, a.s * 0.18); a.fa.rotation.set(-0.05, 0, 0); }
   if (rig.tray?.visible) for (const arm of rig.arms) {arm.ua.rotation.x=-.8;arm.ua.rotation.z=-arm.s*.08;arm.fa.rotation.set(-.9,0,0);}
   if (rig.guitar?.visible && !['guitar','tune'].includes(state.action)) strum(rig,t,false);
+  // Подошёл игрок — NPC оборачивается к нему головой (неагентная реакция; в разговоре его и так поворачивает сервер)
+  if (viewer && !state.walking && state.action !== 'talk' && scene !== 'night_story') {
+    const dist = Math.hypot(viewer.x - npc.position.x, viewer.z - npc.position.z);
+    if (dist < GLANCE_DIST) {
+      npc.updateMatrixWorld();
+      const local = npc.worldToLocal(_glance.copy(viewer));
+      rig.head.rotation.y = THREE.MathUtils.clamp(Math.atan2(local.x, local.z), -1.05, 1.05);
+      rig.head.rotation.x = Math.min(rig.head.rotation.x, 0.1);
+    }
+  }
   const blend = motion.initialized ? 1 - Math.exp(-dt * 9) : 1;
   motion.joints.forEach((j, i) => j.quaternion.slerp(motion.previous[i], 1 - blend));
   rig.hip.position.y = THREE.MathUtils.lerp(motion.hipY, rig.hip.position.y, blend);

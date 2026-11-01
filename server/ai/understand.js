@@ -14,7 +14,7 @@ export const KINDS = {
   recall: 'asks what you remember: about them, what they told you, or what you talked about before',
   task_help: 'asks what they should do now, what their task is, asks you to help them, or how to do their work or use a ship tool (the sand glass, astrolabe, compass, chart)',
   need: 'is hungry, thirsty, tired, cold or sick, or asks where to get food, water, wine, money or a place to sleep, or where some thing or place is',
-  unknown: 'asks about something you cannot know: America, anything modern or from later centuries (phones, films, cartoons, anime, games, sports clubs, later countries), or things that do not exist in your world. The weather, the wind, the sea, ship tools, food and the work on board are NOT unknown',
+  unknown: 'asks about something you cannot know: America, anything modern or from later centuries (phones, films, cartoons, anime, games, sports clubs, later countries), or things that do not exist in your world. The weather, the wind, the sea, ship tools, food and the work on board are NOT unknown; places and peoples known in 1492 (Seville, Castile, Lisbon, Genoa, Rome, Granada, the Moors, Guinea, the Canaries, Cathay, the Indies) and news or rumours from them are NOT unknown',
   small_talk: 'greetings, thanks, jokes, compliments, the weather, short replies like "ok", "yes", "I see", or any other chat that is none of the above',
   farewell: 'says goodbye or clearly ends the conversation ("bye", "I have to go"); a short "ok" is NOT a farewell',
   rude: 'insults or mocks you',
@@ -76,13 +76,16 @@ export async function understand({ agent, text, turns = [], scene }) {
     const res = await chat([{ role: 'system', content: system }, { role: 'user', content: user }], { format: schema, temperature: 0, maxTokens: 60, priority: 2 });
     const out = JSON.parse(res.text);
     if(agent.id==='musician'&&out.kind==='unknown')return {kind:'unknown',card:null,person:null,action:null,agentId:agent.id,ms:res.ms,via:'llm'};
-    return { ...normalize(out, { cards, people, keywordCards, keywordPerson, text }), action: agent.id==='musician'&&out.kind==='unknown'?null:pickAction(agent, { modelAction: out.action, text, scene }), agentId: agent.id, ms: res.ms, via: 'llm' };
+    const sense = foreignSense(agent, normalize(out, { cards, people, keywordCards, keywordPerson, text }), keywordCards);
+    return { ...sense, action: agent.id==='musician'&&out.kind==='unknown'?null:pickAction(agent, { modelAction: out.action, text, scene }), agentId: agent.id, ms: res.ms, via: 'llm' };
   } catch {
     return { ...fallback({ keywordCards, keywordPerson }), action: pickAction(agent, { text, scene }), agentId: agent.id, ms: 0, via: 'keywords' };
   }
 }
 
 // Модель могла выбрать вид без темы/человека — достраиваем по ключевым словам или понижаем до болтовни
+// Места и народы, известные в 1492: модель иногда считает их «неизвестным» («что слышно в Севилье?»)
+const KNOWN_PLACES = /севиль|кастил|лиссабон|генуя|генуэ|рим|гранад|мавр|гвине|канар|катай|инди|испан|португал|seville|castile|lisbon|genoa|granada|moors|guinea/i;
 const SEA_WORDS = /погод|ветер|ветр|шторм|бур[яюи]|дожд|туман|волн|небо|солнц|weather|wind|storm|rain|fog|waves/i;
 const FAREWELL_WORDS = /пока|до свидан|прощай|бывай|увидимся|до встречи|мне пора|пойду|ухожу|bye|good ?bye|farewell|see you/i;
 
@@ -93,7 +96,7 @@ export function normalize(out, { cards, people, keywordCards, keywordPerson, tex
   // Тема из базы, найденная по словам, — не «неизвестное» (песочные часы, астролябия, Канары)
   if (kind === 'unknown' && keywordCards.length) { kind = 'topic'; topic = keywordCards[0].id; }
   // Погоду и море модель иногда считает «неизвестным» («какая погода завтра?») — моряк о них знает всё
-  if (kind === 'unknown' && SEA_WORDS.test(text)) kind = 'small_talk';
+  if (kind === 'unknown' && (SEA_WORDS.test(text) || KNOWN_PLACES.test(text))) kind = 'small_talk';
   // Имя человека из экипажа в вопросе надёжнее догадки модели (если тема не подтверждена ключевыми словами)
   if (keywordPerson && kind !== 'person' && !keywordCards.some((c) => c.id === topic)) { kind = 'person'; person = keywordPerson.id; }
   if (keywordPerson && kind === 'person' && person !== keywordPerson.id) person = keywordPerson.id;
@@ -108,4 +111,11 @@ function fallback({ keywordCards, keywordPerson }) {
   if (keywordPerson) return { kind: 'person', card: null, person: keywordPerson };
   if (keywordCards.length) return { kind: 'topic', card: keywordCards[0], person: null };
   return { kind: 'small_talk', card: null, person: null };
+}
+
+// Чужаки на Гуанахани не знают заданий игрока и не понимают таинского: всё, кроме вопросов о них самих,
+// о людях и прощания, — это жесты и предметы (обмен) или просто разговор знаками
+function foreignSense(agent, sense, keywordCards) {
+  if (!agent.foreign || ['about_you', 'person', 'topic', 'farewell', 'rude', 'unknown'].includes(sense.kind)) return sense;
+  return keywordCards[0] ? { kind: 'topic', card: keywordCards[0], person: null } : { kind: 'small_talk', card: null, person: null };
 }

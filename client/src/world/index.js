@@ -220,7 +220,7 @@ export const world = {
     const seconds = (Date.now() + this.npcClockOffset) / 1000;
     const chartTaken = this.entity('map')?.visible === false;
     if (this.zone === 'ship') {
-      for (const npc of this.npcs) animateNpc(npc, dt, seconds, this.env.t >= 0.82, this.npcScene, chartTaken);
+      for (const npc of this.npcs) animateNpc(npc, dt, seconds, this.env.t >= 0.82, this.npcScene, chartTaken, this.camera.position);
     } else {
       for (const npc of this.island?.interactables ?? []) if(npc.userData.kind==='npc'&&npc.userData.definition) {
         const state=npcActivity(npc.userData.definition,seconds,this.npcScene,npc.userData.paused);
