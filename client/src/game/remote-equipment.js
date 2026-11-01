@@ -1,3 +1,4 @@
+import {dancePose} from '../world/dance-pose.js';
 import * as THREE from 'three';
 import {swordMotion} from '../../../shared/sword-motion.js';
 import {bake} from '../world/geom.js';
@@ -28,8 +29,8 @@ export class RemoteEquipment {
     if(this.action&&this.action.equipmentRev<this.equipmentRev)this.action=null;
   }
   setAction(action){
-    if(!action)return; // Expiry uses render time, including snapshot interpolation delay.
-    if(!Object.hasOwn(PLAYER_ACTION_MS,action.kind)||!Number.isFinite(action.startedAt)||!Number.isFinite(action.duration)||action.duration<=0||action.duration>4000||!Number.isSafeInteger(action.seq)||action.seq<=this.lastSeq)return;
+    if(!action){if(this.action?.kind==='dance')this.action=null;return;}
+    if(!Object.hasOwn(PLAYER_ACTION_MS,action.kind)||!Number.isFinite(action.startedAt)||!Number.isFinite(action.duration)||action.duration<=0||action.duration>(action.kind==='dance'?24000:4000)||!Number.isSafeInteger(action.seq)||action.seq<=this.lastSeq)return;
     this.lastSeq=action.seq;
     if((action.equipmentRev??0)<this.equipmentRev)return;
     this.action={...action,item:typeof action.item==='string'&&Object.hasOwn(ITEM_RULES,action.item)?action.item:null};
@@ -61,7 +62,7 @@ export class RemoteEquipment {
     pitch=THREE.MathUtils.clamp(pitch,-1.35,1.35);this.rig.head.rotation.x=-pitch*.65;
     let action=this.action;
     if(action&&now>=action.startedAt+action.duration){this.action=null;action=null;}
-    const item=action&&temporaryItem.has(action.kind)?action.item:this.equipped;
+    const item=action?.kind==='dance'?null:action&&temporaryItem.has(action.kind)?action.item:this.equipped;
     this.showItem(item);
     if(this.flash)this.flash.visible=false;
     const right=this.right,left=this.left;
@@ -96,9 +97,7 @@ export class RemoteEquipment {
         right.ua.rotation.set(-.5-wave*2.1,0,-wave*.35);right.fa.rotation.x=-.2-wave*.35;this.rig.torso.rotation.y=-wave*.2;break;
       case 'place': case 'pickup': case 'give': case 'toggle': case 'fill':
         this.rig.torso.rotation.x+=wave*.28;right.ua.rotation.x=-.3-wave;right.fa.rotation.x=-.4;break;
-      case 'dance':
-        this.rig.hip.position.y+=Math.abs(Math.sin(u*Math.PI*6))*.06;this.rig.torso.rotation.z=Math.sin(u*Math.PI*6)*.12;
-        right.ua.rotation.z=-.8;left.ua.rotation.z=.8;break;
+      case 'dance':dancePose(this.rig,now,action);break;
       case 'scare':right.ua.rotation.x=-2*wave;left.ua.rotation.x=-2*wave;break;
     }
   }

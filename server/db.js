@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS agent_memory (
   user_id INTEGER, agent_id TEXT,
   told TEXT, history TEXT,
   PRIMARY KEY (user_id, agent_id));
+CREATE TABLE IF NOT EXISTS minigame_state (id TEXT PRIMARY KEY, state TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS game_state (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   scene TEXT, scene_started_at INTEGER, entities TEXT);
@@ -48,6 +49,12 @@ const parse = (s, fallback) => {
   if (s == null) return fallback;
   try { return JSON.parse(s); } catch { return fallback; }
 };
+
+// Private game sessions: never included in chunks, entities or public world snapshots.
+const qMinigameLoad=db.prepare('SELECT state FROM minigame_state WHERE id = ?');
+const qMinigameSave=db.prepare('INSERT INTO minigame_state(id,state) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state');
+export const loadMinigameState=id=>parse(qMinigameLoad.get(id)?.state,null);
+export const saveMinigameState=(id,state)=>qMinigameSave.run(id,JSON.stringify(state));
 
 // --- Пользователи и сессии ---
 
@@ -240,7 +247,7 @@ export function worldMeta() {
 // npm run reset: прогресс и сцена, пользователи остаются.
 export function resetProgress() {
   pending.clear();
-  db.exec('DELETE FROM game_state; DELETE FROM player_state; DELETE FROM agent_memory;');
+  db.exec('DELETE FROM game_state; DELETE FROM player_state; DELETE FROM agent_memory; DELETE FROM minigame_state;');
 }
 
 export function closeDb() {

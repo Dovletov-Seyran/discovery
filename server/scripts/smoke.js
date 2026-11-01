@@ -399,8 +399,16 @@ await g3.walkTo(...at('wine_barrel'));
 g3.send('interact', { id: 'wine_barrel' });
 await g3.walkTo(...at('dance'));
 g3.send('interact', { id: 'dance' });
+check(!!(await g3.wait('dance_state',m=>m.phase==='finished',30000)),'полный танец завершён сервером');
 await g3.walkTo(...at('cards'));
-g3.send('interact', { id: 'cards' }); // как в игре: E у стола — партия с матросом
+g3.send('interact', { id: 'cards' });
+const cardLobby=await g3.wait('cards_state',m=>m.phase==='lobby');
+g3.send('cards',{action:'start',sessionId:cardLobby.sessionId,revision:cardLobby.revision});
+const cardHand=await g3.wait('cards_state',m=>m.phase==='playing'||m.phase==='reveal');
+if(cardHand.phase==='playing')g3.send('cards',{action:'stand',sessionId:cardHand.sessionId,revision:cardHand.revision});
+const revealed=await g3.wait('cards_state',m=>m.phase==='reveal');
+check(!!revealed,'сервер завершил раздачу 21 и раскрыл карты');
+g3.send('cards',{action:'leave',sessionId:revealed.sessionId,revision:revealed.revision});
 check(!!(await g3.wait('quest', (m) => m.id === 'q_feast' && m.status === 'done')), 'праздник: 3 из 4 → выполнено');
 p.send('chat', { text: '/done' });
 l.send('chat', { text: '/done' });

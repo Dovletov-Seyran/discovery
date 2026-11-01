@@ -15,6 +15,7 @@ import {equip} from './player-actions.js';
 import {presentation} from '../../shared/player-presentation.js';
 import {place,throwItem,toggle,syncWorld,tickObjects} from './objects.js';
 import * as rules from './rules.js';
+import * as feast from './feast.js';
 import * as worldState from './world-state.js';
 import * as ai from './ai-bridge.js';
 import {tickNpcBrain,resetNpcBrain} from './npc-brain.js';
@@ -26,6 +27,7 @@ import { onChunkReq, onChunkDrop } from '../world/chunks.js';
 
 director.setHooks({
   onSceneStart: (scene, party) => {
+    feast.reset();
     rules.onSceneStart(scene, party);
     resetNpcBrain();
     worldState.onSceneStart(scene);
@@ -34,6 +36,7 @@ director.setHooks({
   isSceneComplete: quests.isSceneComplete,
   forceComplete: quests.forceComplete,
   playerDone: quests.playerDone,
+  hasActivities:feast.busy,
 });
 
 // Динамические объекты мира: рассылка всем, привязка к объектам раскладки, поступки по заданиям
@@ -43,6 +46,8 @@ worldState.setHooks({
   zone: () => director.zone(),
 });
 quests.setOnDone((q) => worldState.onQuestDone(q.id));
+feast.setHooks({credit:rules.creditFeast,npcOwner:rules.npcOwner});
+entities.setNpcReservation(feast.reservation);
 
 const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
 
@@ -111,6 +116,7 @@ export function join(session, ws) {
   director.onPartyChanged();
   players.save(p, { now: true });
   syncWorld(p,{reset:true});
+  feast.reconnect(p);
   console.log(`[game] ${p.name} вошёл (${players.connectedCount()} онлайн)`);
   return p;
 }
@@ -120,6 +126,7 @@ export function leave(p, ws) {
   p.dialogue = null;
   p.npcRequest = null;
   p.connected = false;
+  feast.disconnect(p);
   rules.syncNpcDialogues();
   p.ws = null;
   p.disconnectedAt = Date.now(); // готовность сохраняем: 60 с игрок остаётся в партии
@@ -134,6 +141,8 @@ export function leave(p, ws) {
 function onMove(p, msg) {
   const locked = director.isLocked();
   if (!director.acceptsMove() && !locked) return;
+  const anchor=feast.moveLocked(p);
+  if(anchor){p.a='idle';players.send(p,{t:S2C.POS_CORRECT,p:anchor,r:p.r});return;}
   if (Number.isFinite(msg.r)) p.r = msg.r;
   if(Number.isFinite(msg.pitch))p.pitch=Math.max(-1.35,Math.min(1.35,msg.pitch));
   if (ANIMS.includes(msg.a)) p.a = locked ? 'sit' : msg.a;
@@ -227,6 +236,8 @@ const handlers = {
   [C2S.THROW]: throwItem,
   [C2S.TOGGLE]: toggle,
   [C2S.MINIGAME]: rules.minigame,
+  [C2S.CARDS]:feast.cards,
+  [C2S.DANCE]:feast.dance,
   [C2S.TRADE]: rules.trade,
   [C2S.SCARE]: rules.scare,
   [C2S.READY]: (p, msg) => director.onReadyMessage(p, msg.value !== false),
@@ -241,6 +252,7 @@ const handlers = {
 };
 
 export function handle(p, msg) {
+  if(feast.isDancing(p.id)&&!['dance','move','ping','client_stats','chunk_req','chunk_drop'].includes(msg.t)){notice(p,'Сначала закончи или отмени танец.');return;}
   const h = handlers[msg.t];
   if (h) return h(p, msg);
   if (CONFIG.DEV) console.log(`[game] необработанное сообщение ${msg.t}`);
@@ -337,7 +349,7 @@ export function start() {
   ai.onSceneStart(director.scene(), director.startAt());
   const timers = [
     setInterval(sendSnapshots, 1000 / CONFIG.TICK_HZ),
-    setInterval(() => {director.tick();rules.syncNpcDialogues();}, 250),
+    setInterval(() => {feast.tick();director.tick();rules.syncNpcDialogues();}, 250),
     setInterval(() => {tickNpcBrain().catch(error=>console.error('[npc-ai]',error.message));}, 1000),
     setInterval(() => director.broadcastTod(), CONFIG.TOD_INTERVAL_MS),
     setInterval(() => players.saveAll(), CONFIG.SAVE_INTERVAL_MS),

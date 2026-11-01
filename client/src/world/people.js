@@ -157,7 +157,7 @@ export function person(mat, look) {
 
 export function pose(rig, name, t = 0) {
   const { hip, torso, head, legs, arms } = rig;
-  hip.position.y = 0.95; hip.rotation.set(0, 0, 0); torso.rotation.set(0, 0, 0); head.rotation.set(0, 0, 0);
+  hip.position.set(0,0.95,0); hip.rotation.set(0, 0, 0); torso.rotation.set(0, 0, 0); head.rotation.set(0, 0, 0);
   for (const { th, sh } of legs) { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); }
   for (const { ua, fa, s } of arms) { ua.rotation.set(0, 0, s * 0.1); fa.rotation.set(-0.15, 0, 0); }
   switch (name) {
