@@ -64,6 +64,20 @@ const DEF = {
   sack: { color: 0xb8a27a, rough: 0.95 },
   tar: { color: 0x0e0b09, rough: 0.2 },
   seaWater: { color: 0x2f5d68, rough: 0.1 },
+  // Guanahani (part 2)
+  thatch: { tex: 'thatch', rough: 0.95, side: THREE.DoubleSide },
+  cane: { tex: 'cane', rough: 0.9, side: THREE.DoubleSide },
+  cotton: { color: 0xeee8da, rough: 0.95, side: THREE.DoubleSide },
+  clay: { color: 0x9a6440, rough: 0.85 },
+  limestone: { color: 0xa39c8b, rough: 0.95, flat: true },
+  fanLeaf: { color: 0x6c8c50, rough: 0.75, side: THREE.DoubleSide },
+  gumboBark: { color: 0x9c5a42, rough: 0.8 },
+  gumboLeaf: { color: 0x5d8838, rough: 0.8 },
+  seaGrape: { color: 0x6f8f38, rough: 0.7 },
+  mangroveLeaf: { color: 0x3f6a2e, rough: 0.8 },
+  mangroveRoot: { color: 0x5e4c39, rough: 0.9 },
+  cassavaLeaf: { color: 0x4f7d34, rough: 0.8, side: THREE.DoubleSide },
+  mound: { color: 0x6b5034, rough: 1.0 },
 };
 
 export class Materials {

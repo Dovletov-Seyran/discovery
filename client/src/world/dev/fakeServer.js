@@ -3,6 +3,7 @@
 // the real chunks always come from the server.
 import { generateCanary as generateIsland } from '../../../../server/world/terrain.js';
 import canaryLayout from '../../../../content/canary_layout.json';
+import guanahaniLayout from '../../../../content/guanahani_layout.json';
 import shipLayout from '../../../../content/ship_layout.json';
 
 const CS = 32, SERVER_RADIUS = 3;
@@ -14,14 +15,14 @@ function generateCanary(layout) {
 
 // getPlayer() → { zone, p: [x, y, z] }, deliver(msg) → the client's handler for server messages
 export function createFakeServer(getPlayer, deliver) {
-  const { chunks: canary, heightAt } = generateCanary(canaryLayout);
+  const islands = { canary: generateCanary(canaryLayout), guanahani: generateCanary(guanahaniLayout) };
   const { _comment, ...ship } = shipLayout;
   const store = { 'ship:0,0': { ...ship, zone: 'ship', cx: 0, cz: 0, size: CS, res: 0, h: null } };
-  for (const [k, c] of canary) store[`canary:${k}`] = c;
+  for (const [zone, { chunks }] of Object.entries(islands)) for (const [k, c] of chunks) store[`${zone}:${k}`] = c;
   let totalBytes = 0;
   for (const c of Object.values(store)) totalBytes += JSON.stringify(c).length;
   const totalChunks = Object.keys(store).length;
-  const meta = { zones: { ship: { chunks: 1 }, canary: { chunks: canary.size } }, totalChunks, totalBytes, cacheLimit: Math.floor(0.1 * totalChunks) };
+  const meta = { zones: { ship: { chunks: 1 }, canary: { chunks: islands.canary.chunks.size }, guanahani: { chunks: islands.guanahani.chunks.size } }, totalChunks, totalBytes, cacheLimit: Math.floor(0.1 * totalChunks) };
 
   function handle(msg) {
     if (msg.t !== 'chunk_req') return;
@@ -36,5 +37,6 @@ export function createFakeServer(getPlayer, deliver) {
       setTimeout(() => deliver(reply), 15 + Math.random() * 25);
     }
   }
-  return { meta, handle, heightAt };
+  // heightAt(x, z, zone = the player's island)
+  return { meta, handle, heightAt: (x, z, zone = getPlayer().zone) => (islands[zone] ?? islands.canary).heightAt(x, z) };
 }

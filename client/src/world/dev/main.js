@@ -1,6 +1,6 @@
 // Stand-alone page for working on the world without the server: /world-dev.html
 // The real first-person controller, HUD and networking belong to Фронт 2; this is just enough to walk around.
-//   ?zone=canary  start on La Gomera (Z switches zones); chunks come from dev/fakeServer.js
+//   ?zone=canary|guanahani  start on an island (Z cycles ship → La Gomera → Guanahani); chunks from dev/fakeServer.js
 //   ?q=low|high|ultra   start on this preset (otherwise high with auto-detect)
 //   ?tod=0.72    time of day
 //   ?bots=2      fake remote players walking in circles (tests interpolation)
@@ -41,9 +41,11 @@ const RADIUS = 0.3, EYE = 1.62;
 const feet = new THREE.Vector3(), vel = new THREE.Vector3();
 let yaw = 0, pitch = 0, onGround = false;
 const keys = new Set();
-const TOWN = [252, 300, 0]; // on La Gomera: the square between the market and the well, facing the church
+// where to stand on each island: La Gomera — the square facing the church; Guanahani — the batey facing the cacique's house
+const TOWNS = { canary: [252, 300, 0], guanahani: [168, 262, 0] };
+let TOWN = TOWNS.canary;
 function spawn(role = 'piloto') {
-  if (world.zone === 'canary') { feet.set(TOWN[0], fake.heightAt(TOWN[0], TOWN[1]) + 0.3, TOWN[1]); yaw = TOWN[2]; }
+  if (world.zone !== 'ship') { TOWN = TOWNS[world.zone]; feet.set(TOWN[0], fake.heightAt(TOWN[0], TOWN[1]) + 0.3, TOWN[1]); yaw = TOWN[2]; }
   else { const { p, r } = layout.spawns[role]; feet.set(p[0], p[1] + 0.05, p[2]); yaw = r; }
   pitch = -0.05; vel.set(0, 0, 0);
   world.camera.position.set(feet.x, feet.y + EYE, feet.z);
@@ -51,7 +53,7 @@ function spawn(role = 'piloto') {
 function setZone(zone) { world.setZone(zone); spawn(); }
 // for screenshots from the console: dev.go(x, z, yaw, pitch)
 window.dev = { go: (x, z, y = 0, p = 0) => { feet.set(x, (world.groundHeight(x, z) ?? fake.heightAt(x, z)) + 0.1, z); yaw = y; pitch = p; vel.set(0, 0, 0); } };
-setZone(P.get('zone') === 'canary' ? 'canary' : 'ship');
+setZone(TOWNS[P.get('zone')] ? P.get('zone') : 'ship');
 
 const fixedCam = P.get('cam')?.split(',').map(Number);
 const canvas = $('c');
@@ -72,7 +74,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Digit2') spawn('piloto');
   if (e.code === 'Digit3') spawn('lengua');
   if (e.code === 'KeyE' && target) interact(target);
-  if (e.code === 'KeyZ') setZone(world.zone === 'ship' ? 'canary' : 'ship');
+  if (e.code === 'KeyZ') setZone({ ship: 'canary', canary: 'guanahani', guanahani: 'ship' }[world.zone]);
   // as in the game: the server's cut_canary moves everyone to the pier at once and switches the zone
   if (e.code === 'KeyC' && !world.cutscene.active) {
     world.setZone('canary');

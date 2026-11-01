@@ -36,15 +36,23 @@ function lodTrees(M) {
     tufts.push(new THREE.OctahedronGeometry(1.0).scale(1.1, 0.7, 1.1).translate(tip.x * 1.15, tip.y + 0.55, tip.z * 1.15));
   }
   const dragonTrunk = mergeGeometries(wood), dragonCrown = mergeGeometries(tufts);
+  // Guanahani: a slimmer fan palm, gumbo-limbo's round crown on a red trunk, a low mangrove dome
+  const fanTrunk = palmTrunk.clone().scale(0.6, 0.75, 0.6), fanCrown = palmCrown.clone().scale(0.6, 0.7, 0.6);
+  const gumboTrunk = new THREE.CylinderGeometry(0.22, 0.35, 4.2, 5, 1, true).translate(0, 2.1, 0);
+  const gumboCrown = new THREE.IcosahedronGeometry(2.6, 0).scale(1.1, 0.7, 1.1).translate(0, 5.0, 0);
+  const mangrove = new THREE.IcosahedronGeometry(1.8, 0).scale(1.3, 0.6, 1.3).translate(0, 1.6, 0);
   return {
     palm_canary: [{ geo: palmTrunk, mat: M.get('palmTrunk') }, { geo: palmCrown, mat: M.get('palmLeaf') }],
     dragon_tree: [{ geo: dragonTrunk, mat: M.get('dragonTrunk') }, { geo: dragonCrown, mat: M.get('dragonLeaf') }],
+    palm_fan: [{ geo: fanTrunk, mat: M.get('palmTrunk') }, { geo: fanCrown, mat: M.get('palmLeaf') }],
+    gumbo_limbo: [{ geo: gumboTrunk, mat: M.get('gumboBark') }, { geo: gumboCrown, mat: M.get('gumboLeaf') }],
+    mangrove: [{ geo: mangrove, mat: M.get('mangroveLeaf') }],
   };
 }
 
 export class IslandLod {
   // shade(x, z, h, normalY, outColor) — the chunks' ground colour
-  constructor(parent, M, data, shade) {
+  constructor(parent, M, data, shade, ground = M.get('ground')) {
     const { size, step, res, h } = data;
     this.res = res; this.per = CS / step; this.n = size / CS;
     const g = new THREE.BufferGeometry(), pos = new Float32Array(res * res * 3), uv = new Float32Array(res * res * 2);
@@ -63,7 +71,7 @@ export class IslandLod {
     }
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     g.computeBoundingSphere();
-    this.terrain = new THREE.Mesh(g, M.get('ground'));
+    this.terrain = new THREE.Mesh(g, ground);
     parent.add(this.terrain);
 
     // buildings: the real models, baked per material across the whole island (~8 draw calls); each chunk's
@@ -100,6 +108,7 @@ export class IslandLod {
     this.veg = {};
     for (const [m, parts] of Object.entries(lodTrees(M))) {
       const n = this.trees.filter((t) => t.m === m).length;
+      if (!n) continue;
       this.veg[m] = parts.map(({ geo, mat }) => {
         const im = new THREE.InstancedMesh(geo, mat, Math.max(n, 1));
         im.count = 0; parent.add(im);

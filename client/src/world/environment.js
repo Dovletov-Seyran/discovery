@@ -37,17 +37,33 @@ const dirFrom = (el, az, out = new THREE.Vector3()) => {
   return out.set(Math.sin(a) * Math.cos(e), Math.sin(e), -Math.cos(a) * Math.cos(e)).normalize();
 };
 
+// Shallows: over an island's coarse height map (islandLod data) the sea turns turquoise where it is shallow and
+// pales to sand at the water's edge; deep water keeps the reflective blue. shoreRect: x0, z0, size, 0 = off.
+const SHALLOW = /* glsl */ `
+  if (shoreRect.z > 0.0) {
+    vec2 suv = (worldPosition.xz - shoreRect.xy) / shoreRect.z;
+    if (all(greaterThan(suv, vec2(0.0))) && all(lessThan(suv, vec2(1.0)))) {
+      float depth = -(texture2D(shoreMap, suv).r * 30.0 - 10.0);
+      float k = 1.0 - smoothstep(0.3, 7.0, depth);
+      vec3 shallow = mix(shallowDeep, shallowEdge, 1.0 - smoothstep(0.1, 1.8, depth)) * (diffuseLight * 0.8 + 0.2);
+      outgoingLight = mix(albedo, shallow + reflectionSample * 0.3 * reflectance + specularLight, k * 0.9);
+    }
+  }`;
+
 function patchWater(water) {
   const u = water.material.uniforms;
   u.flow = { value: new THREE.Vector2() };
+  u.shoreMap = { value: null }; u.shoreRect = { value: new THREE.Vector4() };
+  u.shallowDeep = { value: new THREE.Color(0x1aa39b) }; u.shallowEdge = { value: new THREE.Color(0x9fd6c4) };
   const before = water.material.fragmentShader;
   water.material.fragmentShader = before
-    .replace('varying vec4 worldPosition;', 'varying vec4 worldPosition;\nuniform vec2 flow;')
+    .replace('varying vec4 worldPosition;', 'varying vec4 worldPosition;\nuniform vec2 flow;\nuniform sampler2D shoreMap;\nuniform vec4 shoreRect;\nuniform vec3 shallowDeep, shallowEdge;')
+    .replace('vec3 outgoingLight = albedo;', 'vec3 outgoingLight = albedo;' + SHALLOW)
     .replace('getNoise( worldPosition.xz * size )', 'getNoise( ( worldPosition.xz + flow ) * size )')
     // the stock diffuse term greys the sea out; tint it with the water colour instead
     .replace('( sunColor * diffuseLight * 0.3 + scatter )', '( waterColor * diffuseLight * 0.45 + scatter )')
     .replace('reflectionSample + specularLight, reflectance', 'reflectionSample * 0.55 + specularLight, reflectance');
-  if (water.material.fragmentShader.split('flow').length < 3) console.warn('[world] Water shader patch did not apply');
+  if (water.material.fragmentShader.split('flow').length < 3 || !water.material.fragmentShader.includes('shoreRect.z')) console.warn('[world] Water shader patch did not apply');
 }
 
 // Sky, sea, light, fog, the other two ships and the rocking of the horizon.
@@ -62,6 +78,7 @@ export class Environment {
     this.p = sample(0.4);
     this.lamps = [];
     this.sails = [];
+    this.fleetIn = {};
     this.mirrorHide = []; // small things nobody sees reflected from the deck
 
     this.sky = new Sky(); this.sky.scale.setScalar(10000); this.root.add(this.sky);
@@ -114,9 +131,9 @@ export class Environment {
     this.zone = 'ship';
     this.fleet = [];
     const FLEET = [
-      { opts: {}, s: 0.85, sea: [62, -150, 0.06], bay: [298, 400, 0.5] },
-      { opts: { lateen: true }, s: 0.72, sea: [-120, -280, -0.05], bay: [222, 404, -0.45] },
-      { opts: {}, s: 1, sea: null, bay: [262, 412, -0.35] }, // the Santa María herself (starboard to the cutscene camera), seen from the island
+      { opts: {}, s: 0.85, sea: [62, -150, 0.06], bay: [298, 400, 0.5], guanahani: [36, 226, -1.45] },
+      { opts: { lateen: true }, s: 0.72, sea: [-120, -280, -0.05], bay: [222, 404, -0.45], guanahani: [30, 288, -1.75] },
+      { opts: {}, s: 1, sea: null, bay: [262, 412, -0.35], guanahani: [44, 256, -1.6] }, // the Santa María herself (starboard to the cutscene camera), seen from the island
     ];
     for (const f of FLEET) {
       const { group, sails } = buildShip(M, { far: true, ...f.opts });
@@ -130,13 +147,15 @@ export class Environment {
     this.setZone('ship');
   }
 
-  // 'ship' — open sea, the world is the deck; 'canary' — island coordinates, sea level 0.
+  // 'ship' — open sea, the world is the deck; an island ('canary', 'guanahani') — island coordinates, sea level 0.
+  // At La Gomera the fleet rides at anchor in the bay; off Guanahani only once setFleet('guanahani', true) says so
+  // (on 11 October there are no ships yet).
   setZone(zone) {
     this.zone = zone;
     const sea = zone === 'ship', waterY = sea ? WATER_Y : 0;
     this.water.position.y = waterY;
     for (const f of this.fleet) {
-      const at = sea ? f.userData.sea : f.userData.bay;
+      const u = f.userData, at = sea ? u.sea : zone === 'canary' ? u.bay : this.fleetIn[zone] ? u[zone] : null;
       f.visible = !!at;
       if (!at) continue;
       f.position.set(at[0], waterY + 2.25 * f.userData.s, at[1]); f.rotation.set(0, at[2], 0);
@@ -148,8 +167,35 @@ export class Environment {
   }
 
   // A cutscene sails fleet[i] (0 Pinta, 1 Niña, 2 Santa María) to (x, z) with the bow turned by `heading`.
+  // lod: { size, res, h } of the island under the sea here, or null on the open sea (see SHALLOW)
+  setShore(lod) {
+    this.shore = lod;
+    if (lod && !lod.tex) {
+      const n = lod.res, px = new Uint8Array(n * n * 4);
+      lod.h.forEach((h, i) => { px[i * 4] = Math.round(THREE.MathUtils.clamp((h + 10) / 30, 0, 1) * 255); px[i * 4 + 3] = 255; });
+      lod.tex = new THREE.DataTexture(px, n, n, THREE.RGBAFormat);
+      lod.tex.magFilter = lod.tex.minFilter = THREE.LinearFilter;
+      lod.tex.needsUpdate = true;
+    }
+    this.applyShore();
+  }
+
+  applyShore() {
+    if (!this.water) return;
+    const u = this.water.material.uniforms, l = this.shore;
+    u.shoreMap.value = l?.tex ?? null;
+    // texel centres: node i sits at i·step, so the map spans −step/2 … size + step/2
+    if (l) { const step = l.size / (l.res - 1); u.shoreRect.value.set(-step / 2, -step / 2, l.size + step, 1); } else u.shoreRect.value.set(0, 0, 0, 0);
+  }
+
+  setFleet(zone, present) {
+    this.fleetIn[zone] = present;
+    if (this.zone === zone) this.setZone(zone);
+  }
+
   placeShip(i, x, z, heading) {
     const f = this.fleet[i];
+    if (!f.visible) { f.visible = true; f.position.y = 2.25 * f.userData.s; f.userData.base = f.position.clone(); }
     f.position.x = x; f.position.z = z; f.rotation.y = heading;
     f.userData.base.x = x; f.userData.base.z = z;
   }
@@ -163,6 +209,7 @@ export class Environment {
       sunDirection: new THREE.Vector3(0, 1, 0), sunColor: 0xfff1d6, waterColor: 0x15607e, distortionScale: 2.6, fog: true,
     });
     patchWater(this.water);
+    this.applyShore();
     const reflect = this.water.onBeforeRender;
     this.water.onBeforeRender = (...args) => {
       const hidden = this.mirrorHide.filter((o) => o.visible);
@@ -171,7 +218,7 @@ export class Environment {
       hidden.forEach((o) => (o.visible = true));
     };
     this.water.rotation.x = -Math.PI / 2;
-    this.water.position.y = this.zone === 'canary' ? 0 : WATER_Y;
+    this.water.position.y = this.zone === 'ship' ? WATER_Y : 0;
     this.water.material.uniforms.size.value = 1.3;
     this.root.add(this.water);
     this.light.castShadow = q !== 'low';
@@ -200,7 +247,7 @@ export class Environment {
     this.light.color.copy(p.light); this.light.intensity = p.li;
     this.renderer.toneMappingExposure = p.exp;
     // on the island a light coastal haze; the far side is the coarse island (islandLod.js), not an edge to hide
-    this.scene.fog.color.copy(p.fog); this.scene.fog.density = this.zone === 'canary' ? Math.max(p.fogD, 0.0035) : p.fogD;
+    this.scene.fog.color.copy(p.fog); this.scene.fog.density = this.zone !== 'ship' ? Math.max(p.fogD, 0.0035) : p.fogD;
     const du = this.dome.material.uniforms;
     du.color.value.copy(p.fog); du.aH.value = p.domeH; du.aT.value = p.domeT;
     this.dome.visible = p.domeH > 0.001;
@@ -230,7 +277,7 @@ export class Environment {
   update(dt, focus) {
     this.time += dt;
     if (Math.abs(this.target - this.t) > 1e-4) this.t += (this.target - this.t) * Math.min(1, dt / 2);
-    if (this.zone === 'canary' && focus) {
+    if (this.zone !== 'ship' && focus) {
       // snapped to half a metre so the shadow edges do not crawl
       this.light.target.position.set(Math.round(focus.x * 2) / 2, Math.round(focus.y * 2) / 2, Math.round(focus.z * 2) / 2);
     }

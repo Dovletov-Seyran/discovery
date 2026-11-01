@@ -20,7 +20,9 @@ import { Chunks } from './chunks.js';
 import { Cutscenes } from './cutscene.js';
 import { strum } from './people.js';
 import canaryLayout from '../../../content/canary_layout.json';
-import islandLod from 'virtual:island-lod';
+import guanahaniLayout from '../../../content/guanahani_layout.json';
+import canaryLod from 'virtual:island-lod';
+import guanahaniLod from 'virtual:island-lod/guanahani';
 
 const SMOKE_PUFFS = 8;
 
@@ -63,11 +65,18 @@ export const world = {
     this.scene.add(this.smoke);
     this.cutscene = new Cutscenes(this);
 
-    this.island = new Island(this.scene, this.M);
-    this.island.setPaths(canaryLayout.paths); // static town plan; the terrain itself comes in chunks
-    this.island.setLod(islandLod);
+    // The islands, each its own chunk zone: La Gomera (part 1) and Guanahani (part 2). Paths are the static town
+    // plan; the terrain itself comes in chunks, the far view from the LOD summary.
+    this.islands = {
+      canary: new Island(this.scene, this.M),
+      guanahani: new Island(this.scene, this.M, { palette: 'guanahani', veg: ['palm_fan', 'gumbo_limbo', 'sea_grape', 'mangrove', 'rock_lime', 'bush'] }),
+    };
+    for (const [zone, isl, layout, lod] of [['canary', this.islands.canary, canaryLayout, canaryLod], ['guanahani', this.islands.guanahani, guanahaniLayout, guanahaniLod]]) {
+      isl.setPaths(layout.paths);
+      isl.setLod(lod);
+      this.chunks.setBuilder(zone, isl);
+    }
     this.chunks.setBuilder('ship', { add: (key, data) => this.loadLayout(data), remove: () => this.unloadLayout(), setVisible: () => {} });
-    this.chunks.setBuilder('canary', this.island);
 
     this.players = new Players(this.scene, this.M);
     this.env.mirrorHide.push(this.zoneRoot, this.smoke, this.players.group);
@@ -107,11 +116,14 @@ export const world = {
     this.collider = new Collider(this.shipCollider);
   },
 
+  // the island of the current zone (null on the ship)
+  get island() { return this.islands?.[this.zone] ?? null; },
+
   // what the player can use right now: the ship's or the island's visible chunks'
-  get interactables() { return this.zone === 'ship' ? this.shipInteractables : this.island.interactables; },
+  get interactables() { return this.island ? this.island.interactables : this.shipInteractables; },
 
   entity(id) {
-    return this.shipInteractables.find((o) => o.userData.id === id) ?? this.island.interactables.find((o) => o.userData.id === id) ?? null;
+    return this.shipInteractables.find((o) => o.userData.id === id) ?? this.island?.interactables.find((o) => o.userData.id === id) ?? null;
   },
 
   applyEntity(id, state) {
@@ -130,12 +142,15 @@ export const world = {
     this.zone = zone;
     const ship = zone === 'ship';
     this.ship.visible = ship; this.zoneRoot.visible = ship; this.smoke.visible = ship;
-    this.island.group.visible = zone === 'canary';
+    for (const [name, isl] of Object.entries(this.islands)) isl.group.visible = zone === name;
     this.env.setZone(zone);
+    this.env.setShore({ canary: canaryLod, guanahani: guanahaniLod }[zone] ?? null);
     this.chunks.setZone(zone);
   },
 
   setTimeOfDay(t, immediate = false) { this.env.setTimeOfDay(t, immediate); },
+  // the three ships at anchor off an island (Guanahani: from the morning of 12 October)
+  setFleet(zone, present) { this.env.setFleet(zone, present); },
 
   setQuality(q) {
     if (q === this.quality) return;
@@ -144,14 +159,14 @@ export const world = {
     this.pipeline.build(q);
   },
 
-  collide(capsule) { return this.zone === 'canary' ? this.island.collide(capsule) : this.collider.collide(capsule); },
-  groundHeight(x, z, fromY) { return this.zone === 'canary' ? this.island.groundHeight(x, z, fromY) : this.collider.groundHeight(x, z, fromY); },
+  collide(capsule) { return this.island ? this.island.collide(capsule) : this.collider.collide(capsule); },
+  groundHeight(x, z, fromY) { return this.island ? this.island.groundHeight(x, z, fromY) : this.collider.groundHeight(x, z, fromY); },
 
   frame(dt) {
     dt = Math.min(dt, 0.1);
     this.cutscene.update?.(dt); // takes the camera while a cutscene runs
     this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
-    this.island.refresh();
+    this.island?.refresh();
     this.players.update(dt);
     for (const n of this.npcs) if (n.userData.rig) strum(n.userData.rig, this.env.time, this.env.t < 0.82); // silent at night
     for (const o of this.interactables) {

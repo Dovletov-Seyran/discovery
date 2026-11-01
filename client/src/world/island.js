@@ -12,9 +12,18 @@ import { IslandLod } from './islandLod.js';
 // Chunk data (server/world/generate.js): { cx, cz, size: 32, res: 33, h: [33×33, row = z], objects, interact, npcs }.
 
 const CS = 32, RES = 33, VEG_CAP = 700;
-const C = {
-  wet: new THREE.Color(0x8f7d5e), sand: new THREE.Color(0xd2bb92), dry: new THREE.Color(0xb39566), grass: new THREE.Color(0x868a4a),
-  scrub: new THREE.Color(0x6a6e42), rock: new THREE.Color(0x4a433d), red: new THREE.Color(0x6a4636), earth: new THREE.Color(0xa58c6a),
+const col = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === 'number' && v > 255 ? new THREE.Color(v) : v]));
+// Ground palettes. sand: beach below sandTop m; scrub from scrubAt m; red tuff (La Gomera's peak) from redAt m.
+const PALETTES = {
+  canary: col({
+    wet: 0x8f7d5e, sand: 0xd2bb92, dry: 0xb39566, grass: 0x868a4a, scrub: 0x6a6e42, rock: 0x4a433d, red: 0x6a4636, earth: 0xa58c6a,
+    sandTop: 2.4, scrubAt: [12, 22], redAt: [26, 34], grassy: [0.5, 0.68],
+  }),
+  // Guanahani: white coral sand, low green coppice on limestone, pale grey rock where it shows
+  guanahani: col({
+    wet: 0xa89a7c, sand: 0xe6dcc2, dry: 0x9a8a5e, grass: 0x6f7c40, scrub: 0x58653a, rock: 0xa8a090, red: 0x58653a, earth: 0x9a8262,
+    sandTop: 1.9, scrubAt: [5, 10], redAt: [99, 100], grassy: [0.42, 0.62],
+  }),
 };
 const tmp = new THREE.Color();
 
@@ -72,23 +81,27 @@ const PATH_FRAG = /* glsl */ `
   }
 }`;
 
-function groundColor(x, z, h, ny, out) {
+function groundColor(x, z, h, ny, out, C = PALETTES.canary) {
   const n = fbm(x / 37, z / 37, 1024, 1024, 3, 91), n2 = fbm(x / 9, z / 9, 1024, 1024, 2, 92);
   // late summer: mostly dry grass, greener in hollows and higher up
-  out.copy(C.dry).lerp(C.grass, THREE.MathUtils.smoothstep(n, 0.5, 0.68));
+  out.copy(C.dry).lerp(C.grass, THREE.MathUtils.smoothstep(n, C.grassy[0], C.grassy[1]));
   // the flattened town (2–4.5 m): grass worn to earth in patches — the streets themselves are painted by the shader
   out.lerp(C.earth, 0.45 * THREE.MathUtils.smoothstep(ny, 0.992, 0.999) * (1 - THREE.MathUtils.smoothstep(h, 4.2, 5)) * THREE.MathUtils.smoothstep(h, 1.8, 2.4));
-  out.lerp(C.scrub, THREE.MathUtils.smoothstep(h, 12, 22));
-  out.lerp(C.red, THREE.MathUtils.smoothstep(h, 26, 34) * 0.8);
+  out.lerp(C.scrub, THREE.MathUtils.smoothstep(h, C.scrubAt[0], C.scrubAt[1]));
+  out.lerp(C.red, THREE.MathUtils.smoothstep(h, C.redAt[0], C.redAt[1]) * 0.8);
   out.lerp(C.rock, THREE.MathUtils.smoothstep(1 - ny, 0.25, 0.45) * (0.7 + 0.3 * n2));
-  out.lerp(C.sand, 1 - THREE.MathUtils.smoothstep(h, 1.2, 2.4));
+  out.lerp(C.sand, 1 - THREE.MathUtils.smoothstep(h, C.sandTop - 1.2, C.sandTop));
   out.lerp(C.wet, 1 - THREE.MathUtils.smoothstep(h, -0.2, 0.5));
   return out.multiplyScalar(0.92 + n2 * 0.16);
 }
 
 export class Island {
-  constructor(scene, M) {
+  // opts: { palette: 'canary' | 'guanahani', veg: the VEGETATION kinds this island grows }
+  constructor(scene, M, { palette = 'canary', veg = ['palm_canary', 'dragon_tree', 'rock', 'bush'] } = {}) {
     this.M = M;
+    this.palette = PALETTES[palette];
+    // own copy of the ground material: its path uniforms are this island's (the program itself is shared)
+    this.ground = M.get('ground').clone();
     this.group = new THREE.Group();
     this.group.visible = false;
     scene.add(this.group);
@@ -97,8 +110,8 @@ export class Island {
     this.lamps = [];
     this.dirty = false;
     this.veg = {};
-    for (const [m, make] of Object.entries(VEGETATION)) {
-      const v = make(M);
+    for (const m of veg) {
+      const v = VEGETATION[m](M);
       v.meshes = v.parts.map(({ geo, mat }) => {
         const im = new THREE.InstancedMesh(geo, mat, VEG_CAP);
         im.count = 0; im.castShadow = true; im.receiveShadow = true;
@@ -115,7 +128,7 @@ export class Island {
       pathStone: { value: new THREE.Color(0xa59a88) },
       pathGrout: { value: new THREE.Color(0x7a6a52) },
     };
-    const ground = M.get('ground');
+    const ground = this.ground;
     ground.onBeforeCompile = (s) => {
       Object.assign(s.uniforms, this.pathU);
       s.vertexShader = s.vertexShader
@@ -130,7 +143,7 @@ export class Island {
 
   // the whole island, coarse, for everything beyond the loaded chunks (islandLod.js)
   setLod(data) {
-    this.lod = new IslandLod(this.group, this.M, data, groundColor);
+    this.lod = new IslandLod(this.group, this.M, data, (x, z, h, ny, out) => groundColor(x, z, h, ny, out, this.palette), this.ground);
     this.dirty = true;
   }
 
@@ -175,7 +188,7 @@ export class Island {
       const gx = ox + ix, gz = oz + iz, i = iz * RES + ix;
       n.set(-(this.node(gx + 1, gz, c) - this.node(gx - 1, gz, c)) / 2, 1, -(this.node(gx, gz + 1, c) - this.node(gx, gz - 1, c)) / 2).normalize();
       nrm.setXYZ(i, n.x, n.y, n.z);
-      groundColor(gx, gz, c.data.h[i], n.y, tmp);
+      groundColor(gx, gz, c.data.h[i], n.y, tmp, this.palette);
       col.setXYZ(i, tmp.r, tmp.g, tmp.b);
     }
     nrm.needsUpdate = true; col.needsUpdate = true;
@@ -192,7 +205,7 @@ export class Island {
     }
     g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(p.count * 3), 3));
     g.computeBoundingSphere(); g.computeBoundingBox();
-    const m = new THREE.Mesh(g, this.M.get('ground'));
+    const m = new THREE.Mesh(g, this.ground);
     m.receiveShadow = true;
     return m;
   }
@@ -207,7 +220,7 @@ export class Island {
     c.root.add(c.terrain);
     const col = [c.terrain.geometry], decor = new THREE.Group();
     for (const o of data.objects ?? []) {
-      if (VEGETATION[o.m]) {
+      if (this.veg[o.m]) {
         c.veg.push(o);
         if (this.veg[o.m].col) col.push(...colliderFor(this.veg[o.m].col, o));
         continue;

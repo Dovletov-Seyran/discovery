@@ -3,8 +3,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { V3, mesh, boxUV, cylGeo, between, boxGeo, lathe, lenUV } from './geom.js';
 import { MODELS } from './props.js';
 import { ihash } from './texgen.js';
+import { TAINO_MODELS, TAINO_VEGETATION } from './guanahaniModels.js';
 
-// Models of La Gomera (ids from content/canary_layout.json). Buildings face +z (door side).
+// Models of La Gomera (ids from content/canary_layout.json); Guanahani's are in guanahaniModels.js. Buildings face +z (door side).
 // Each builder returns { obj, col?: BufferGeometry[] } like the ship props.
 
 // Whitewashed walls, stone corners and plinth, a gable roof of curved tiles; ridge along x.
@@ -196,6 +197,7 @@ function tarBucket(M) {
 export const ISLAND_MODELS = {
   house, house_governor: governorHouse, church, warehouse, market_stall: marketStall, shipyard, pier,
   well, boat: rowboat, planks: plankStack, tar_bucket: tarBucket, barrel: MODELS.barrel,
+  ...TAINO_MODELS,
 };
 
 // --- vegetation, drawn with InstancedMesh: { parts: [{ geo, mat, cast }], col?: BufferGeometry[] } ---
@@ -279,4 +281,5 @@ export const VEGETATION = {
     }
     return { parts: [{ geo: mergeGeometries(geos), mat: M.get('bush') }] };
   },
+  ...TAINO_VEGETATION,
 };

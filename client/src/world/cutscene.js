@@ -239,7 +239,7 @@ export class Cutscenes {
       c.ended = performance.now();
       // the fleet as the game expects it: at anchor in the bay, or under sail at sea (setZone placed those)
       const env = this.w.env, f = c.def.furl;
-      if (this.w.zone === 'canary') for (const m of c.def.fleet ?? []) if (m.run != null) { const b = env.fleet[m.ship].userData.bay; env.placeShip(m.ship, b[0], b[1], b[2]); }
+      if (this.w.zone !== 'ship') for (const m of c.def.fleet ?? []) if (m.run != null) { const b = env.fleet[m.ship].userData.bay; env.placeShip(m.ship, b[0], b[1], b[2]); }
       if (f) for (const ship of env.fleet) furlSails(ship.userData.sails, typeof f[0] === 'number' ? 1 : f.at(-1)[1]);
       c.done();
     }
