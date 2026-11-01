@@ -122,3 +122,26 @@ test('scene clock supports late joins, pauses, continuation and rejects pauses f
   assert.deepEqual(npcActivity(captain,141,scene,resumed).p,npcActivity(captain,128,scene).p);
   assert.deepEqual(npcActivity(captain,140,{id:'night_story',startAt:135000},paused).p,captain.scenes.night_story.p);
 });
+
+test('AI job paths animate on the shared clock and resume at the same place after dialogue',()=>{
+ const profiles=JSON.parse(readFileSync(new URL('../../content/npc-routines.json',import.meta.url)));
+ const scene={id:'ship_day',startAt:100000},key='ship_day@100000';
+ for(const n of layout.npcs){
+  const g=profiles[n.id].scenes.ship_day,{obj}=buildNpc(M,n,true);prepareNpc(obj);
+  for(const job of g.jobs){
+   const behavior={scene:key,path:[g.nodes[0],g.nodes[job.node]],start:0,pose:job.pose,r:job.r,seat:job.seat};
+   obj.userData.behavior=behavior;
+   for(const time of [100,101,160]){
+    animateNpc(obj,1/60,time,false,scene);
+    assert.deepEqual(obj.position.toArray(),npcActivity(n,time,scene,null,behavior).p);
+    assert.ok(obj.userData.motion.joints.every(j=>j.quaternion.toArray().every(Number.isFinite)));
+   }
+   const paused={scene:key,at:101000,offset:0,lookAt:[0,0,0],kind:'dialogue'};
+   obj.userData.paused=paused;animateNpc(obj,1/60,110,false,scene);
+   assert.deepEqual(obj.position.toArray(),npcActivity(n,101,scene,null,behavior).p);
+   obj.userData.paused={...paused,at:null,offset:9000};animateNpc(obj,1/60,111,false,scene);
+   assert.deepEqual(obj.position.toArray(),npcActivity(n,102,scene,null,behavior).p);
+   obj.userData.paused=null;
+  }
+ }
+});

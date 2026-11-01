@@ -40,6 +40,7 @@ export function buildMessages({ agent, context = {}, intent, mem, repeat = false
     `RULES: ${agent.rules.join(' ')}`,
   ];
   if (agent.self?.length) lines.push('', 'ABOUT YOURSELF (use only what fits the question):', ...agent.self.map((s) => `- ${s}`));
+  if (context.activity) lines.push('', `YOUR CURRENT WORK: ${context.activity}. You have paused this to speak with the player. Describe it naturally if asked; never claim to have completed another task or changed any supplies.`);
 
   lines.push(
     '',

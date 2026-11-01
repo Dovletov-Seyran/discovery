@@ -20,6 +20,7 @@ import { Collider } from './collision.js';
 import { Chunks } from './chunks.js';
 import {paths as canaryPaths} from '../../../content/canary_layout.json';
 import { Cutscenes } from './cutscene.js';
+import { npcActivity } from '../../../shared/npc-activity.js';
 import { prepareNpc, animateNpc, collideNpcs, giveChart } from './npc-animation.js';
 import { WorldPatches } from './world-patches.js';
 import islandLod from 'virtual:island-lod';
@@ -99,7 +100,7 @@ export const world = {
     this.npcs = built.npcs;
     for (const npc of this.npcs) {
       prepareNpc(npc);
-      npc.userData.paused = npc.userData.definition.state?.paused ?? null;
+      for (const field of ['paused','speaker','behavior']) npc.userData[field] = npc.userData.definition.state?.[field] ?? null;
     }
     // Columbus keeps a chart of his own: when a player takes the one from the table, he reads that one
     const columbus = this.npcs.find((n) => n.userData.id === 'columbus');
@@ -147,7 +148,7 @@ export const world = {
     const o = this.entity(id);
     if (!o) return;
     if ('visible' in state) o.visible = state.visible;
-    if ('paused' in state) o.userData.paused = state.paused;
+    for (const field of ['paused','speaker','behavior']) if (field in state) o.userData[field] = state[field];
     if ('fill' in state) o.userData.setFill?.(state.fill);
   },
 
@@ -191,7 +192,14 @@ export const world = {
   updateNpcs(dt) {
     const seconds = (Date.now() + this.npcClockOffset) / 1000;
     const chartTaken = this.entity('map')?.visible === false;
-    for (const npc of this.npcs) animateNpc(npc, dt, seconds, this.env.t >= 0.82, this.npcScene, chartTaken);
+    if (this.zone === 'ship') {
+      for (const npc of this.npcs) animateNpc(npc, dt, seconds, this.env.t >= 0.82, this.npcScene, chartTaken);
+    } else {
+      for (const npc of this.island?.interactables ?? []) if(npc.userData.kind==='npc') {
+        const state=npcActivity(npc.userData.definition,seconds,this.npcScene,npc.userData.paused);
+        npc.rotation.y=state.r+Math.PI;
+      }
+    }
   },
   groundHeight(x, z, fromY) { return this.zone === 'canary' ? this.island.groundHeight(x, z, fromY) : this.collider.groundHeight(x, z, fromY); },
 
@@ -202,7 +210,7 @@ export const world = {
     this.island.refresh();
     this.patches?.update();
     this.players.update(dt);
-    if (this.zone === 'ship') this.updateNpcs(dt);
+    this.updateNpcs(dt);
     this.objects?.update();
     for(const o of this.interactables)if(!this.objects?.records.has(o.userData.id))animateProp(o,Date.now()+(this.objects?.clockOffset??0));
     this.updateSmoke(dt);

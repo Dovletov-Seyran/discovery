@@ -1,3 +1,4 @@
+import { routineState } from './npc-navigation.js';
 // Общий маршрут для рендера и серверной проверки расстояния. Время — Unix, секунды.
 // scene: id или {id,startAt}; startAt — серверное время начала сцены, миллисекунды.
 export function npcScene(npc, scene = 'ship_day') {
@@ -6,15 +7,16 @@ export function npcScene(npc, scene = 'ship_day') {
 }
 // paused: {scene: 'id@startAt', at: ms|null, offset: ms, lookAt: [x,y,z]|null}.
 // at фиксирует часы маршрута; offset сохраняет время остановок после продолжения.
-export function npcActivity(npc, seconds = Date.now() / 1000, scene = 'ship_day', paused = null) {
+export function npcActivity(npc, seconds = Date.now() / 1000, scene = 'ship_day', paused = null, behavior = null) {
   const key = typeof scene === 'string' ? scene : `${scene.id}@${scene.startAt ?? 0}`;
   const playback = paused?.scene === key ? paused : null;
   if (playback) seconds = ((playback.at ?? seconds * 1000) - (playback.offset ?? 0)) / 1000;
   if (Number.isFinite(scene?.startAt)) seconds = Math.max(0, seconds - scene.startAt / 1000);
-  const state = sampleActivity(npcScene(npc, scene), seconds);
+  const state = behavior?.scene === key ? routineState(behavior, seconds) : sampleActivity(npcScene(npc, scene), seconds);
   if (playback?.at != null) {
+    const seated=['guitar','tune','sit','tell','listen','seated_toast'].includes(state.action);
     state.walking = false;
-    state.action = 'talk';
+    state.action = playback.kind === 'obstacle' ? 'wait' : seated ? 'seated_talk' : 'talk';
     if (playback.lookAt) state.r = Math.atan2(state.p[0] - playback.lookAt[0], state.p[2] - playback.lookAt[2]);
   }
   return state;
