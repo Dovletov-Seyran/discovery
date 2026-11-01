@@ -51,10 +51,10 @@ export function objectColliders(zone,p){
   for(let z=cz-1;z<=cz+1;z++)for(let x=cx-1;x<=cx+1;x++){const c=islandCollision(x,z);if(c)list.push(c);}
   return list;
 }
-export function contactAt(zone,p,radius){
-  const start=new THREE.Vector3().fromArray(p),capsule={start,end:start.clone(),radius};
+export function contactAt(zone,p,radius,from=p){
+  const start=new THREE.Vector3().fromArray(from),capsule={start,end:new THREE.Vector3().fromArray(p),radius};
   for(const c of objectColliders(zone,p))c.collide(capsule);
-  return start.toArray();
+  return capsule.end.toArray();
 }
 export function surfaceAt(zone,origin,direction,maxDistance){
   const ray=new THREE.Ray(new THREE.Vector3().fromArray(origin),new THREE.Vector3().fromArray(direction));let best=null;

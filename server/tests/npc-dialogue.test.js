@@ -40,11 +40,15 @@ test('dialogue pauses captain for everyone, resumes continuously, and handles a 
  now+=10000;rules.syncNpcDialogues(now);
  assert.deepEqual(npcActivity(captain,now/1000,scene,entities.stateOf('columbus').paused).p,position);
  assert.equal(entities.isNear(first.p,'columbus',-2.5),true);
- // Второй собеседник не сбрасывает часы паузы.
+ // Второй собеседник не может захватить занятого персонажа.
  rules.dialogue(second.p,{active:true,npc:'columbus',dialogueId:'second'});
+ assert.equal(second.p.dialogue,null);
+ assert.ok(second.messages.some(m=>m.t==='npc_say'&&m.busy&&m.dialogueId==='second'));
  rules.dialogue(first.p,{active:false,dialogueId:'first'});
- assert.equal(entities.stateOf('columbus').paused.at,at);
+ rules.dialogue(second.p,{active:true,npc:'columbus',dialogueId:'second'});
+ assert.deepEqual(npcActivity(captain,now/1000,scene,entities.stateOf('columbus').paused).p,position);
  // Потеря последней вкладки возобновляет маршрут немедленно.
+ first.p.p=[8,0,8];
  game.leave(second.p,second.p.ws);
  const resumed=entities.stateOf('columbus').paused;
  assert.equal(resumed.at,null);assert.equal(resumed.offset,10000);
@@ -54,9 +58,32 @@ test('dialogue pauses captain for everyone, resumes continuously, and handles a 
  // Истечение lease снимает паузу; старый ответ закрытого окна её не возвращает.
  first.p.p=[...npcActivity(captain,now/1000,scene,resumed).p];
  rules.dialogue(first.p,{active:true,npc:'columbus',dialogueId:'expired'});
- now+=31000;rules.tickVitals(now);
+ now+=31000;first.p.p=[8,0,8];rules.tickVitals(now);
  assert.equal(entities.stateOf('columbus').paused.at,null);
  director.setScene('night_story');
  assert.equal(entities.stateOf('columbus').paused,null);
  assert.deepEqual(npcActivity(captain,now/1000,{id:'night_story',startAt:director.startAt()}).p,captain.scenes.night_story.p);
+});
+
+test('one NPC has one owner: open, raw talk, hints and trade cannot steal the conversation',async t=>{
+ const [first,second]=recipients;
+ for(const x of recipients){x.p.connected=true;x.p.ws={readyState:1,send:j=>x.messages.push(JSON.parse(j))};x.messages.length=0;}
+ director.setScene('ship_day');let now=director.startAt()+5000;t.mock.method(Date,'now',()=>now);
+ const scene={id:'ship_day',startAt:director.startAt()},position=npcActivity(entities.def('columbus'),now/1000,scene).p;
+ first.p.p=[position[0]+.8,position[1],position[2]];second.p.p=[position[0]-.8,position[1],position[2]];
+ rules.dialogue(first.p,{active:true,npc:'columbus',dialogueId:'owner'});
+ rules.dialogue(second.p,{active:true,npc:'columbus',dialogueId:'intruder'});
+ await rules.npcTalk(second.p,{npc:'columbus',text:'Куда плывём?'});
+ await rules.npcHint(second.p,{npc:'columbus',hint:'why_west'});
+ assert.equal(rules.npcOwner('columbus'),first.p);assert.equal(second.p.dialogue,null);
+ assert.ok(second.messages.filter(m=>m.busy).length>=3);assert.equal(second.messages.some(m=>m.t==='npc_thinking'),false);
+ second.p.p=[1.3,0,-1.1];rules.dialogue(second.p,{active:true,npc:'boatswain',dialogueId:'other-npc'});
+ assert.equal(rules.npcOwner('boatswain'),second.p);assert.equal(rules.npcOwner('columbus'),first.p);
+ director.setScene('canary');now=director.startAt()+5000;
+ const trader=entities.def('trader');
+ for(const x of recipients){x.p.p=[trader.p[0]+.8,trader.p[1],trader.p[2]];x.p.money=100;x.p.inventory=[];x.p.trade={};x.p.lastTradeAt=0;}
+ rules.dialogue(first.p,{active:true,npc:'trader',dialogueId:'shopping'});
+ await rules.trade(second.p,{npc:'trader',item:'cheese',offer:40});assert.equal(second.p.money,100);assert.equal(second.p.inventory.length,0);
+ rules.dialogue(first.p,{active:false,dialogueId:'shopping'});
+ await rules.trade(second.p,{npc:'trader',item:'cheese',offer:40});assert.ok(second.p.inventory.includes('cheese'));
 });

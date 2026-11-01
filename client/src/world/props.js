@@ -94,12 +94,22 @@ function chest(M,w,h,d,arched){
     g.add(mesh(boxGeo(w,h,.06,0,h/2,side*(d/2-.03)),wall));
   }
   const pivot=new THREE.Group();pivot.position.set(0,h,-d/2);pivot.userData.noBake=true;g.add(pivot);
-  const lid=mesh(boxGeo(w+.04,.065,d+.04,0,.03,d/2),M.get('trim'));pivot.add(lid);
   if(arched){
-    const cap=new THREE.CylinderGeometry(d/2,d/2,w,16,1,false,0,Math.PI);
-    cap.rotateZ(Math.PI/2);cap.rotateX(Math.PI/2);cap.translate(0,.02,d/2);pivot.add(mesh(cap,wall));
+    const outline=new THREE.Shape();outline.moveTo(-d/2,0);
+    for(let i=0;i<=24;i++){const t=Math.PI-i*Math.PI/24;outline.lineTo(Math.cos(t)*d/2,Math.sin(t)*d/2);}
+    outline.closePath();
+    const cap=new THREE.ExtrudeGeometry(outline,{depth:w,steps:1,bevelEnabled:false});
+    // Shape X becomes chest Z; extrusion Z becomes chest X.
+    cap.rotateY(-Math.PI/2);cap.translate(w/2,0,d/2);
+    pivot.add(mesh(cap,wall));
+    for(const x of [-w*.33,w*.33]){
+      const points=[];for(let i=0;i<=24;i++){const t=Math.PI-i*Math.PI/24;points.push(new THREE.Vector3(x,Math.sin(t)*(d/2+.009),d/2+Math.cos(t)*(d/2+.009)));}
+      pivot.add(mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),24,.014,5,false),iron));
+    }
+  }else{
+    pivot.add(mesh(boxGeo(w+.04,.065,d+.04,0,.03,d/2),M.get('trim')));
+    for(const x of [-w*.33,w*.33])pivot.add(mesh(boxGeo(.045,.073,d+.05,x,.035,d/2),iron));
   }
-  for(const x of [-w*.33,w*.33])pivot.add(mesh(boxGeo(.045,.073,d+.05,x,.035,d/2),iron));
   g.add(mesh(boxGeo(.1,.12,.03,0,h-.08,d/2+.02),M.get('brass')));
   g.userData.setOpen=value=>{pivot.rotation.x=-value*1.65;};
   return {obj:g,col:[boxGeo(w,h,d,0,h/2,0)]};
@@ -337,7 +347,7 @@ export function buildNpc(M, n, animated = false) {
   const g = animated || n.pose === 'guitar' ? rig.root : bake(rig.root);
   place(g, n);
   g.rotation.y += Math.PI; // r = camera-style yaw, the model faces +z
-  g.userData = { id: n.id, kind: 'npc', label: n.label, noBake: true, baseY: n.p[1], rig: animated || n.pose === 'guitar' ? rig : null, definition: n, animated };
+  g.userData = { id: n.id, kind: 'npc', label: n.label, noBake: true, baseY: n.p[1], rig: animated || n.pose === 'guitar' ? rig : null, definition: n, behavior: n.state?.behavior ?? null, speaker: n.state?.speaker ?? null, paused: n.state?.paused ?? null, animated };
   return { obj: g, col: animated ? [] : colliderFor([new THREE.CylinderGeometry(0.3, 0.3, 1.7, 8).translate(0, 0.85, 0)], n) };
 }
 

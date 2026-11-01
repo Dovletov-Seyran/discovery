@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {swordMotion} from '../../../shared/sword-motion.js';
 import {MODELS} from '../world/props.js';
 import {ISLAND_MODELS} from '../world/islandModels.js';
 
@@ -26,7 +27,7 @@ const makeObject=(make,M)=>{
 };
 // Sizes in metres, measured on the long edge. Each tool gets a readable pose.
 export const HOLD_POSES={
- sword:{size:1.2,rotation:[-.24,-.12,-.18],depth:.95},
+ sword:{size:1.2,rotation:[-.24,1.05,-.18],depth:.95},
  cup:{size:.32,rotation:[.15,0,-.1],depth:.72},
  compass:{size:.34,rotation:[1.10,0,0],depth:.72},
  astrolabe:{size:.40,rotation:[1.40,0,0],depth:.78},
@@ -89,7 +90,7 @@ export class Equipment {
   const sword=this.item==='sword',wave=this.action?Math.sin((1-this.action/(sword ? 0.58 : this.item==='espingarda'?0.35:0.9))*Math.PI):0;
   this.root.position.set(Math.min(.38,halfWidth*.48),-halfHeight*(sword ? 0.82 : 0.70),-pose.depth);
   this.root.rotation.set(...pose.rotation);
-  if(sword){this.root.rotation.z-=wave*1.45;this.root.rotation.x-=wave*.35;this.root.position.x-=wave*.30;}
+  if(sword&&this.action){const {cut,lift}=swordMotion(1-this.action/.58);this.root.rotation.z-=cut;this.root.rotation.x-=cut*.32;this.root.rotation.y-=cut*.28;this.root.position.x-=cut*.21;this.root.position.y+=lift;}
   else if(this.item==='wine'||this.item==='rum'){this.root.position.x-=wave*.22;this.root.position.y+=wave*.26;this.root.rotation.x-=wave*.85;}
   else if(['cheese','meat','biscuit','barrel_full'].includes(this.item)){this.root.position.x-=wave*.18;this.root.position.y+=wave*.22;}
   else if(this.item==='espingarda'){this.root.position.z+=wave*.12;this.root.rotation.x-=wave*.12;}

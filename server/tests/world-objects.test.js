@@ -80,3 +80,10 @@ test('island throws use streamed terrain/colliders and finish above the water',a
  for(let t=now;t<now+10000;t+=100)objects.tickObjects(t);
  const st=entities.stateOf(d.id);assert.ok(st.body.sleeping);assert.ok(st.p[1]>=-.02);assert.ok(st.p.every(Number.isFinite));
 });
+
+test('saved sphere-era pickups migrate to centred shapes without resetting inventory or entity ids',()=>{
+ reset();const d=objects.spawnWorldItem({id:'legacy:map',item:'map',zone:'ship',p:[1,0,-3.8],uses:3});
+ entities.setState(d.id,{body:{p:[1,.5,-3.8],v:[0,0,0],radius:.5,item:'map',startedAt:0,step:960,sleeping:true,roll:false}});
+ const inventory=[...p.inventory];objects.tickObjects(Date.now());const st=entities.stateOf(d.id);
+ assert.equal(st.body.version,2);assert.equal(st.uses,3);assert.equal(st.body.item,'map');assert.ok(st.body.p[1]<.1);assert.deepEqual(p.inventory,inventory);
+});

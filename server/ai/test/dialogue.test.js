@@ -93,3 +93,16 @@ test('быт и места: факты по зоне сцены, общий во
   const msgs = buildMessages({ agent: getAgent('columbus'), context: { name: 'A', role: 'grumete', scene: 'ship_day' }, intent: { kind: 'need', agentId: 'columbus' }, mem: { told: [], turns: [], summary: '' }, text: 'я хочу кушать' });
   assert.match(msgs.at(-2).content, /cook/);
 });
+
+test('each interactive character has a usable bounded profile and knows its current work',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const npcs=JSON.parse(readFileSync(new URL('../../../content/npcs.json',import.meta.url)));
+ const interactive=npcs.filter(n=>!['narrator','grumete_npc'].includes(n.id));
+ assert.equal(interactive.length,14);
+ for(const n of interactive){
+  assert.equal(n.type,'llm');const agent=getAgent(n.id);assert.ok(agent.cards.length&&agent.greeting.en&&agent.greeting.ru);
+  const messages=buildMessages({agent,context:{activity:'Inspect the rigging',scene:'ship_day'},intent:{kind:'about_you',agentId:n.id},mem:{told:[],turns:[]},text:'What are you doing?'});
+  assert.match(messages[0].content,/YOUR CURRENT WORK: Inspect the rigging/);
+  assert.ok(agent.rules.length>0);
+ }
+});

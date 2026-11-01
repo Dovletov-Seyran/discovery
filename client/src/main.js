@@ -34,6 +34,7 @@ export const sendGameMessage = (type,payload={}) => net?.send(type,payload) ?? f
 export const playVoiceLine = (id,options) => voices.playLine(id,options);
 export const getPlayerState = () => runtime ? {p:runtime.controller.position.toArray(),r:runtime.controller.yaw,a:runtime.controller.animation} : null;
 let net, runtime, world, equipment;
+let ownEquipmentRev=0;
 let throwMode=false;
 let equipped=null, selectedItem=null, pictures={}, dialogueId=null, requestId=null, dialogueHeartbeat;
 let screen='login', modal='', connected=false, chatOpen=false;
@@ -70,7 +71,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
     onTarget:target=>{
       currentTarget=target;
       $('#prompt').hidden=!target;
-      $('#prompt').textContent=target?`E  ${target.label||'Взаимодействовать'}`:'';
+      $('#prompt').textContent=target?(target.speaker&&target.speaker.id!==you.id?`${target.label} · разговаривает с ${target.speaker.name}`:`E  ${target.label||'Взаимодействовать'}`):'';
       $('#crosshair').classList.toggle('active',!!target);
     },
   });
@@ -88,7 +89,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
       if(runtime!==attachedRuntime)return;
       attachedRuntime.update(delta,time);
       equipment?.update(delta,time,screen==='game'&&!modal&&!chatOpen&&PLAY_SCENES.has(scene.id));
-      if(pendingUnequip&&equipment.action<=0){if(equipped===pendingUnequip)equipItem(null);pendingUnequip=null;}
+      if(pendingUnequip&&equipment.action<=0){if(equipped===pendingUnequip)equipItem(null,{sync:false});pendingUnequip=null;}
       updateInstrument();renderVitals();
       const hint=$('#control-hint');
       if(hint){
@@ -161,7 +162,7 @@ async function authenticate(register){
   finally{submit.disabled=false;create.disabled=false;}
 }
 function connect(credential){
-  closeModal();equipItem(null);net?.disconnect();connected=false;players=[];inventory=[];quests={};
+  closeModal();equipItem(null,{sync:false});net?.disconnect();connected=false;players=[];inventory=[];quests={};
   net=preview?new MockClient():new SocketClient();
   bindNetwork(net);telemetry.attach(net);net.connect(credential);
 }
@@ -172,11 +173,13 @@ function bindNetwork(client){
     // Сервер перезапустили с новой сборкой, а эта вкладка ещё на старом коде — перезагрузиться
     if(serverBuild&&message.build&&message.build!=='dev'&&message.build!==serverBuild){location.reload();return;}
     serverBuild=message.build;
+    if(Number.isFinite(message.serverNow))serverOffset=message.serverNow-Date.now();
     you=message.you;inventory=message.state?.inventory||[];quests=message.state?.quests||{};
-    itemUses=message.state?.itemUses||{};money=message.state?.money||0;applyVitals(message.state?.vitals||freshVitals());
+    itemUses=message.state?.itemUses||{};money=message.state?.money||0;applyVitals(message.state?.vitals||freshVitals(),message.serverNow);
     savedPosition=message.state?.p;savedYaw=message.state?.r??0;
     inventory.forEach(item=>knownCards.add(itemId(item)));
     if(savedPosition)runtime?.teleport(savedPosition,savedYaw);
+    ownEquipmentRev=message.state?.equipmentRev??0;equipItem(message.state?.equipped??null,{sync:false});
     updateInventoryCount();
     applyScene(message.scene||{id:message.state?.scene||'lobby'});
     gameEvents.emit('auth_ok',message);
@@ -188,13 +191,19 @@ function bindNetwork(client){
   client.on('inventory',message=>{
     const old=new Set(inventory.map(itemId));inventory=message.items||[];
     itemUses=message.itemUses||{};money=message.money??money;if(message.vitals)applyVitals(message.vitals);
-    if(equipped&&!inventory.some(item=>itemId(item)===equipped)){if(equipment?.action>0)pendingUnequip=equipped;else equipItem(null);}
+    if(equipped&&!inventory.some(item=>itemId(item)===equipped)){if(equipment?.action>0)pendingUnequip=equipped;else equipItem(null,{sync:false});}
     updateInventoryCount();
     const added=inventory.find(item=>!old.has(itemId(item)));
     if(added&&!modal&&!knownCards.has(itemId(added))){knownCards.add(itemId(added));openKnowledge(itemId(added));}else if(modal==='inventory')openInventory();
   });
   client.on('vitals',message=>applyVitals(message,message.serverNow));
   client.on('item_used',receiveItemUse);
+  client.on('player_equipment',message=>{
+    if(message.id!==you.id||message.equipmentRev<ownEquipmentRev)return;
+    ownEquipmentRev=message.equipmentRev;
+    if(message.item===null&&equipment?.action>0){pendingUnequip=equipped;return;}
+    if(message.item!==equipped)equipItem(message.item,{sync:false});
+  });
   client.on('quest',message=>{quests[message.id]=message;renderQuest();if(modal==='journal')openJournal();});
   client.on('party',message=>{
     $('#party').textContent=message.waitingFor?.length?`Ждём: ${message.waitingFor.map(player=>player.name).join(', ')}`:'';
@@ -305,7 +314,7 @@ function openKnowledge(id){
   showModal('knowledge',`<section class="menu-panel knowledge">${closeButton()}<span class="overline">ПРЕДМЕТ ПОЛУЧЕН</span><h2>${escape(data.name)}</h2>${data.text?`<p>${escape(data.text)}</p>`:''}<button class="primary" data-close>Продолжить</button></section>`);
 }
 function picture(id){return pictures[id]||itemIcon(id);}
-function equipItem(id){throwMode=false;pendingUnequip=null;equipped=id;equipment?.equip(id);renderEquipment();}
+function equipItem(id,{sync=true}={}){throwMode=false;pendingUnequip=null;equipped=id;equipment?.equip(id);renderEquipment();if(sync&&connected&&screen==='game')net?.send('equip',{item:id});}
 function renderEquipment(){
   const hud=$('#equipment');if(!hud)return;
   hud.hidden=!equipped||!PLAY_SCENES.has(scene.id);
@@ -395,6 +404,8 @@ function openAstrolabe(){
   });
 }
 function openDialogue(npc){
+  const owner=world?.entity?.(npc)?.userData.speaker;
+  if(owner&&owner.id!==you.id){notify(`Персонаж сейчас разговаривает с ${owner.name}.`);return;}
   const scripted=NPCS[npc]?.type==='script';
   scriptIndex=0;
   scriptLines=LINES.filter(line=>line.npc===npc&&!/hint|alarm|hourglass|task|wait|done|toast|cards|scare/.test(line.id));
@@ -441,6 +452,7 @@ function renderTrade(){
 }
 function setDialogueBusy(busy){$('#modal').querySelectorAll('#npc-form button,#hints button,.trade-row button').forEach(button=>button.disabled=busy);}
 function receiveDialogue(message){
+  if(message.busy&&matchesReply(message)){const text=message.ru;closeModal();notify(text);return;}
   if(!matchesReply(message)){
     if(message.line){
       notify(message.ru||'');
@@ -473,7 +485,7 @@ function openMenu(){
   $('#leave').onclick=logout;
 }
 function closeChat(){chatOpen=false;$('#chat-form').hidden=true;syncInput();}
-function logout(){vitals=freshVitals();itemUses={};money=0;itemCooldowns.clear();sceneProgress=null;renderSceneProgress();closeModal();equipItem(null);narrative.stop();gameEvents.emit('logout',{});knownCards.clear();net?.disconnect();connected=false;scene={id:'lobby'};savedPosition=null;localStorage.removeItem('discovery.token');closeModal();closeChat();$('#chat-log').innerHTML='';$('#party').textContent='';login();}
+function logout(){vitals=freshVitals();itemUses={};money=0;itemCooldowns.clear();sceneProgress=null;renderSceneProgress();closeModal();equipItem(null,{sync:false});narrative.stop();gameEvents.emit('logout',{});knownCards.clear();net?.disconnect();connected=false;scene={id:'lobby'};savedPosition=null;localStorage.removeItem('discovery.token');closeModal();closeChat();$('#chat-log').innerHTML='';$('#party').textContent='';login();}
 function interact(){
   if(!currentTarget||modal||!connected)return;
   if(sceneProgress?.phase==='departing'){notify('Готовимся к переходу.');return;}

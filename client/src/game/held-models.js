@@ -5,7 +5,7 @@ const part=(root,geometry,material,p=[0,0,0],rotation=[0,0,0])=>{
   const mesh=new THREE.Mesh(geometry,material);mesh.position.fromArray(p);mesh.rotation.set(...rotation);root.add(mesh);return mesh;
 };
 
-// First-person presentation only. World props, NPC models and colliders stay with Front 1.
+// Item presentation. The forged sword is shared by held and dropped copies; NPCs stay in world/people.js.
 export function sword(){
   const root=new THREE.Group();root.name='held-sword';
   const steel=own(0xd5dde4,.23,.72),edge=own(0xf0f3f5,.17,.82),brass=own(0xb69352,.34,.7),leather=own(0x36251e,.85),dark=own(0x46505a,.4,.65);

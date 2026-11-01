@@ -67,16 +67,21 @@ export function giveChart(npc, chart) {
 export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', chartTaken = false) {
   const { rig, definition, motion } = npc.userData;
   if (!rig || !motion) return;
-  const state = npcActivity(definition, seconds, scene, npc.userData.paused);
+  const state = npcActivity(definition, seconds, scene, npc.userData.paused, npc.userData.behavior);
   const current = npcScene(definition, scene);
   const sceneId = typeof scene === 'string' ? scene : scene?.id;
   if (motion.sceneId !== sceneId) { motion.initialized = false; motion.sceneId = sceneId; }
-  rig.stool.visible = !!current.seat || state.action === 'guitar' && sceneId === 'ship_evening';
-  rig.cup.visible = state.action === 'toast';
+  const key=typeof scene==='string'?scene:`${scene.id}@${scene.startAt??0}`;
+  const chosenPose=npc.userData.behavior?.scene===key?npc.userData.behavior.pose:current.pose;
+  rig.stool.visible = state.seat ?? (!!current.seat || ['guitar','tune'].includes(state.action) && sceneId === 'ship_evening');
+  rig.cup.visible = ['toast','seated_toast'].includes(state.action);
+  if (rig.tray) rig.tray.visible = chosenPose === 'serve';
+  if (rig.guitar) {
+    rig.guitar.visible = ['guitar','tune'].includes(state.action) || chosenPose === 'guitar' || chosenPose === 'tune';
+    rig.guitar.position.y = ['guitar','tune','seated_talk'].includes(state.action) ? .62 : 1.05;
+  }
   rig.rag.visible = state.action === 'kneel';
   rig.cloth.visible = state.action === 'mend';
-  if (rig.tray) rig.tray.visible = state.action === 'serve' || state.walking && current.pose === 'serve';
-  if (rig.guitar) rig.guitar.visible = state.action === 'guitar';
   rig.torso.position.y = 0;
   const ownChart = state.action === 'chart' && chartTaken && !!npc.userData.chart;
   if (npc.userData.chart) npc.userData.chart.visible = ownChart;
@@ -88,11 +93,12 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
   motion.hipY = rig.hip.position.y;
   const t = seconds + motion.phase, slow = Math.sin(t * 1.3), beat = Math.sin(t * 2.4);
   pose(rig, state.action, seconds * 5);
-  if (state.action === 'guitar') {
+  if (state.action === 'guitar' || state.action === 'tune') {
     pose(rig, 'sit');
-    strum(rig, t, !night);
+    strum(rig, t, !night && state.action === 'guitar');
   } else {
     switch (state.action) {
+      case 'wait': break;
       case 'talk': // stopped for a player: faces him, nods and gestures now and then
         rig.head.rotation.set(0.08 + Math.max(0, beat) * 0.05, Math.sin(t * 0.5) * 0.12, 0);
         rig.arms[1].ua.rotation.x = -0.35 - Math.max(0, Math.sin(t * 0.9)) * 0.35;
@@ -111,7 +117,7 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
         rig.arms[1].fa.rotation.x = -1.0 + Math.sin(t * 1.6) * 0.3;
         break;
       case 'walk':
-        if (current.pose === 'serve') for (const arm of rig.arms) { arm.ua.rotation.x = -0.8; arm.fa.rotation.x = -0.9; }
+        if (chosenPose === 'serve') for (const arm of rig.arms) { arm.ua.rotation.x = -0.8; arm.fa.rotation.x = -0.9; }
         break;
       case 'dance':
         rig.hip.position.y -= 0.04 + Math.sin(t * 4.8) * 0.035;
@@ -129,6 +135,10 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
         rig.arms[0].ua.rotation.x = -0.9 + slow * 0.15;
         rig.arms[0].fa.rotation.x = -1.25 + slow * 0.15;
         break;
+      case 'seated_talk':
+        pose(rig,'sit');rig.head.rotation.x=Math.sin(t)*.03;break;
+      case 'seated_toast':
+        pose(rig, 'sit'); rig.arms[0].ua.rotation.x = -.9; rig.arms[0].fa.rotation.x = -1.2 + slow*.15; break;
       case 'listen': case 'tell':
         pose(rig, 'sit');
         rig.head.rotation.set(0.08, Math.sin(t * 0.45) * 0.08, 0);
@@ -169,11 +179,6 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
         rig.arms[1].ua.rotation.x += Math.sin(t * 1.8) * 0.13;
         rig.arms[1].fa.rotation.x += Math.cos(t * 1.8) * 0.17;
         break;
-      case 'kneel':
-        rig.torso.rotation.x += beat * 0.06;
-        rig.arms.forEach((arm, i) => { arm.ua.rotation.x += Math.sin(t * 2.4 + i) * 0.16; arm.fa.rotation.x += beat * 0.1; });
-        rig.head.rotation.y = slow * 0.1;
-        break;
       case 'haul':
         rig.torso.rotation.x += beat * 0.12;
         rig.arms.forEach(arm => { arm.ua.rotation.x += beat * 0.25; arm.fa.rotation.x -= beat * 0.3; });
@@ -194,6 +199,8 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
       rig.torso.rotation.z += Math.sin(t * 0.75) * 0.012;
     } else rig.torso.position.y = 0;
   }
+  if (rig.tray?.visible) for (const arm of rig.arms) {arm.ua.rotation.x=-.8;arm.fa.rotation.x=-.9;}
+  if (rig.guitar?.visible && !['guitar','tune'].includes(state.action)) strum(rig,t,false);
   const blend = motion.initialized ? 1 - Math.exp(-dt * 9) : 1;
   motion.joints.forEach((j, i) => j.quaternion.slerp(motion.previous[i], 1 - blend));
   rig.hip.position.y = THREE.MathUtils.lerp(motion.hipY, rig.hip.position.y, blend);

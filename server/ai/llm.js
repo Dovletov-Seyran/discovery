@@ -4,6 +4,7 @@ import { AI, isThinkingModel } from './config.js';
 // Чем выше priority, тем раньше запрос (ответы NPC важнее переводов).
 const queue = [];
 let busy = false;
+let activeJob = null;
 // Транспорт к модели; тесты подменяют его заглушкой (без Ollama)
 let transport = (messages, opts) => request(messages, opts);
 // Для админки: сколько запросов ждёт модель и занята ли она сейчас
@@ -11,10 +12,13 @@ export const queueStats = () => ({ waiting: queue.length, busy });
 export const setTransport = (fn) => { transport = fn ?? ((messages, opts) => request(messages, opts)); };
 
 // format — JSON-схема: Ollama ограничивает ответ этой схемой (structured outputs), модель не может выйти за список вариантов
-export function chat(messages, { priority = 0, temperature = 0.7, maxTokens = 140, timeoutMs = AI.TIMEOUT_MS, model = AI.MODEL, format } = {}) {
+export function chat(messages, { priority = 0, preemptible = false, temperature = 0.7, maxTokens = 140, timeoutMs = AI.TIMEOUT_MS, model = AI.MODEL, format } = {}) {
   return new Promise((resolve, reject) => {
-    queue.push({ messages, opts: { temperature, maxTokens, timeoutMs, model, format }, priority, resolve, reject });
+    const controller = preemptible ? new AbortController() : null;
+    queue.push({ messages, opts: { temperature, maxTokens, timeoutMs, model, format, ...(controller ? { signal: controller.signal } : {}) }, controller, priority, resolve, reject });
     queue.sort((a, b) => b.priority - a.priority);
+    // Фоновый выбор занятий уступает модель реплике игрока даже во время генерации.
+    if (activeJob?.controller && priority > activeJob.priority) activeJob.controller.abort();
     pump();
   });
 }
@@ -24,17 +28,19 @@ async function pump() {
   const job = queue.shift();
   if (!job) return;
   busy = true;
+  activeJob = job;
   try {
     job.resolve(await transport(job.messages, job.opts));
   } catch (err) {
     job.reject(err);
   } finally {
+    activeJob = null;
     busy = false;
     pump();
   }
 }
 
-async function request(messages, { temperature, maxTokens, timeoutMs, model, format }) {
+async function request(messages, { temperature, maxTokens, timeoutMs, model, format, signal }) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   const started = performance.now();
@@ -42,7 +48,7 @@ async function request(messages, { temperature, maxTokens, timeoutMs, model, for
     const res = await fetch(`${AI.OLLAMA_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: ctrl.signal,
+      signal: signal ? AbortSignal.any([ctrl.signal, signal]) : ctrl.signal,
       body: JSON.stringify({
         model,
         messages,

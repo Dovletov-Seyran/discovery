@@ -92,6 +92,7 @@ export function loadPlayer(userId) {
     p: row.x == null ? null : [row.x, row.y, row.z],
     r: row.ry ?? 0,
     inventory: Array.isArray(inv) ? inv : inv.items ?? [],
+    equipped:typeof inv.equipped==='string'?inv.equipped:null,
     money: inv.money ?? 0,
     trade:inv.trade??{},itemUses: inv.itemUses ?? {},vitals: inv.vitals ?? {stamina:100,drunkUntil:0,drunkStrength:0},
     quests: parse(row.quests, {}),
@@ -106,7 +107,7 @@ export const loadScenePlayers=scene=>qScenePlayers.all(scene).map(row=>({id:row.
 function writePlayer(userId, s) {
   const p = s.p ?? [null, null, null];
   qSavePlayer.run(userId, s.role ?? null, s.zone ?? null, p[0], p[1], p[2], s.r ?? 0,
-    JSON.stringify({ items: s.inventory ?? [], money: s.money ?? 0,trade:s.trade??{},itemUses:s.itemUses??{},vitals:s.vitals??{stamina:100,drunkUntil:0,drunkStrength:0} }), JSON.stringify(s.quests ?? {}),
+    JSON.stringify({ items: s.inventory ?? [], equipped:s.equipped??null, money: s.money ?? 0,trade:s.trade??{},itemUses:s.itemUses??{},vitals:s.vitals??{stamina:100,drunkUntil:0,drunkStrength:0} }), JSON.stringify(s.quests ?? {}),
     JSON.stringify(s.log ?? []), Date.now(), s.scene ?? null);
 }
 
