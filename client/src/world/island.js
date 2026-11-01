@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { registerDoors } from './objects.js';
 import { Collider } from './collision.js';
 import { bake } from './geom.js';
 import { ISLAND_MODELS, VEGETATION } from './islandModels.js';
@@ -216,6 +217,7 @@ export class Island {
       if (!make) { console.warn('[world] unknown island model', o.m); continue; }
       const { obj, col: cc } = make(this.M);
       decor.add(place(obj, o));
+      c.interact.push(...registerDoors(this.M,obj,o));
       if (cc) col.push(...colliderFor(cc, o));
     }
     bake(decor);

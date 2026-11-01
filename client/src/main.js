@@ -1,4 +1,5 @@
 import './ui/style.css';
+import {placement,launch} from './game/object-actions.js';
 import {drawLocalMap,unlockItemAudio,playShot} from './ui/item-feedback.js';
 import {ITEM_RULES,freshVitals} from '../../shared/item-actions.js';
 import {sceneProgressView} from './ui/scene-progress.js';
@@ -30,6 +31,7 @@ export const sendGameMessage = (type,payload={}) => net?.send(type,payload) ?? f
 export const playVoiceLine = (id,options) => voices.playLine(id,options);
 export const getPlayerState = () => runtime ? {p:runtime.controller.position.toArray(),r:runtime.controller.yaw,a:runtime.controller.animation} : null;
 let net, runtime, world, equipment;
+let throwMode=false;
 let equipped=null, selectedItem=null, pictures={}, dialogueId=null, requestId=null, dialogueHeartbeat;
 let screen='login', modal='', connected=false, chatOpen=false;
 let you={}, scene={id:'lobby',type:'lobby'}, players=[], inventory=[], quests={};
@@ -109,6 +111,7 @@ function syncInput(){
   runtime?.setMode(blocked?'blocked':scene.id==='night_story'?'seated':PLAY_SCENES.has(scene.id)?'play':'blocked');
   if($('#control-hint'))$('#control-hint').hidden=!!blocked;
   $('#crosshair').hidden=blocked||!runtime||!PLAY_SCENES.has(scene.id);
+  if(blocked&&throwMode){throwMode=false;renderEquipment();}
   if(blocked){$('#prompt').hidden=true;currentTarget=null;}
 }
 function notify(text){
@@ -204,7 +207,7 @@ function bindNetwork(client){
   client.on('player_join',message=>gameEvents.emit('player_join',message));
   client.on('player_leave',message=>gameEvents.emit('player_leave',message));
   client.on('tod',message=>{scene.tod=message.value;world?.setTimeOfDay?.(message.value);gameEvents.emit('tod',message);});
-  for(const type of ['chunk','chunk_denied','entity','scared','inventory','quest','npc_say','trade_state'])client.on(type,message=>gameEvents.emit(type,message));
+  for(const type of ['chunk','chunk_denied','entity','world_patch','world_event','scared','inventory','quest','npc_say','trade_state'])client.on(type,message=>gameEvents.emit(type,message));
 }
 function renderLobby(){
   $('#screen').innerHTML=lobbyView(players,you,connected);
@@ -289,11 +292,11 @@ function openKnowledge(id){
   showModal('knowledge',`<section class="menu-panel knowledge">${closeButton()}<span class="overline">ПРЕДМЕТ ПОЛУЧЕН</span><h2>${escape(data.name)}</h2>${data.text?`<p>${escape(data.text)}</p>`:''}<button class="primary" data-close>Продолжить</button></section>`);
 }
 function picture(id){return pictures[id]||itemIcon(id);}
-function equipItem(id){pendingUnequip=null;equipped=id;equipment?.equip(id);renderEquipment();}
+function equipItem(id){throwMode=false;pendingUnequip=null;equipped=id;equipment?.equip(id);renderEquipment();}
 function renderEquipment(){
   const hud=$('#equipment');if(!hud)return;
   hud.hidden=!equipped||!PLAY_SCENES.has(scene.id);
-  hud.innerHTML=equipped?`<img src="${picture(equipped)}" alt=""><span>${escape(ITEMS[equipped]?.name||equipped)}<small>${escape(ITEM_ACTIONS[equipped]||'В руке')} · ЛКМ${itemUses[equipped]!=null?` · ${itemUses[equipped]} ост.`:''}</small></span><output id="instrument"></output>`:'';
+  hud.innerHTML=equipped?`<img src="${picture(equipped)}" alt=""><span>${escape(ITEMS[equipped]?.name||equipped)}<small>${escape(throwMode?'Бросить · ЛКМ · F — отменить':`${ITEM_ACTIONS[equipped]||'В руке'} · ЛКМ`)}${itemUses[equipped]!=null?` · ${itemUses[equipped]} ост.`:''}</small><small>G — положить · F — бросок</small></span><output id="instrument"></output>`:'';
 }
 function updateInstrument(){
   const output=$('#instrument');if(!output||!runtime)return;
@@ -356,6 +359,7 @@ function openMap(){
 function useEquipped(){
   if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!PLAY_SCENES.has(scene.id)||sceneProgress?.phase==='departing')return;
   if((itemCooldowns.get(equipped)||0)>Date.now())return;
+  if(throwMode){if(world&&net.send('throw',launch(world,equipped))){throwMode=false;renderEquipment();}return;}
   const target=ITEM_RULES[equipped]?.target===currentTarget?.id?currentTarget.id:undefined;
   net.send('use',{item:equipped,...(target?{target}:{})});
 }
@@ -457,7 +461,7 @@ function interact(){
   if(sceneProgress?.phase==='departing'){notify('Готовимся к переходу.');return;}
   const {id,kind}=currentTarget;
   if(kind==='npc'){openDialogue(id);net.send('interact',{id});return;}
-  net.send(kind==='pickup'||kind==='item'?'pickup':'interact',{id});
+  net.send(kind==='toggle'?'toggle':kind==='pickup'||kind==='item'?'pickup':'interact',{id});
 }
 
 root.innerHTML=shellView();
@@ -487,7 +491,7 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
   if(type==='astrolabe')openAstrolabe();
   if(type==='quest')net.emit('quest',{id:'q_astrolabe',title:'Определить широту',step:'Измерьте высоту Солнца.',status:'active',progress:0,total:1});
 });
-canvas.addEventListener('click',()=>{unlockItemAudio();if(screen==='game'&&!modal&&!chatOpen&&connected){if(runtime?.controller.hasControl)useEquipped();runtime?.controller.lock();}});
+canvas.addEventListener('click',()=>{unlockItemAudio();if(screen==='game'&&!modal&&!chatOpen&&connected){useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
@@ -497,6 +501,14 @@ window.addEventListener('keydown',event=>{
   if(event.code==='Tab'){event.preventDefault();if(modal==='inventory')closeModal();else if(!modal)openInventory();return;}
   if(event.code==='KeyJ'&&!event.repeat){event.preventDefault();if(modal==='journal')closeModal();else if(!modal)openJournal();return;}
   if(/^Digit[1-9]$/.test(event.code)&&!modal&&!chatOpen){const id=inventory[Number(event.code.slice(5))-1];if(id)equipItem(itemId(id));return;}
+  if(!modal&&!chatOpen&&connected&&PLAY_SCENES.has(scene.id)&&equipped&&!event.repeat){
+    if(event.code==='KeyF'){event.preventDefault();throwMode=!throwMode;renderEquipment();return;}
+    if(event.code==='KeyG'){
+      event.preventDefault();if(sceneProgress?.phase==='departing')return;
+      const data=world&&placement(world,equipped);
+      if(data)net.send('place',data);else notify('Посмотри на свободное место рядом.');return;
+    }
+  }
   if(event.code==='Enter'&&!modal){event.preventDefault();chatOpen=true;$('#chat-form').hidden=false;syncInput();$('#chat-form input').focus();return;}
   // preventDefault: иначе тот же keypress напечатает «e» в поле вопроса, которое открытый диалог только что сфокусировал
   if(event.code==='KeyE'&&!event.repeat){event.preventDefault();if(modal==='knowledge')closeModal();else if(modal==='dialogue'&&$('#next-line'))nextScriptLine();else if(!modal)interact();}

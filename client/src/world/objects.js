@@ -1,0 +1,120 @@
+import * as THREE from 'three';
+import {MODELS,applyState,animateProp} from './props.js';
+import {ISLAND_MODELS} from './islandModels.js';
+import {HELD_MODELS,releaseModel} from '../game/held-models.js';
+import {objectProfile} from '../../../shared/object-physics.js';
+import {doorSpecs,doorBox,boxContact} from '../../../shared/world-interact.js';
+import {advanceBody,sphereContact} from './physics.js';
+
+// One bounded, streamed overlay for both player drops and agent/admin patches.
+// Static geometry stays in its chunk. Its state is replayed after a chunk is rebuilt.
+export class WorldObjects {
+  constructor(world){this.world=world;this.records=new Map();this.root=new THREE.Group();world.scene.add(this.root);this.clockOffset=0;}
+  clear(){for(const id of [...this.records.keys()])this.remove(id);this.budget();}
+  remove(id){const record=this.records.get(id);if(record?.obj){record.obj.removeFromParent();releaseModel(record.obj);}this.records.delete(id);}
+  budget(){
+    const chunks=this.world.chunks,encode=()=>new TextEncoder().encode(JSON.stringify([...this.records.values()].map(({data,state})=>({data,state})))).length;
+    const other=(chunks?.staticBytes?.()??0)-(chunks?.staticData?.get('object-state')??0),total=(chunks?.meta?.totalBytes??0)*.1;
+    const reserve=this.world.zone==='ship'?0:Math.min(12000,total*.15);
+    const limit=total?Math.max(0,Math.min(16384,total-other-reserve)):16384;
+    const camera=this.world.camera?.position??{x:0,z:0};
+    const candidates=[...this.records.values()].sort((a,b)=>{
+      const pa=a.state.p??a.data.p??[0,0,0],pb=b.state.p??b.data.p??[0,0,0];
+      return Math.hypot(pb[0]-camera.x,pb[2]-camera.z)-Math.hypot(pa[0]-camera.x,pa[2]-camera.z);
+    });
+    let bytes=encode();
+    for(const record of candidates){if(bytes<=limit)break;this.remove(record.data.id);bytes=encode();}
+    chunks?.setStaticData('object-state',this.records.size?bytes:0);
+  }
+  applyPatch({ops=[],serverNow}={}){
+    if(Number.isFinite(serverNow))this.clockOffset=serverNow-Date.now();
+    for(const op of ops.slice(0,160)){
+      if(op.op==='remove'){if(!op.unload){const original=this.staticEntity(op.id);if(original)original.visible=false;}this.remove(op.id);continue;}
+      const previous=this.records.get(op.id),state={...previous?.state,...op.state};
+      // Accept the protocol's top-level set fields as well as entity.state.
+      if(op.op==='set'&&!op.state)for(const key of ['p','r','v','open','paused'])if(key in op)state[key]=op[key];
+      const data={...previous?.data,...op};data.zone??=this.world.zone;delete data.state;delete data.op;
+      if(data.zone&&data.zone!==this.world.zone){this.remove(op.id);continue;}
+      const record=previous??{data,state,obj:null};record.data=data;record.state=state;
+      this.records.set(op.id,record);
+      this.applyRecord(record);
+    }
+    // Keep malicious/mistaken extensions from growing the client's object cache indefinitely.
+    while(this.records.size>128)this.remove(this.records.keys().next().value);
+    this.budget();
+  }
+  applyEntity(id,state){const record=this.records.get(id);if(record){record.state={...record.state,...state};this.applyRecord(record);this.budget();}else{const obj=this.staticEntity(id);if(obj)applyState(obj,state);}}
+  staticEntity(id){return this.world.shipInteractables.find(o=>o.userData.id===id)??this.world.island.interactables.find(o=>o.userData.id===id);}
+  applyRecord(record){
+    const {data,state}=record;
+    const original=this.staticEntity(data.id);
+    if(original){original.visible=!state.holder&&state.visible!==false;applyState(original,state);record.body=state.body?structuredClone(state.body):null;return;}
+    // A static NPC/door can arrive before its chunk. Never create a generic replacement for it.
+    if(data.kind!=='item'&&data.kind!=='prop')return;
+    // Original ship pickups already have a model once the ship layout arrives.
+    if(data.zone==='ship'&&!this.world.layout)return;
+    if(!record.obj){
+      const aliases={barrel_full:'barrel',tar:'tar_bucket'};
+      const make=MODELS[data.model]??ISLAND_MODELS[data.model]??HELD_MODELS[data.item]??MODELS[aliases[data.item]??data.item];
+      if(!make)return;
+      const built=make(this.world.M);built.col?.forEach(g=>g.dispose());
+      const content=built.obj,root=new THREE.Group(),profile=objectProfile(data.item);
+      // Ship pickups retain their original dimensions. Drops use a compact physical proxy.
+      if(data.id.startsWith('drop:')||data.item==='barrel'||data.item==='cup'){
+        const b=new THREE.Box3().setFromObject(content),size=b.getSize(new THREE.Vector3()),scale=Math.min(1,profile.radius*2/Math.max(size.x,size.y,size.z));
+        content.scale.setScalar(scale);
+      }
+      const box=new THREE.Box3().setFromObject(content),center=box.getCenter(new THREE.Vector3());
+      content.position.sub(new THREE.Vector3(center.x,box.min.y,center.z));root.add(content);root.userData={id:data.id,kind:data.kind,item:data.item,label:data.label,noBake:true};
+      this.root.add(root);record.obj=root;
+    }
+    const obj=record.obj;
+    obj.position.fromArray(state.p??data.p);obj.rotation.y=state.r??data.r??0;obj.visible=!state.holder&&state.visible!==false;
+    record.body=state.body?structuredClone(state.body):null;
+  }
+  loaded(){
+    // Called after the normal chunk builder; adopts its static model and discards a temporary one.
+    for(const record of this.records.values()){
+      const original=this.staticEntity(record.data.id);
+      if(original&&record.obj){record.obj.removeFromParent();releaseModel(record.obj);record.obj=null;}
+      this.applyRecord(record);
+    }
+  }
+  setZone(zone){for(const [id,r] of this.records)if(r.data.zone!==zone)this.remove(id);this.root.visible=true;this.budget();}
+  get selectable(){return [...this.records.values()].filter(r=>r.obj?.visible).map(r=>r.obj);}
+  collide(capsule){
+    const start=capsule.start.clone();
+    const doors=[...this.records.values()].filter(r=>r.data.toggleType==='door');
+    for(const obj of this.world.island.interactables)if(obj.userData.doorDef&&!this.records.has(obj.userData.id))doors.push({data:{...obj.userData.doorDef,toggleType:'door'},state:obj.userData.state??{}});
+    for(const record of doors){
+      const d=record.data;if(d.zone!==this.world.zone||d.toggleType!=='door'||record.state.visible===false)continue;
+      const p=boxContact(capsule.start.toArray(),capsule.radius,doorBox(d,record.state.open),capsule.end.y-capsule.start.y);
+      const delta=new THREE.Vector3().fromArray(p).sub(capsule.start);capsule.start.add(delta);capsule.end.add(delta);
+    }
+    return capsule.start.clone().sub(start);
+  }
+  update(now=Date.now()+this.clockOffset){
+    const elapsed=Math.max(0,Math.min(.05,(now-(this.lastFrame??now))/1000));this.lastFrame=now;
+    for(const record of this.records.values()){
+      const obj=record.obj??this.staticEntity(record.data.id);if(!obj)continue;
+      animateProp(obj,now);
+      if(!record.body||record.state.holder)continue;
+      const body=record.body;
+      // If a terrain chunk has not arrived, hold the last authoritative pose until it does.
+      if(this.world.zone==='canary'&&!this.world.island.chunks.has(`${Math.floor(body.p[0]/32)},${Math.floor(body.p[2]/32)}`))continue;
+      advanceBody(body,Math.min(now,body.startedAt+(body.step+36)/120*1000),(p,r)=>sphereContact(this.world,p,r),{inertia:this.world.zone==='ship'&&body.roll});
+      obj.position.fromArray(body.p);obj.position.y-=body.radius;
+      if(body.roll){obj.rotation.z+=body.v[0]/body.radius*elapsed;obj.rotation.x+=body.v[2]/body.radius*elapsed;}
+    }
+  }
+}
+// Register the original door leaves as raycast targets before their parent meshes are baked.
+export function registerDoors(M,object,definition){
+  const specs=doorSpecs(definition.m),doors=[];let index=0;
+  object.updateMatrixWorld(true);
+  object.traverse(child=>{
+    if(!child.userData.door||index>=specs.length)return;
+    child.userData={...child.userData,id:`${definition.id}:door:${index++}`,kind:'toggle',label:'Дверь',doorDef:{id:`${definition.id}:door:${index-1}`,zone:'canary',p:child.getWorldPosition(new THREE.Vector3()).toArray(),r:definition.r??0,w:child.userData.door.w*(definition.s??1),h:child.userData.door.h*(definition.s??1)}};doors.push(child);
+  });
+  return doors;
+}

@@ -85,7 +85,33 @@ function seaChart(ctx, S) {
   ctx.font = `italic ${S * 0.03}px serif`; ctx.fillText('Antillia', S * 0.2, S * 0.43); ctx.fillText('Insulae Canariae', S * 0.6, S * 0.7);
 }
 
+function chest(M,w,h,d,arched){
+  const g=new THREE.Group(),wall=M.get('wall'),iron=M.get('iron');
+  // Actual hollow body, so opening the lid reveals an interior.
+  g.add(mesh(boxGeo(w,.06,d,0,.03,0),wall));
+  for(const side of [-1,1]){
+    g.add(mesh(boxGeo(.06,h,d,side*(w/2-.03),h/2,0),wall));
+    g.add(mesh(boxGeo(w,h,.06,0,h/2,side*(d/2-.03)),wall));
+  }
+  const pivot=new THREE.Group();pivot.position.set(0,h,-d/2);pivot.userData.noBake=true;g.add(pivot);
+  const lid=mesh(boxGeo(w+.04,.065,d+.04,0,.03,d/2),M.get('trim'));pivot.add(lid);
+  if(arched){
+    const cap=new THREE.CylinderGeometry(d/2,d/2,w,16,1,false,0,Math.PI);
+    cap.rotateZ(Math.PI/2);cap.rotateX(Math.PI/2);cap.translate(0,.02,d/2);pivot.add(mesh(cap,wall));
+  }
+  for(const x of [-w*.33,w*.33])pivot.add(mesh(boxGeo(.045,.073,d+.05,x,.035,d/2),iron));
+  g.add(mesh(boxGeo(.1,.12,.03,0,h-.08,d/2+.02),M.get('brass')));
+  g.userData.setOpen=value=>{pivot.rotation.x=-value*1.65;};
+  return {obj:g,col:[boxGeo(w,h,d,0,h/2,0)]};
+}
+
 export const MODELS = {
+  cup: M=>{
+    const obj=new THREE.Group();
+    obj.add(mesh(lathe([[.06,0],[.075,.02],[.085,.18],[.073,.18],[.064,.03],[0,.03]],16),M.get('wood')));
+    const handle=mesh(new THREE.TorusGeometry(.055,.012,6,16),M.get('trim'));handle.position.set(.085,.105,0);obj.add(handle);
+    return {obj};
+  },
   barrel: (M) => ({ obj: barrelBody(M), col: [boxGeo(0.66, 0.95, 0.66, 0, 0.475, 0)] }),
   barrel_lying: (M) => {
     const b = barrelBody(M); b.rotation.x = Math.PI / 2; b.position.set(0, 0.33, -0.475);
@@ -142,24 +168,8 @@ export const MODELS = {
     g.add(mesh(boxGeo(0.56, 0.9, 0.5, 0, 0.45, 0), M.get('wall')), mesh(boxGeo(0.62, 0.06, 0.56, 0, 0.92, 0), M.get('trim')));
     return { obj: g, col: [boxGeo(0.62, 1.05, 0.56, 0, 0.52, 0)] };
   },
-  nav_chest: (M) => {
-    const g = new THREE.Group();
-    g.add(mesh(boxGeo(0.95, 0.45, 0.55, 0, 0.225, 0), M.get('wall')));
-    const lid = new THREE.CylinderGeometry(0.275, 0.275, 0.95, 16, 1, false, 0, Math.PI); lid.rotateZ(Math.PI / 2); lid.rotateX(Math.PI / 2); lid.translate(0, 0.45, 0);
-    g.add(mesh(lid, M.get('wall')));
-    for (const x of [-0.32, 0.32]) {
-      const b = new THREE.CylinderGeometry(0.285, 0.285, 0.05, 16, 1, true, 0, Math.PI); b.rotateZ(Math.PI / 2); b.rotateX(Math.PI / 2); b.translate(x, 0.45, 0);
-      g.add(mesh(b, M.get('iron')), mesh(boxGeo(0.05, 0.46, 0.57, x, 0.225, 0), M.get('iron')));
-    }
-    g.add(mesh(boxGeo(0.1, 0.12, 0.03, 0, 0.36, 0.29), M.get('brass')));
-    return { obj: g, col: [boxGeo(0.95, 0.72, 0.58, 0, 0.36, 0)] };
-  },
-  arms_chest: (M) => {
-    const g = new THREE.Group();
-    g.add(mesh(boxGeo(1.3, 0.5, 0.5, 0, 0.25, 0), M.get('wall')), mesh(boxGeo(1.34, 0.06, 0.54, 0, 0.52, 0), M.get('trim')));
-    for (const x of [-0.45, 0.45]) g.add(mesh(boxGeo(0.05, 0.52, 0.52, x, 0.26, 0), M.get('iron')));
-    return { obj: g, col: [boxGeo(1.34, 0.55, 0.54, 0, 0.275, 0)] };
-  },
+  nav_chest: (M) => chest(M, .95, .45, .55, true),
+  arms_chest: (M) => chest(M, 1.3, .5, .5, false),
   map_table: (M) => {
     const g = new THREE.Group();
     g.add(mesh(boxGeo(1.25, 0.06, 0.85, 0, 0.86, 0), M.get('wood')));
@@ -173,7 +183,9 @@ export const MODELS = {
     const g = new THREE.Group();
     g.add(mesh(lenUV(lathe([[0.12, 0], [0.13, 0.05], [0.07, 0.12], [0.08, 0.5], [0.06, 0.85], [0.1, 0.95], [0.1, 1.0]], 16), 1, 0.6), M.get('wood')));
     g.add(mesh(boxGeo(0.42, 0.05, 0.42, 0, 1.02, 0), M.get('wood')));
-    const hg = new THREE.Group(); hg.position.y = 1.045; g.add(hg);
+    const pivot = new THREE.Group(); pivot.position.y=1.225; g.add(pivot);
+    const hg = new THREE.Group(); hg.position.y = -.18; pivot.userData.noBake=true; pivot.add(hg);
+    g.userData.flipPivot=pivot;
     for (const y of [0, 0.34]) { const d = cylGeo(0.1, 0.1, 0.028, 18); d.translate(0, y + 0.014, 0); hg.add(mesh(d, M.get('trim'))); }
     for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3, s = cylGeo(0.011, 0.011, 0.32, 5); s.translate(Math.cos(a) * 0.085, 0.18, Math.sin(a) * 0.085); hg.add(mesh(s, M.get('trim'))); }
     const bulb = [];
@@ -182,7 +194,9 @@ export const MODELS = {
     const sand = new THREE.Group(); sand.userData.noBake = true; hg.add(sand);
     const top = new THREE.ConeGeometry(0.05, 0.07, 16); top.rotateX(Math.PI); top.translate(0, -0.035, 0);
     const bot = new THREE.ConeGeometry(0.058, 0.06, 16); bot.translate(0, 0.03, 0);
-    const topM = mesh(top, M.get('sand')), botM = mesh(bot, M.get('sand')), stream = mesh(cylGeo(0.002, 0.002, 0.12, 4), M.get('sand'), false);
+    const sandMat=M.get('sand').clone();sandMat.color?.setHex(0xf5d391);
+    const topM = mesh(top, sandMat), botM = mesh(bot, sandMat), stream = mesh(cylGeo(0.004, 0.004, 0.12, 6), sandMat, false);
+    g.userData.sandParts={top:topM,bottom:botM,stream};
     topM.position.y = 0.25; botM.position.y = 0.03; stream.position.y = 0.13;
     sand.add(topM, botM, stream);
     hg.add(mesh(lathe(bulb, 20), M.get('glass'), false, false));
@@ -191,6 +205,7 @@ export const MODELS = {
       topM.scale.setScalar(Math.max(0.001, Math.cbrt(f))); botM.scale.setScalar(Math.max(0.001, Math.cbrt(1 - f)));
       stream.visible = f > 0.001;
     };
+    bake(hg);
     g.userData.setFill(0.7);
     return { obj: g, col: [boxGeo(0.42, 1.4, 0.42, 0, 0.7, 0)] };
   },
@@ -265,10 +280,28 @@ export const MODELS = {
 
 // Entity state from the server: { holder } — somebody picked the item up; { emptyAt } — hourglass.
 export function applyState(obj, state = {}) {
-  obj.visible = !state.holder;
-  if (state.emptyAt && obj.userData.setFill) {
-    obj.userData.emptyAt = state.emptyAt;
-    obj.userData.turnSpan = Math.max(1000, state.emptyAt - Date.now());
+  obj.userData.state={...obj.userData.state,...state};
+  if('holder' in state)obj.visible=!state.holder;
+  if('visible' in state)obj.visible=state.visible;
+  if(state.p)obj.position.fromArray(state.p);
+  if(Number.isFinite(state.r))obj.rotation.y=state.r;
+  if(Number.isFinite(state.emptyAt)&&obj.userData.setFill){
+    obj.userData.emptyAt=state.emptyAt;
+    obj.userData.turnSpan=(state.duration??((state.startedAt!==undefined)?state.emptyAt-state.startedAt:obj.userData.period*1000))||60000;
+    obj.userData.flipAt=state.turnedBy?state.startedAt:null;
+  }
+  if('open' in state){obj.userData.openTarget=state.open?1:0;obj.userData.changedAt=state.changedAt??0;}
+}
+
+export function animateProp(obj,now){
+  const u=obj.userData;
+  if(u.emptyAt&&u.setFill){
+    u.setFill(THREE.MathUtils.clamp((u.emptyAt-now)/u.turnSpan,0,1));
+    if(u.flipPivot){const t=u.flipAt==null?1:THREE.MathUtils.clamp((now-u.flipAt)/650,0,1);u.flipPivot.rotation.z=t<1?Math.PI*t*t*(3-2*t):0;}
+  }
+  if(u.setOpen&&u.openTarget!==undefined){
+    const t=THREE.MathUtils.clamp((now-u.changedAt)/450,0,1),k=t*t*(3-2*t);
+    u.setOpen(u.openTarget?k:1-k);
   }
 }
 
@@ -293,7 +326,7 @@ export function buildInteract(M, item, models = MODELS) {
   bake(obj);
   obj.userData = { ...obj.userData, id: item.id, kind: item.kind, item: item.item, label: item.label, period: item.period, noBake: true };
   if (item.state) applyState(obj, item.state);
-  return { obj, col: col ? colliderFor(col, item) : [], lamps };
+  return { obj, col: item.kind==='item'?[]:col ? colliderFor(col, item) : [], lamps };
 }
 
 export function buildNpc(M, n, animated = false) {
@@ -314,6 +347,10 @@ export function buildLayout(M, layout) {
   for (const item of layout.objects) {
     const make = MODELS[item.m];
     if (!make) { console.warn('[world] unknown model', item.m); continue; }
+    if(item.m==='nav_chest'||item.m==='arms_chest'){
+      const built=buildInteract(M,{...item,kind:'toggle',label:'Сундук'});
+      interactables.push(built.obj);col.push(...built.col);continue;
+    }
     const { obj, col: c } = make(M);
     decor.add(place(obj, item));
     if (c) col.push(...colliderFor(c, item));

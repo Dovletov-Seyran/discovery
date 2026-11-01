@@ -1,5 +1,6 @@
 // Small interface drawings, not additional world models or network assets.
 const paths={
+ cup:'<path d="M20 20h35v43H20zM55 28h8c15 0 15 25 0 25h-8"/>',
  compass:'<circle cx="40" cy="40" r="26"/><path d="M40 9v9m0 44v9M9 40h9m44 0h9M40 20l8 28-28 12z"/>',
  astrolabe:'<circle cx="40" cy="43" r="25"/><circle cx="40" cy="12" r="5"/><path d="M15 43h50M40 18v50M20 58l40-30"/>',
  map:'<path d="M12 18l18-5 22 7 16-5v48l-16 5-22-7-18 5zM30 13v48m22-41v48M18 40l7-5 12 9 9-16 16 9"/>',
@@ -17,4 +18,4 @@ const paths={
 paths.rum='<path d="M32 8h16v20c17 10 16 35 10 43H22c-6-8-7-33 10-43zM31 9V4h18v5M23 43h34v18H23z"/>';
 paths.barrel_full=paths.barrel+'<path d="M34 38q6-14 12 0a6 6 0 01-12 0z"/>';
 export const itemIcon=id=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" stroke="#d6c7a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[id]||paths.purse}</svg>`);
-export const ITEM_ACTIONS={compass:'Направление на север',astrolabe:'Измерить высоту Солнца',wine:'Выпить',rum:'Выпить ром',sword:'Взмахнуть',map:'Рассмотреть карту',barrel:'Наполнить у колодца',barrel_full:'Пить воду / передать у шлюпки',tar:'Отнести плотнику',planks:'Отнести плотнику',purse:'Открыть кошель',cheese:'Съесть · +35 сил',meat:'Съесть · +50 сил',biscuit:'Съесть · +20 сил',espingarda:'Выстрелить' };
+export const ITEM_ACTIONS={cup:'Рассмотреть кружку',compass:'Направление на север',astrolabe:'Измерить высоту Солнца',wine:'Выпить',rum:'Выпить ром',sword:'Взмахнуть',map:'Рассмотреть карту',barrel:'Наполнить у колодца',barrel_full:'Пить воду / передать у шлюпки',tar:'Отнести плотнику',planks:'Отнести плотнику',purse:'Открыть кошель',cheese:'Съесть · +35 сил',meat:'Съесть · +50 сил',biscuit:'Съесть · +20 сил',espingarda:'Выстрелить' };

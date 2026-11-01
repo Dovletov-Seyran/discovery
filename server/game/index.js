@@ -7,6 +7,7 @@ import { players } from './players.js';
 import * as director from './director.js';
 import * as entities from './entities.js';
 import * as quests from './quests.js';
+import {place,throwItem,toggle,syncWorld,tickObjects} from './objects.js';
 import * as rules from './rules.js';
 import { onChunkReq, onChunkDrop } from '../world/chunks.js';
 
@@ -46,6 +47,7 @@ export function join(session, ws) {
   }
   p.dialogue = null;
   p.npcRequest = null;
+  p.objectVersions=new Map();
   p.ws = ws;
   p.connected = true;
   p.disconnectedAt = null;
@@ -78,6 +80,7 @@ export function join(session, ws) {
   quests.sendAll(p, scene.id);
   director.onPartyChanged();
   players.save(p, { now: true });
+  syncWorld(p,{reset:true});
   console.log(`[game] ${p.name} вошёл (${players.connectedCount()} онлайн)`);
   return p;
 }
@@ -163,6 +166,9 @@ const handlers = {
   [C2S.NPC_HINT]: rules.npcHint,
   [C2S.PICKUP]: rules.pickup,
   [C2S.USE]: rules.use,
+  [C2S.PLACE]: place,
+  [C2S.THROW]: throwItem,
+  [C2S.TOGGLE]: toggle,
   [C2S.MINIGAME]: rules.minigame,
   [C2S.TRADE]: rules.trade,
   [C2S.SCARE]: rules.scare,
@@ -242,6 +248,7 @@ export function start() {
     setInterval(() => director.broadcastTod(), CONFIG.TOD_INTERVAL_MS),
     setInterval(() => players.saveAll(), CONFIG.SAVE_INTERVAL_MS),
     setInterval(()=>rules.tickVitals(),1000),
+    setInterval(()=>tickObjects(),100),
     setInterval(() => {
       const gone = players.expire();
       if (gone.length) {
