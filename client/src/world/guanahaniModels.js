@@ -258,7 +258,7 @@ function waterJar(M) {
 
 // --- things to use (part 2 quests) -------------------------------------------------------------
 
-// Invisible box to aim at: the player points at a hammock or a shoal, not at a pixel of it. Drawn into nothing
+// Invisible box to aim at: the player points at a shoal or a basket, not at a pixel of it. Drawn into nothing
 // (no colour, no depth, no shadow; the AO pass skips it by material.userData.hitbox).
 const HIT = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
 HIT.userData.hitbox = true;
@@ -346,31 +346,6 @@ function maracas(M) {
   return { obj: g, col: [boxGeo(1.05, 0.42, 0.42, 0.25, 0.21, -0.15)] };
 }
 
-// Torches for the night fishing: sticks with resin heads leaning on a forked post.
-function torchBundle(M) {
-  const g = new THREE.Group();
-  g.add(mesh(between(new V3(0, 0, 0), new V3(0, 1.0, 0), 0.04, 0.05, 6), M.get('trim')));
-  for (let i = 0; i < 4; i++) {
-    const foot = new V3(0.35 + i * 0.05, 0, -0.25 + i * 0.16), top = new V3(0.02, 1.05, -0.05 + i * 0.04);
-    g.add(mesh(between(foot, top, 0.022, 0.025, 5), M.get('wood')));
-    const dir = new V3().subVectors(top, foot).normalize();
-    g.add(mesh(new THREE.SphereGeometry(0.055, 7, 5).scale(1, 1.8, 1).translate(top.x + dir.x * 0.05, top.y + 0.04, top.z + dir.z * 0.05), M.get('resin')));
-  }
-  g.add(hitBox(0.8, 1.3, 0.9, 0.15, 0.6, 0));
-  return { obj: g, col: [boxGeo(0.25, 1.1, 0.25, 0, 0.55, 0)] };
-}
-
-// What you aim at to lie down: both hammocks of a bohío (same local coordinates as bohio()).
-function hammockSpot() {
-  const g = new THREE.Group();
-  for (const [dx, dz] of [[-2.7, -1.6], [2.6, -1.7]]) { // centre pole → wall post
-    const b = hitBox(2.6, 0.7, 0.9, 0, 1.15, 0);
-    b.geometry.rotateY(Math.atan2(-dz, dx)).translate(dx / 2, 0, dz / 2); // long side along the hammock
-    g.add(b);
-  }
-  return { obj: g };
-}
-
 // The landing, 12 October: the royal standard and the two banners of the green cross with F and Y under crowns.
 function banners(M) {
   const g = new THREE.Group();
@@ -436,7 +411,7 @@ export const TAINO_MODELS = {
   bohio, caney, batey, zemi, conuco, cotton_bush: cottonBush, fire_pit: firePit,
   canoe, fish_spear: fishSpear, buren, grater, cibucan, loom, water_jar: waterJar, log_seat: logSeat,
   fish_shoal: fishShoal, conch_bed: conchBed, cassava_dig: cassavaDig, wood_pile: woodPile, maracas,
-  torch_bundle: torchBundle, hammock_spot: hammockSpot, banners, parrot_perch: parrotPerch, cotton_skeins: cottonSkeins,
+  banners, parrot_perch: parrotPerch, cotton_skeins: cottonSkeins,
 };
 
 // --- plants of Guanahani -------------------------------------------------------------------

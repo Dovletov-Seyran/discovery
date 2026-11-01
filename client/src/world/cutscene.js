@@ -92,7 +92,8 @@ export class Cutscenes {
       const s = c.shots[shot], u = s.ease(clamp01((t - s.from) / (s.to - s.from)));
       if (s.player) {
         // the player's own eyes; lie: [drop m, pitch up rad] — lying in the hammock, then sitting up into the game view
-        const k = 1 - u, [dy, up] = s.lie ?? [0, 0];
+        // (still: stays lying — falling asleep)
+        const k = s.still ? 1 : 1 - u, [dy, up] = s.lie ?? [0, 0];
         cam.position.copy(this.gamePos); cam.position.y -= dy * k;
         cam.quaternion.copy(this.gameQuat).multiply(_q.setFromAxisAngle(X, up * k));
         this.shadowFocus = null;

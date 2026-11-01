@@ -1,4 +1,4 @@
-// npm run smoke:part2 — часть 2 (Гуанахани) тремя ботами: день, ареито, ночь, тревога, высадка, обмен, финал.
+// npm run smoke:part2 — часть 2 (Гуанахани) тремя ботами: день, ареито, сон, тревога, высадка, обмен, финал.
 // Сервер должен быть запущен с DEV=1. Внимание: делает /reset — сбрасывает прогресс всех игроков на этом сервере.
 // SERVER=http://localhost:3000 по умолчанию.
 import WebSocket from 'ws';
@@ -94,7 +94,7 @@ await g.wait('inventory', (m) => m.items.includes('astrolabe'));
 const prologue = await scene('p2_prologue');
 check(prologue?.zone === 'guanahani' && prologue.fleet === false, `пролог: зона ${prologue?.zone}, корабли ${prologue?.fleet}`);
 check(g.items().length === 0, 'пролог: инвентарь из части 1 очищен');
-const hammock = at('hammock_g');
+const hammock = ISLE.spawns.grumete.p.filter((_, i) => i !== 1);
 check(Math.hypot(g.pos[0] - hammock[0], g.pos[2] - hammock[1]) < 3, `рыбак появился в своём бохио ${JSON.stringify(g.pos)}`);
 
 // чанки острова: зона guanahani, объекты деревни на месте
@@ -103,7 +103,7 @@ g.clear();
 g.send('chunk_req', { zone: 'guanahani', keys: [`${cx},${cz}`, `${cx},${cz - 1}`, `${cx - 1},${cz}`, `${cx - 1},${cz - 1}`] });
 await sleep(400);
 const ids = g.msgs.filter((m) => m.t === 'chunk').flatMap((m) => [...m.data.interact, ...m.data.npcs].map((o) => o.id));
-check(['buren', 'cacique', 'fire', 'hammock_g'].every((id) => ids.includes(id)), `чанки Гуанахани: ${ids.length} объектов рядом`);
+check(['buren', 'cacique', 'fire', 'grater'].every((id) => ids.includes(id)), `чанки Гуанахани: ${ids.length} объектов рядом`);
 
 // --- день ---
 await scene('p2_day');
@@ -151,12 +151,11 @@ async function apprentice() {
   check(!!l.msgs.find((m) => m.t === 'quest' && m.id === 'q_p2_hammock' && m.status === 'done'), 'гамак у касика → задание выполнено');
 }
 
-// люди Колумба 11 октября не существуют, факелы — только ночью
+// людей Колумба 11 октября ещё нет
 p.clear();
 p.send('interact', { id: 'admiral' });
-p.send('pickup', { id: 'torches' });
 await sleep(300);
-check(!p.msgs.some((m) => ['notice', 'inventory', 'npc_say'].includes(m.t)), 'днём нет ни чужаков, ни ночных факелов');
+check(!p.msgs.some((m) => ['notice', 'inventory', 'npc_say'].includes(m.t)), 'днём чужаков на острове нет');
 
 for (const b of bots) b.clear();
 await Promise.all([fisher(), hostess(), apprentice()]);
@@ -173,22 +172,11 @@ await Promise.all(bots.map(async (b) => {
 }));
 check(bots.every((b) => b.msgs.some((m) => m.t === 'quest' && m.id === 'q_p2_areito' && m.status === 'done')), 'ареито: хворост, танец, миф старейшины — у всех');
 
-// --- ночь ---
-const night = await scene('p2_night', { jump: false, ms: 5000 });
-check(!!night, 'после ареито → p2_night');
-await Promise.all([
-  (async () => {
-    await g.walkTo(...at('torches'));
-    g.send('pickup', { id: 'torches' });
-    check(!!(await g.wait('inventory', (m) => m.items.includes('torch'))), 'ночью факел берётся');
-    await g.use('canoe_1', 'quest', (m) => m.id === 'q_p2_torch' && m.progress === 2);
-    await g.use('hammock_g', 'quest', (m) => m.id === 'q_p2_torch' && m.status === 'done');
-  })(),
-  p.use('hammock_p', 'quest', (m) => m.id === 'q_p2_sleep_p' && m.status === 'done'),
-  l.use('hammock_l', 'quest', (m) => m.id === 'q_p2_sleep_l' && m.status === 'done'),
-]);
-const alarm = await scene('p2_alarm', { jump: false, ms: 6000 });
-check(alarm?.type === 'cutscene' && alarm.fleet === true, 'все спят → тревога, корабли у острова');
+// --- после ареито — сразу спать: каждый в своём гамаке, глаза закрываются ---
+const sleep2 = await scene('p2_sleep', { jump: false, ms: 6000 });
+check(sleep2?.type === 'cutscene' && Math.hypot(g.pos[0] - hammock[0], g.pos[2] - hammock[1]) < 3, `ареито закончилось → все засыпают в гамаках ${JSON.stringify(g.pos)}`);
+const alarm = await scene('p2_alarm', { jump: false, ms: 8000 });
+check(alarm?.type === 'cutscene' && alarm.fleet === true, 'сон → тревога, корабли у острова');
 const boats = await scene('p2_boats', { jump: false, ms: 15000 });
 check(!!boats, 'тревога → утро, к берегу идёт шлюпка');
 

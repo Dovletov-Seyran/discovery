@@ -101,6 +101,11 @@ addEventListener('keydown', (e) => {
     const { p, r } = guanahani.spawns.grumete; feet.set(p[0], fake.heightAt(p[0], p[1], 'guanahani') + 0.05, p[1]); yaw = r; pitch = 0; vel.set(0, 0, 0);
     world.cutscene.play('p2_prologue');
   }
+  if (e.code === 'KeyK' && !world.cutscene.active) { // after the areíto: falling asleep in one's own hammock
+    world.setZone('guanahani');
+    const { p, r } = guanahani.spawns.grumete; feet.set(p[0], fake.heightAt(p[0], p[1], 'guanahani') + 0.05, p[1]); yaw = r; pitch = 0; vel.set(0, 0, 0);
+    world.cutscene.play('p2_sleep');
+  }
   if (e.code === 'KeyL' && !world.cutscene.active) { // the night alarm: lights on the sea
     world.setZone('guanahani');
     const { p, r } = guanahani.spawns.grumete; feet.set(p[0], fake.heightAt(p[0], p[1], 'guanahani') + 0.05, p[1]); yaw = r; pitch = 0; vel.set(0, 0, 0);
