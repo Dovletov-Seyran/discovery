@@ -159,3 +159,13 @@ test('provision purchases reserve enough money for the rest and cannot be bought
  p.lastTradeAt=0;await rules.trade(p,{npc:'trader',item:'biscuit',offer:25});assert.equal(p.money,0);assert.equal(p.quests.q_trade.status,'done');
  p.trade={};p.money=100;p.lastTradeAt=0;await rules.trade(p,{npc:'trader',item:'cheese',offer:30});assert.equal(p.money,100);assert.equal(p.inventory.filter(i=>i==='cheese').length,1);
 });
+test('праздник вечером закрывается тем, что игрок делает в игре: вино, карты (E у стола), танец (E у круга)',()=>{
+  director.setScene('ship_evening');p.quests={};p.inventory=[];entities.reset();quests.onSceneStart(director.scene(),[p]);
+  received.length=0;
+  for(const id of ['wine_barrel','cards','dance']){approach(id);p.p=[entities.def(id).x,0,entities.def(id).z];rules.interact(p,{id});}
+  assert.equal(p.quests.q_feast.status,'done');
+  assert.ok(received.some(m=>m.t==='notice'&&/Партия в карты/.test(m.text)));
+  // днём круга танцующих нет
+  director.setScene('ship_day');p.quests={};quests.onSceneStart(director.scene(),[p]);received.length=0;
+  rules.interact(p,{id:'dance'});assert.equal(received.some(m=>m.t==='world_event'),false);
+});

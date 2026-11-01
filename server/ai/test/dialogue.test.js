@@ -94,15 +94,27 @@ test('быт и места: факты по зоне сцены, общий во
   assert.match(msgs.at(-2).content, /cook/);
 });
 
-test('each interactive character has a usable bounded profile and knows its current work',async()=>{
+// ИИ — только у ключевых агентов (одна модель на маке); остальные — неагентные NPC с готовыми репликами
+const AGENTS=['columbus','storyteller','trader','musician','cacique','elder','admiral'];
+test('only the key characters are AI agents; every other NPC has its own scripted lines',async()=>{
  const {readFileSync}=await import('node:fs');
  const npcs=JSON.parse(readFileSync(new URL('../../../content/npcs.json',import.meta.url)));
- const interactive=npcs.filter(n=>!['narrator','grumete_npc'].includes(n.id));
- assert.equal(interactive.length,14);
- for(const n of interactive){
-  assert.equal(n.type,'llm');const agent=getAgent(n.id);assert.ok(agent.cards.length&&agent.greeting.en&&agent.greeting.ru);
+ const lines=JSON.parse(readFileSync(new URL('../../../content/lines.json',import.meta.url)));
+ assert.deepEqual(npcs.filter(n=>n.type==='llm').map(n=>n.id).sort(),[...AGENTS].sort());
+ for(const n of npcs.filter(n=>n.type!=='llm'))assert.ok(lines.some(l=>l.npc===n.id),`${n.id}: нет готовых реплик`);
+});
+test('each AI agent has a usable bounded profile and knows its current work',async()=>{
+ for(const id of AGENTS){
+  const n={id};const agent=getAgent(n.id);assert.ok(agent.cards.length&&agent.greeting.en&&agent.greeting.ru);
   const messages=buildMessages({agent,context:{activity:'Inspect the rigging',scene:'ship_day'},intent:{kind:'about_you',agentId:n.id},mem:{told:[],turns:[]},text:'What are you doing?'});
   assert.match(messages[0].content,/YOUR CURRENT WORK: Inspect the rigging/);
   assert.ok(agent.rules.length>0);
  }
+});
+
+test('a hungry player talking to the cook gets first-person facts, not directions to another cook',async()=>{
+ const {worldFacts}=await import('../agents.js');const facts=worldFacts({scene:'ship_day'},'cook');
+ assert.match(facts[0],/I am the cook/);assert.doesNotMatch(facts[0],/go to the cook|the cook .*hands out/i);
+ const msgs=buildMessages({agent:getAgent('cook'),context:{scene:'ship_day'},intent:{kind:'need'},mem:{told:[],turns:[]},text:'че пожрать есть?'});
+ assert.match(msgs.at(-2).content,/I am the cook/);assert.match(msgs[0].content,/first person/);
 });

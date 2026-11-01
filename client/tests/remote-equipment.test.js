@@ -79,6 +79,17 @@ test('third-person equipment batches meshes so the forged sword does not add doz
 });
 test('a remote gun follows the player aim pitch and the head looks in the same vertical direction',()=>{
  const {rig,eq}=actor();eq.setEquipment('espingarda',1);pose(rig,'stand');eq.update(1000,.7);
- assert.ok(rig.arms[1].ua.rotation.x<-1.7);assert.ok(rig.head.rotation.x<-.4);
+ assert.ok(rig.arms[1].ua.rotation.x<-1.3);assert.ok(rig.head.rotation.x<-.4); // shouldered gun: the arm rises with the aim
  pose(rig,'stand');eq.update(1000,-.7);assert.ok(rig.arms[1].ua.rotation.x>-.8);assert.ok(rig.head.rotation.x>.4);eq.dispose();
+});
+test('the espingarda is shouldered: butt at the right shoulder, muzzle forward, raised with the gaze',()=>{
+ const {rig,eq}=actor();eq.setEquipment('espingarda',1);update(rig,eq,1000);
+ const at=(y)=>new Vector3(0,y,0).applyMatrix4(eq.model.matrixWorld),root=new Vector3().setFromMatrixPosition(rig.root.matrixWorld);
+ const muzzle=at(1.18),butt=at(-.38),shoulder=new Vector3().setFromMatrixPosition(eq.right.ua.matrixWorld);
+ assert.ok(butt.distanceTo(shoulder)<.25,`butt ${butt.distanceTo(shoulder).toFixed(2)} m from the shoulder`);
+ assert.ok(muzzle.z-root.z>.7,'muzzle is in front of the body');
+ assert.ok(Math.abs(muzzle.y-butt.y)<.15,'held level');
+ eq.update(1000,.6);rig.root.updateMatrixWorld(true);
+ assert.ok(at(1.18).y-muzzle.y>.3,'aimed up when the player looks up');
+ eq.dispose();assert.equal(eq.shoulder.parent,null);
 });

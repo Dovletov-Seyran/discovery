@@ -61,13 +61,15 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
 
   const untold = agent.cards.filter((c) => !mem.told.includes(c.id));
   const hintCard = hintId && agent.cards.find((c) => c.id === hintId);
+  const hintAction = typeof hintId==='string'&&hintId.startsWith('action:')?agent.actions?.find(a=>!a.at&&a.id===hintId.slice(7)&&a.hint):null;
   // «А что ещё о нём скажешь?» — продолжение разговора о человеке экипажа (hintId person:<id>)
   const hintPerson = !hintCard && typeof hintId === 'string' && hintId.startsWith('person:') ? knownPeople(npc).find((p) => p.id === hintId.slice(7)) : null;
-  const userText = text || hintCard?.hint || (hintPerson && PERSON_MORE) || GENERIC_HINTS[hintId] || '';
+  const userText = text || hintAction?.hint || hintCard?.hint || (hintPerson && PERSON_MORE) || GENERIC_HINTS[hintId] || '';
 
   // Шаг 1: к какому варианту из базы относится реплика
   let intent;
   if (tradeResult || !userText) intent = { kind: 'none', agentId: npc, ms: 0 };
+  else if(hintAction)intent={kind:'action',action:hintAction,agentId:npc,ms:0,via:'hint'};
   else if (hintCard) intent = { kind: 'topic', card: hintCard, agentId: npc, ms: 0, via: 'hint' };
   else if (hintId === 'more' && untold[0]) intent = { kind: 'topic', card: untold[0], agentId: npc, ms: 0, via: 'hint' };
   else if (hintId === 'bye') intent = { kind: 'farewell', agentId: npc, ms: 0, via: 'hint' };
@@ -118,7 +120,8 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   if (en) {
     // Перевод (LLM) и озвучка (отдельный поток) идут параллельно
     const [tr, voice] = await Promise.all([
-      toRussian(en, { names: nameGlossary(context, userText) }).catch(() => ({ text: '', ms: 0 })),
+      // Чужаки на Гуанахани (foreign) говорят по-испански: таино их не понимают — субтитры без перевода
+      agent.foreign ? Promise.resolve({ text: en, ms: 0 }) : toRussian(en, { names: nameGlossary(context, userText) }).catch(() => ({ text: '', ms: 0 })),
       speak(en, agent.voice, { name: npc }).catch((err) => (console.warn(`[tts] ${err.message}`), { url: null, ms: 0 })),
     ]);
     ru = tr.text;
@@ -261,7 +264,7 @@ export function hintsFor(agent, mem, { intent, task, key } = {}) {
   const tail = [];
   if (task) tail.push({ id: 'task', ru: GENERIC_HINTS.task });
   if (!mem.turns.some((t) => t.role === 'user' && t.content === GENERIC_HINTS.self)) tail.push({ id: 'self', ru: GENERIC_HINTS.self });
-  const rest = agent.cards.filter((c) => !told.includes(c.id) && !head.some((h) => h.id === c.id)).map((c) => ({ id: c.id, ru: c.hint }));
+  const rest = [...(agent.actions??[]).filter(a=>a.hint&&!a.at).map(a=>({id:`action:${a.id}`,ru:a.hint})),...agent.cards.filter((c) => !told.includes(c.id) && !head.some((h) => h.id === c.id)).map((c) => ({ id: c.id, ru: c.hint }))];
   const topicsN = Math.max(1, Math.min(2, 4 - head.length - tail.length));
   const prev = lastHints.get(key);
   let hints = [];

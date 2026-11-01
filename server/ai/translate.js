@@ -34,24 +34,33 @@ const GLOSSARY = [
   'chest (a box) → сундук; astrolabe → астролябия; stern → корма',
   'boatswain → боцман; cook → кок; crew → команда; deck → палуба; below deck → в трюме',
   'fire box → очаг; barrels → бочки; rationed → выдают понемногу; wineskin → бурдюк',
+  'galley (the ship kitchen) → камбуз; galley fire → огонь в камбузе',
   'sand glass, hourglass → песочные часы; turn the sand glass → переверни песочные часы; the sand runs out → песок пересыплется',
   'sing the prayer → спой молитву; watch (duty on a ship) → вахта; rest → отдыхай',
   'pay, wages → жалованье; the Crown → корона; heading, course → курс; latitude → широта; sea chart → морская карта',
   'beans → бобы; salted sardines → солёные сардины (not солонина); fresh water → пресная вода; well (for water) → колодец; shipyard → верфь; rudder → руль',
+  'light the lanterns → зажгите фонари; raise the flag → поднимите флаг; furl the sails → уберите паруса',
+  'Taíno words: cacique → касик; areíto → ареито; batey → батей; bohío → бохио; caney → каней; duho → дуо; casabe, cassava → касабе; manioc → маниок; burén → бурен; zemi → земи; huracán → ураган; hammock → гамак; canoe → каноэ',
+  'child → дитя; son → сын; daughter → дочь; gourd → тыква; Yaya → Яйя; conch → раковина-лямби; spear → острога; maracas → маракасы',
 ];
 
 // Примеры: маленькая модель лучше держит «ты» и морские слова, когда видит образец
 const EXAMPLES = [
   ['Turn the sand glass at the stern each time the sand runs out, and sing the prayer.', 'Каждый раз, когда песок пересыплется, переворачивай песочные часы на корме и пой молитву.'],
   ['Go to the cook at the fire box. Rest when your watch ends; the boatswain will call you.', 'Иди к коку, к очагу. Отдыхай, когда кончится вахта, — боцман тебя позовёт.'],
+  ['You are Seyran from Cordoba. You said you fear the sea; I told you about the Indies.', 'Ты Сейран из Кордовы. Ты говорил, что боишься моря, а я рассказал тебе об Индии.'],
+  ['Yes, child. You took the spear and brought the catch to the cacique.', 'Да, дитя. Ты взял острогу и принёс улов касику.'],
 ];
 
 const SYSTEM = [
   "Translate the user's text from English into natural, fluent Russian.",
   'It is the speech of a character in 1492; use a slightly old-fashioned, lively tone.',
   'Keep the exact meaning, use only real Russian words and correct grammar. Translate idioms by meaning, not word by word.',
+  'Preserve the speaker and point of view: I/my/me stay я/мой/мне, never turn them into a third-person narrator.',
   'Foreign words and names you do not recognise (book titles, odd words) — leave exactly as written, do not translate them.',
   'The speaker talks to ONE person informally: always «ты», never «вы»; imperatives in the singular (иди, возьми, переверни).',
+  'Keep who is who: «I/me» is the speaker (я), «you» is the player (ты). Never swap them.',
+  'Translate every English word into Russian; never leave English words or half-English words in the translation.',
   'Use these terms:',
   ...GLOSSARY.map((g) => `- ${g}`),
 ].join('\n');

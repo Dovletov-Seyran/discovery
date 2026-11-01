@@ -129,7 +129,8 @@ test('AI job paths animate on the shared clock and resume at the same place afte
  for(const n of layout.npcs){
   const g=profiles[n.id].scenes.ship_day,{obj}=buildNpc(M,n,true);prepareNpc(obj);
   for(const job of g.jobs){
-   const behavior={scene:key,path:[g.nodes[0],g.nodes[job.node]],start:0,pose:job.pose,r:job.r,seat:job.seat};
+   const first=job.steps?.[0]??job; // работа из шагов: идёт к первому месту
+   const behavior={scene:key,path:[g.nodes[0],g.nodes[first.node]],start:0,pose:first.pose,r:first.r,seat:!!first.seat};
    obj.userData.behavior=behavior;
    for(const time of [100,101,160]){
     animateNpc(obj,1/60,time,false,scene);
@@ -166,4 +167,45 @@ test('captain holds the chart by its scroll edges, above the hands and clear of 
   }
  });
  animateNpc(obj,1/60,chartTime+1.5,false,scene,false);assert.equal(chart.visible,false);
+});
+test('cook supports the tray with both hands while serving, walking and speaking',()=>{
+ const n=layout.npcs.find(n=>n.id==='cook'),{obj}=buildNpc(M,n,true);prepareNpc(obj);
+ const scene={id:'ship_day',startAt:100000},rig=obj.userData.rig;
+ obj.userData.behavior={scene:'ship_day@100000',path:[[1,0,0],[2,0,0]],start:0,pose:'serve',r:0,seat:false};
+ for(const [time,paused] of [[101,null],[110,null],[115,{scene:'ship_day@100000',at:110000,offset:0,lookAt:[0,0,0],kind:'dialogue'}]]){
+  obj.userData.paused=paused;animateNpc(obj,1/60,time,false,scene);obj.updateMatrixWorld(true);
+  const tray=rig.tray.getWorldPosition(new Vector3());assert.equal(rig.tray.visible,true);
+  for(const arm of rig.arms){const palm=arm.fa.localToWorld(new Vector3(0,-.3,0));assert.ok(Math.abs(tray.y-palm.y-.025)<.01);assert.ok(Math.hypot(palm.x-tray.x,palm.z-tray.z)<.25);}
+ }
+});
+
+test('a job of steps loops on the shared clock and shows what the sailor carries',()=>{
+ const scene={id:'ship_day',startAt:100000},key='ship_day@100000',n=layout.npcs.find(x=>x.id==='sailor_1');
+ const {obj}=buildNpc(M,n,true);prepareNpc(obj);
+ // туда (ведро в руке), на месте трёт палубу (ведро стоит рядом), обратно — и снова по кругу
+ const a=[-1,0,-2.5],b=[-0.8,0,-1.3];
+ const legs=[{path:[a],wait:4,pose:'kneel',r:1.89,carry:'bucket',hold:'bucket'},{path:[a,b],wait:4,pose:'kneel',r:1.89,carry:'bucket',hold:'bucket'},{path:[b,a],wait:4,pose:'kneel',r:1.89,carry:'bucket',hold:'bucket'}];
+ obj.userData.behavior={scene:key,legs,loop:1,start:0,pose:'kneel'};
+ const walk=4+0.5/0.55,at=t=>{animateNpc(obj,1/60,100+t,false,scene);return npcActivity(n,100+t,scene,null,obj.userData.behavior);};
+ let s1=at(walk);assert.equal(s1.action,'walk');assert.ok(obj.userData.rig.bucket.visible);assert.equal(obj.userData.rig.bucket.parent,obj.userData.rig.arms.find(x=>x.s===-1).fa);
+ s1=at(2);assert.equal(s1.action,'kneel');assert.ok(obj.userData.rig.rag.visible);assert.equal(obj.userData.rig.bucket.parent,obj.userData.rig.root);
+ const cycle=2*(Math.hypot(0.2,1.2)/0.55+4),once=4+cycle;
+ const p1=npcActivity(n,100+once+1,scene,null,obj.userData.behavior).p,p2=npcActivity(n,100+once+cycle+1,scene,null,obj.userData.behavior).p;
+ assert.ok(p1.every((v,i)=>Math.abs(v-p2[i])<1e-6),'the same place one lap later');
+ assert.ok(obj.userData.motion.joints.every(j=>j.quaternion.toArray().every(Number.isFinite)));
+});
+
+test('non-agent NPC turns his head to a player who comes close, and ignores one far away', () => {
+  const cook = layout.npcs.find(n => n.id === 'cook');
+  const headYaw = (viewerOffset) => {
+    const { obj } = buildNpc(M, cook, true); prepareNpc(obj);
+    animateNpc(obj, 1 / 60, 5, false, 'ship_day');
+    const p = obj.position, right = new Vector3(1, 0, 0).applyQuaternion(obj.quaternion);
+    const viewer = p.clone().add(right.multiplyScalar(viewerOffset)).setY(p.y + 1.6);
+    for (let i = 0; i < 60; i++) animateNpc(obj, 1 / 60, 5 + i / 60, false, 'ship_day', false, viewer);
+    return obj.userData.rig.head.rotation.y;
+  };
+  assert.ok(headYaw(2) > 0.6, 'player 2 m to his right: head turns right');
+  assert.ok(headYaw(-2) < -0.6, 'player 2 m to his left: head turns left');
+  assert.ok(Math.abs(headYaw(8)) < 0.6, 'player 8 m away: no reaction');
 });

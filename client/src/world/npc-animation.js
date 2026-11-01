@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { pose, strum } from './people.js';
 import { bake } from './geom.js';
 import { npcActivity, npcScene } from '../../../shared/npc-activity.js';
+import {activePerformance} from '../../../shared/npc-performance.js';
 
 // Merge rigid details within each joint, retaining the articulated skeleton.
 export function prepareNpc(npc) {
@@ -18,6 +19,24 @@ export function prepareNpc(npc) {
   const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.035, 0.1, 10), wood);
   cup.position.set(0, -0.28, 0.05); cup.visible = false; cup.userData.noBake = true;
   rig.arms[0].fa.add(cup); rig.cup = cup;
+  // Тряпка в руке у того, кто моет палубу (kneel), и кусок паруса на коленях у того, кто его чинит (mend)
+  const rag = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.025, 0.13), new THREE.MeshStandardMaterial({ color: 0x8f877a, roughness: 1 }));
+  rag.position.set(0, -0.3, 0.03); rag.visible = false; rag.userData.noBake = true;
+  rig.arms[1].fa.add(rag); rig.rag = rag;
+  const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.42, 4, 3), new THREE.MeshStandardMaterial({ color: 0xe8dfc8, roughness: 0.95, side: THREE.DoubleSide }));
+  cloth.rotation.x = -Math.PI / 2 + 0.12; cloth.position.set(0, 0.06, 0.26); cloth.visible = false; cloth.userData.noBake = true;
+  rig.hip.add(cloth); rig.cloth = cloth;
+  // Что матрос носит по ходу работы (shared/npc-navigation.js: carry/hold): ведро в левой руке (пока моет
+  // палубу — стоит рядом на досках), бухту каната на плече
+  const stave = new THREE.MeshStandardMaterial({ color: 0x7a5232, roughness: 0.85 }), iron = new THREE.MeshStandardMaterial({ color: 0x3c3a36, roughness: 0.6, metalness: 0.4 });
+  const bucket = new THREE.Group(); bucket.userData.noBake = true;
+  const pail = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.24, 12, 1, true), stave); pail.material.side = THREE.DoubleSide; pail.position.y = -0.27; bucket.add(pail);
+  const water = new THREE.Mesh(new THREE.CircleGeometry(0.12, 12), new THREE.MeshStandardMaterial({ color: 0x4a6f7a, roughness: 0.2 })); water.rotation.x = -Math.PI / 2; water.position.y = -0.2; bucket.add(water);
+  const bail = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.008, 4, 16, Math.PI), iron); bail.position.y = -0.15; bucket.add(bail);
+  bucket.visible = false; rig.bucket = bucket;
+  const coil = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.045, 6, 18), new THREE.MeshStandardMaterial({ color: 0xb59a6a, roughness: 1 }));
+  coil.rotation.set(0.25, Math.PI / 2, 0.35); coil.position.set(-0.17, 0.5, 0.02); coil.visible = false; coil.userData.noBake = true;
+  rig.torso.add(coil); rig.coil = coil;
   if (npc.userData.id === 'cook') {
     const tray = new THREE.Group(); tray.userData.noBake = true;
     const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.03, 12), wood);
@@ -27,7 +46,7 @@ export function prepareNpc(npc) {
       const loaf = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), food);
       loaf.scale.set(1, 0.45, 0.65); loaf.position.set((i % 2 - 0.5) * 0.17, 0.05, (Math.floor(i / 2) - 0.5) * 0.15); tray.add(loaf);
     }
-    tray.position.set(0, 0.12, 0.43); tray.visible = false; rig.torso.add(tray); rig.tray = tray;
+    tray.visible = false; rig.root.add(tray); rig.tray = tray;
   }
   const groups = [];
   rig.root.traverse(o => { if (o.isGroup) { groups.push(o); o.userData.noBake = true; } });
@@ -57,10 +76,12 @@ export function giveChart(npc, chart) {
   npc.userData.chart = chart;
 }
 
-export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', chartTaken = false) {
+const GLANCE_DIST = 3.5, _glance = new THREE.Vector3();
+export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', chartTaken = false, viewer = null) {
   const { rig, definition, motion } = npc.userData;
   if (!rig || !motion) return;
   const state = npcActivity(definition, seconds, scene, npc.userData.paused, npc.userData.behavior);
+  if(activePerformance(npc.userData.performance,scene,seconds*1000)){state.action='guitar';state.walking=false;}
   const current = npcScene(definition, scene);
   const sceneId = typeof scene === 'string' ? scene : scene?.id;
   if (motion.sceneId !== sceneId) { motion.initialized = false; motion.sceneId = sceneId; }
@@ -68,11 +89,21 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
   const chosenPose=npc.userData.behavior?.scene===key?npc.userData.behavior.pose:current.pose;
   rig.stool.visible = state.seat ?? (!!current.seat || ['guitar','tune'].includes(state.action) && sceneId === 'ship_evening');
   rig.cup.visible = ['toast','seated_toast'].includes(state.action);
-  if (rig.tray) rig.tray.visible = chosenPose === 'serve';
+  // Работа из шагов говорит сама, что в руках (carry по дороге, hold на месте); одиночная — по своей позе
+  const steps = !!npc.userData.behavior?.legs && npc.userData.behavior.scene === key;
+  if (rig.tray) rig.tray.visible = steps ? state.carry === 'tray' || state.action === 'serve' : chosenPose === 'serve';
+  rig.bucket.visible = state.carry === 'bucket';
+  if (rig.bucket.visible) {
+    const hand = rig.arms.find(a => a.s === -1).fa, home = state.walking ? hand : rig.root;
+    if (rig.bucket.parent !== home) { home.add(rig.bucket); state.walking ? rig.bucket.position.set(0, -0.3, 0) : rig.bucket.position.set(-0.4, 0.39, 0.3); }
+  }
+  rig.coil.visible = state.carry === 'coil';
   if (rig.guitar) {
     rig.guitar.visible = ['guitar','tune'].includes(state.action) || chosenPose === 'guitar' || chosenPose === 'tune';
     rig.guitar.position.y = ['guitar','tune','seated_talk'].includes(state.action) ? .62 : 1.05;
   }
+  rig.rag.visible = state.action === 'kneel';
+  rig.cloth.visible = state.action === 'mend';
   rig.torso.position.y = 0;
   const ownChart = state.action === 'chart' && chartTaken && !!npc.userData.chart;
   if (npc.userData.chart) npc.userData.chart.visible = ownChart;
@@ -94,6 +125,18 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
         rig.head.rotation.set(0.08 + Math.max(0, beat) * 0.05, Math.sin(t * 0.5) * 0.12, 0);
         rig.arms[1].ua.rotation.x = -0.35 - Math.max(0, Math.sin(t * 0.9)) * 0.35;
         rig.arms[1].fa.rotation.x = -0.7 - Math.max(0, Math.sin(t * 0.9)) * 0.3;
+        break;
+      case 'kneel': // моет палубу: тряпка ходит взад-вперёд, корпус покачивается в такт
+        rig.arms[1].ua.rotation.x = -1.7 + Math.sin(t * 3.2) * 0.28;
+        rig.arms[1].fa.rotation.x = -0.4 + Math.sin(t * 3.2 + 0.6) * 0.18;
+        rig.torso.rotation.y = Math.sin(t * 3.2) * 0.08;
+        break;
+      case 'mend': // чинит парус на коленях: правая рука с иглой тянет нить, левая держит ткань
+        pose(rig, 'sit');
+        rig.head.rotation.set(0.55, Math.sin(t * 0.4) * 0.1, 0);
+        rig.arms[0].ua.rotation.x = -0.55; rig.arms[0].fa.rotation.x = -0.9;
+        rig.arms[1].ua.rotation.x = -0.5 - Math.max(0, Math.sin(t * 1.6)) * 0.45;
+        rig.arms[1].fa.rotation.x = -1.0 + Math.sin(t * 1.6) * 0.3;
         break;
       case 'walk':
         if (chosenPose === 'serve') for (const arm of rig.arms) { arm.ua.rotation.x = -0.8; arm.fa.rotation.x = -0.9; }
@@ -158,11 +201,6 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
         rig.arms[1].ua.rotation.x += Math.sin(t * 1.8) * 0.13;
         rig.arms[1].fa.rotation.x += Math.cos(t * 1.8) * 0.17;
         break;
-      case 'kneel':
-        rig.torso.rotation.x += beat * 0.06;
-        rig.arms.forEach((arm, i) => { arm.ua.rotation.x += Math.sin(t * 2.4 + i) * 0.16; arm.fa.rotation.x += beat * 0.1; });
-        rig.head.rotation.y = slow * 0.1;
-        break;
       case 'haul':
         rig.torso.rotation.x += beat * 0.12;
         rig.arms.forEach(arm => { arm.ua.rotation.x += beat * 0.25; arm.fa.rotation.x -= beat * 0.3; });
@@ -183,11 +221,30 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
       rig.torso.rotation.z += Math.sin(t * 0.75) * 0.012;
     } else rig.torso.position.y = 0;
   }
-  if (rig.tray?.visible) for (const arm of rig.arms) {arm.ua.rotation.x=-.8;arm.fa.rotation.x=-.9;}
+  // руки под ношу: бухту придерживают на плече, ведро несут на опущенной руке
+  if (rig.coil.visible) { const a = rig.arms.find(x => x.s === -1); a.ua.rotation.set(-0.35, 0, a.s * 0.25); a.fa.rotation.set(-2.1, 0, 0); }
+  if (rig.bucket.visible && state.walking) { const a = rig.arms.find(x => x.s === -1); a.ua.rotation.set(Math.sin(t * 5) * 0.08, 0, a.s * 0.18); a.fa.rotation.set(-0.05, 0, 0); }
+  if (rig.tray?.visible) for (const arm of rig.arms) {arm.ua.rotation.x=-.8;arm.ua.rotation.z=-arm.s*.08;arm.fa.rotation.set(-.9,0,0);}
   if (rig.guitar?.visible && !['guitar','tune'].includes(state.action)) strum(rig,t,false);
+  // Подошёл игрок — NPC оборачивается к нему головой (неагентная реакция; в разговоре его и так поворачивает сервер)
+  if (viewer && !state.walking && state.action !== 'talk' && scene !== 'night_story') {
+    const dist = Math.hypot(viewer.x - npc.position.x, viewer.z - npc.position.z);
+    if (dist < GLANCE_DIST) {
+      npc.updateMatrixWorld();
+      const local = npc.worldToLocal(_glance.copy(viewer));
+      rig.head.rotation.y = THREE.MathUtils.clamp(Math.atan2(local.x, local.z), -1.05, 1.05);
+      rig.head.rotation.x = Math.min(rig.head.rotation.x, 0.1);
+    }
+  }
   const blend = motion.initialized ? 1 - Math.exp(-dt * 9) : 1;
   motion.joints.forEach((j, i) => j.quaternion.slerp(motion.previous[i], 1 - blend));
   rig.hip.position.y = THREE.MathUtils.lerp(motion.hipY, rig.hip.position.y, blend);
+  if(rig.tray?.visible){
+    rig.root.updateMatrixWorld(true);
+    const hands=rig.arms.map(arm=>arm.fa.localToWorld(new THREE.Vector3(0,-.30,0)));
+    rig.tray.position.copy(rig.root.worldToLocal(hands[0].add(hands[1]).multiplyScalar(.5)));
+    rig.tray.position.y+=.025;
+  }
   motion.initialized = true;
   if(ownChart)alignChartToHands(npc);
 }

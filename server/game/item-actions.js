@@ -6,8 +6,10 @@ export function applyItemUse(p,item,now=Date.now()){
  if(!rule||!p.inventory.includes(item))return {error:'Предмета нет в снаряжении.'};
  p.lastItemUse??={};p.itemUses??={};p.vitals??=freshVitals();
  if(now-(p.lastItemUse[item]??-Infinity)<rule.cooldown)return {error:'Подожди окончания действия.'};
- if(item==='barrel')return {error:'Подойди к колодцу и нажми E или ЛКМ.'};
+ // Колодец только на Канарах: на корабле пустой бочонок просто ждёт берега
+ if(item==='barrel')return {error:p.zone==='canary'?'Подойди к колодцу в городе и нажми E или ЛКМ.':'Здесь воды не набрать: пресную воду наберём на Канарах, у колодца в городе.'};
  if(item==='tar'||item==='planks')return {error:'Подойди к плотнику и передай припасы.'};
+ if(rule.effect==='supplies'&&rule.hint)return {error:rule.hint};
  if(rule.servings){
   const left=p.itemUses[item]??rule.servings;
   if(left<=0)return {error:'Пусто.'};

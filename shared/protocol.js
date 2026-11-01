@@ -38,7 +38,7 @@ export const S2C = {
   PLAYER_ACTION: 'player_action', // {id,action:{kind,item,startedAt,duration,seq,equipmentRev,zone,scene},serverNow}
   PLAYER_LEAVE: 'player_leave', // { id, name, role }
   SCENE_PROGRESS: 'scene_progress', // {scene, phase, next, endsAt?, serverNow, done, total, ready, talking}
-  SCENE: 'scene',               // { id, type, startAt, tod, zone, duration, spawn?, seat? }
+  SCENE: 'scene',               // { id, type, startAt, tod, zone, duration, spawn?, seat?, fleet? }
   TOD: 'tod',                   // { value }
   CHUNK: 'chunk',               // { zone, key, data }
   CHUNK_DENIED: 'chunk_denied', // { zone, key, reason }

@@ -233,7 +233,7 @@ check(!!ok2 && ok2.state.role === 'grumete' && ok2.state.p[0] > start[0] + 2, `�
 check(!p.msgs.some((m) => m.t === 'player_leave' && m.id === g.id), 'смена вкладки не рассылает player_leave');
 
 // --- Чанки ---
-check(ok2?.world.totalChunks === 257 && ok2?.world.cacheLimit === 25, `мета мира: ${JSON.stringify(ok2?.world)}`);
+check(ok2?.world.totalChunks === 513 && ok2?.world.cacheLimit === 51, `мета мира (два острова и корабль): ${JSON.stringify(ok2?.world)}`);
 p.clear();
 p.send('chunk_req', { zone: 'ship', keys: ['0,0'] });
 const shipChunk = await p.wait('chunk', (m) => m.zone === 'ship');
@@ -399,7 +399,8 @@ await g3.walkTo(...at('wine_barrel'));
 g3.send('interact', { id: 'wine_barrel' });
 await g3.walkTo(...at('dance'));
 g3.send('interact', { id: 'dance' });
-g3.send('minigame', { game: 'cards', result: { success: true } });
+await g3.walkTo(...at('cards'));
+g3.send('interact', { id: 'cards' }); // как в игре: E у стола — партия с матросом
 check(!!(await g3.wait('quest', (m) => m.id === 'q_feast' && m.status === 'done')), 'праздник: 3 из 4 → выполнено');
 p.send('chat', { text: '/done' });
 l.send('chat', { text: '/done' });

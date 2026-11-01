@@ -17,7 +17,9 @@ after(()=>db.closeDb());
 test('every profession graph connects its jobs without crossing the actual ship',()=>{
  for(const [id,profile]of Object.entries(routines))for(const [scene,g]of Object.entries(profile.scenes)){
   assert.ok(g.jobs.length>=2);
-  for(const a of g.jobs)for(const b of g.jobs){const path=npcRoute(g,g.nodes[a.node],b.node);
+  // работа — цепочка шагов: связаны и безопасны переходы между любыми её местами и местами других работ
+  const spots=j=>(j.steps??[j]).map(s=>s.node);
+  for(const a of g.jobs)for(const b of g.jobs)for(const from of spots(a))for(const to of spots(b)){const path=npcRoute(g,g.nodes[from],to);
    assert.ok(path,`${id}: disconnected ${a.id} -> ${b.id}`);assert.ok(routeIsClear(path,{id:scene}),`${id}: unsafe ${a.id} -> ${b.id}`);
   }
  }
@@ -41,7 +43,7 @@ test('safe choices are synchronized, bounded, persisted, and never replace a liv
  const scene={id:'ship_day',startAt:director.startAt()},all=entities.snapshot();
  const behavior=entities.stateOf('cook')?.behavior;assert.ok(behavior);assert.equal(behavior.source,'llm');
  const def=entities.def('cook'),one=npcActivity(def,(now+2000)/1000,scene,null,behavior),two=npcActivity(def,(now+2000)/1000,scene,null,structuredClone(behavior));
- assert.deepEqual(one,two);assert.ok(routeIsClear(behavior.path,scene));
+ assert.deepEqual(one,two);assert.ok(behavior.legs.every(l=>routeIsClear(l.path,scene)));
  entities.load(JSON.parse(JSON.stringify(all)));assert.deepEqual(entities.stateOf('cook').behavior,behavior);
  p.dialogue={npc:'cook',id:'locked',until:now+120000};now+=60000;
  await tickNpcBrain(now,async()=>{throw Error('must not invoke model during conversation');});assert.equal(calls,1);
@@ -61,6 +63,6 @@ test('unknown jobs and invented coordinates cannot enter the movement state',asy
  for(const d of entities.allDefs()){
   const behavior=entities.stateOf(d.id)?.behavior;if(!behavior)continue;
   assert.ok(routines[d.id].scenes.ship_day.jobs.some(j=>j.id===behavior.job));
-  assert.ok(behavior.path.every(p=>p.every(v=>Math.abs(v)<30)));
+  assert.ok((behavior.legs??[behavior]).every(l=>l.path.every(p=>p.every(v=>Math.abs(v)<30))));
  }
 });

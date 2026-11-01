@@ -11,10 +11,20 @@ export const ROLE_LOOK = {
 };
 export const ROLE_NAME = { grumete: 'Юнга', piloto: 'Штурман', lengua: 'Переводчик' };
 
+// Part 2: the same three players as Lucayan Taíno of Guanahani. Bare skin with red achiote paint and cotton.
+const TAINO_SKIN = 0xa8714c, TAINO_HAIR = 0x120d0a;
+const taino = (o) => ({ shirt: TAINO_SKIN, sleeves: TAINO_SKIN, pants: TAINO_SKIN, skin: TAINO_SKIN, hair: TAINO_HAIR, hat: 'none', longHair: true, barefoot: true, ...o });
+export const TAINO_ROLE_LOOK = {
+  grumete: taino({ loincloth: 0xe9e2d0, bodyPaint: 0x9a2a1c }), // the fisher
+  piloto: taino({ nagua: 0xece5d2, bands: 0xece5d2 }), // the woman who bakes the casabe
+  lengua: taino({ loincloth: 0xe9e2d0, bands: 0xe9e2d0, hat: 'band', hatColor: 0xe9e2d0, bodyPaint: 0x1e1814 }), // the cacique's apprentice
+};
+export const TAINO_ROLE_NAME = { grumete: 'Рыбак', piloto: 'Хозяйка', lengua: 'Ученик касика' };
+
 export const NPC_LOOK = {
   columbus: { shirt: 0x2c2430, sleeves: 0x2c2430, pants: 0x1e1a18, cloak: 0x4a1f1c, hat: 'brim', hatColor: 0x17120f, hair: 0xb8b0a4, skin: 0xd8a888 },
   boatswain: { shirt: 0xcfc2a5, vest: 0x5a3a22, pants: 0x3e4a5c, hatColor: 0x7a2a20, hair: 0x2a1f16 },
-  cook: { shirt: 0xe8e0cc, pants: 0x5b4f40, hat: 'none', hair: 0x1f1810, vest: 0x8a7a5e },
+  cook: { shirt: 0xe8e0cc, pants: 0x5b4f40, hat: 'none', hair: 0x1f1810, apron: 0xa89b77 },
   storyteller: { shirt: 0xb8ab90, vest: 0x4a3a2a, pants: 0x4a4038, hatColor: 0x6a2a22, hair: 0xd0ccc4, skin: 0xc08a68 },
   sailor_1: { shirt: 0xd9cdb3, pants: 0x354638, hatColor: 0xa02a22 },
   sailor_2: { shirt: 0xe0d5bd, pants: 0x354257, hatColor: 0xb3332a },
@@ -27,7 +37,17 @@ export const NPC_LOOK = {
   town_1: { shirt: 0xc8b48c, pants: 0x364653, hat: 'brim', hatColor: 0x8a7650, skin: 0xb07a52 },
   town_2: { shirt: 0xe4dccb, sleeves: 0xe4dccb, skirt: 0x3f5a6e, pants: 0x3f5a6e, hat: 'none', hair: 0x1c140e, skin: 0xc48a64 },
   town_3: { shirt: 0x9a8a70, pants: 0x4a4038, hat: 'none', hair: 0xd8d4cc, skin: 0xb88466 },
+  // Guanahani
+  cacique: taino({ loincloth: 0xf0e8d4, bodyPaint: 0x9a2a1c, bands: 0xf0e8d4, hat: 'band', hatColor: 0xb8302a, gold: true, guanin: true }),
+  elder: taino({ loincloth: 0xd9d0bc, hair: 0x9a948c, bodyPaint: 0x1e1814 }),
+  villager_1: taino({ nagua: 0xe6dfcb, bands: 0xe6dfcb }),
+  villager_2: taino({ loincloth: 0xe0d8c4, bodyPaint: 0x9a2a1c }),
+  villager_3: taino({ loincloth: 0xe0d8c4, gold: true }),
 };
+// Guanahani, 12 October: the landing party as the villagers see it (layout ids admiral, notary, sailor_es)
+NPC_LOOK.admiral = { ...NPC_LOOK.columbus, cloak: 0x8a1f1c };
+NPC_LOOK.notary = { shirt: 0x1c1a1c, sleeves: 0x1c1a1c, pants: 0x1a1818, vest: 0x2a2428, hat: 'brim', hatColor: 0x121012, hair: 0x3a2a1c, skin: 0xd8a888 };
+NPC_LOOK.sailor_es = { ...NPC_LOOK.sailor_2, hatColor: 0x2f4a7a };
 
 const tmpColor = new THREE.Color();
 function paint(geo, hex) {
@@ -41,7 +61,10 @@ function paint(geo, hex) {
 export function person(mat, look) {
   const {
     shirt = 0xd8ccb2, sleeves = null, pants = 0x6b5c4a, vest = null, hat = 'cap', hatColor = 0xa62a20,
-    skin = 0xd29a74, hair = 0x3a2a1c, cloak = null, skirt = null,
+    skin = 0xd29a74, hair = 0x3a2a1c, cloak = null, skirt = null, apron = null,
+    // Taíno (part 2): loincloth / nagua (a married woman's short cotton skirt), body paint, cotton bands on arms
+    // and calves, long hair, gold — a nose ornament and, for the cacique, a guanín disc on the chest
+    loincloth = null, nagua = null, bodyPaint = null, bands = null, longHair = false, gold = false, guanin = false, barefoot = false,
   } = look;
   const seg = 12;
   const part = (geo, hex, parent, x = 0, y = 0, z = 0) => {
@@ -63,30 +86,58 @@ export function person(mat, look) {
     const th = limb(0.4, 0.105, pants, hip); th.position.x = s * 0.1;
     const sh = limb(0.4, 0.080, pants, th); sh.position.y = -0.46;
     th.children[0].userData.clothing='trousers';sh.children[0].userData.clothing='trousers';
-    const seam=new THREE.BoxGeometry(.005,.34,.008);part(seam,new THREE.Color(pants).multiplyScalar(.65).getHex(),sh,s*.069,-.20,.035);
-    part(new THREE.CylinderGeometry(.083,.085,.19,seg),0x30251e,sh,0,-.35,0);
-    part(new THREE.BoxGeometry(.15,.08,.25),0x2a1d14,sh,0,-.47,.04);
+    if (!barefoot) {
+      const seam=new THREE.BoxGeometry(.005,.34,.008);part(seam,new THREE.Color(pants).multiplyScalar(.65).getHex(),sh,s*.069,-.20,.035);
+      part(new THREE.CylinderGeometry(.083,.085,.19,seg),0x30251e,sh,0,-.35,0);
+    }
+    part(new THREE.BoxGeometry(.15,.08,.25),barefoot?skin:0x2a1d14,sh,0,-.47,.04); // таино босиком
     legs.push({ th, sh });
   }
   const torso = new THREE.Group(); hip.add(torso);
   const body = new THREE.CapsuleGeometry(0.175, 0.36, 4, seg); body.scale(1, 1, 0.7); part(body, shirt, torso, 0, 0.3, 0);
   if (vest) { const v = new THREE.CylinderGeometry(0.19, 0.2, 0.42, seg, 1, true); v.scale(1, 1, 0.74); part(v, vest, torso, 0, 0.3, 0); }
   const belt = new THREE.CylinderGeometry(0.185, 0.185, 0.06, seg); belt.scale(1, 1, 0.72); part(belt, 0x3a2616, torso, 0, 0.08, 0);
+  if(apron){
+    const cloth=new THREE.Shape();cloth.moveTo(-.105,.48);cloth.lineTo(.105,.48);cloth.lineTo(.16,-.20);cloth.quadraticCurveTo(0,-.25,-.16,-.20);cloth.closePath();
+    part(new THREE.ExtrudeGeometry(cloth,{depth:.012,bevelEnabled:true,bevelSize:.005,bevelThickness:.003,bevelSegments:1,steps:1}),apron,torso,0,0,.13);
+    for(const x of [-.08,.08])part(new THREE.BoxGeometry(.025,.18,.015),apron,torso,x,.52,.12);
+    part(new THREE.BoxGeometry(.12,.09,.014),new THREE.Color(apron).multiplyScalar(.9).getHex(),torso,0,.05,.15);
+  }
   part(new THREE.CylinderGeometry(0.045, 0.05, 0.1, seg), skin, torso, 0, 0.62, 0);
   const head = new THREE.Group(); head.position.y = 0.76; torso.add(head);
   const hg = new THREE.SphereGeometry(0.105, seg, seg); hg.scale(0.95, 1.08, 1); part(hg, skin, head);
   const hr = new THREE.SphereGeometry(0.11, seg, seg, 0, Math.PI * 2, 0, Math.PI * 0.55); hr.rotateX(-0.35); part(hr, hair, head, 0, 0.012, -0.012);
   const nose = new THREE.ConeGeometry(0.018, 0.04, 4); nose.rotateX(Math.PI / 2); part(nose, skin, head, 0, -0.005, 0.105);
+  for(const s of [-1,1]){
+    const eye=part(new THREE.SphereGeometry(.013,8,6),0xe6ddc9,head,s*.038,.02,.091);eye.scale.set(1,.7,.45);
+    part(new THREE.SphereGeometry(.006,8,6),0x25221c,head,s*.038,.02,.099);
+    const brow=part(new THREE.BoxGeometry(.032,.005,.006),hair,head,s*.039,.043,.092);brow.rotation.z=-s*.08;
+    part(new THREE.SphereGeometry(.023,8,6),skin,head,s*.103,-.005,0);
+  }
+  part(new THREE.BoxGeometry(.032,.004,.004),0x8a5846,head,0,-.045,.096);
   if (hat === 'cap') { const c = new THREE.ConeGeometry(0.105, 0.2, seg); c.rotateX(-0.5); part(c, hatColor, head, 0, 0.1, -0.02); }
+  if (hat === 'band') part(new THREE.CylinderGeometry(0.113, 0.113, 0.035, seg * 2, 1, true), hatColor, head, 0, 0.045, -0.005);
+  if (longHair) { const h = new THREE.BoxGeometry(0.2, 0.36, 0.05); h.translate(0, -0.12, -0.085); part(h, hair, head); }
+  if (gold) part(new THREE.SphereGeometry(0.014, 6, 4), 0xd8aa3c, head, 0, -0.045, 0.1);
   if (hat === 'brim') {
     part(new THREE.CylinderGeometry(0.2, 0.2, 0.02, seg * 2), hatColor, head, 0, 0.07, 0);
     part(new THREE.CylinderGeometry(0.1, 0.115, 0.12, seg * 2), hatColor, head, 0, 0.13, 0);
   }
+  if (bodyPaint) for (const y of [0.4, 0.47]) { const b = new THREE.CylinderGeometry(0.181, 0.181, 0.03, seg, 1, true); b.scale(1, 1, 0.72); part(b, bodyPaint, torso, 0, y, 0); }
+  if (guanin) part(new THREE.CylinderGeometry(0.05, 0.05, 0.008, 16).rotateX(Math.PI / 2), 0xd8aa3c, torso, 0, 0.44, 0.13);
+  if (bands) for (const { sh } of legs) part(new THREE.CylinderGeometry(0.072, 0.072, 0.06, seg, 1, true), bands, sh, 0, -0.08, 0);
+  if (loincloth) {
+    part(new THREE.CylinderGeometry(0.18, 0.18, 0.04, seg, 1, true).scale(1, 1, 0.72), loincloth, hip, 0, 0.02, 0);
+    part(new THREE.BoxGeometry(0.2, 0.3, 0.02).translate(0, -0.13, 0.125), loincloth, hip);
+  }
+  if (nagua) { const g = new THREE.CylinderGeometry(0.19, 0.27, 0.36, seg * 2, 1, true); g.scale(1, 1, 0.8); g.translate(0, -0.12, 0); const m = part(g, nagua, hip); m.material = mat.clone(); m.material.side = THREE.DoubleSide; }
   const arms = [];
   for (const s of [-1, 1]) {
-    const ua = limb(0.27, 0.058, sleeves ?? shirt, torso); ua.position.set(s * 0.235, 0.54, 0);
-    const fa = limb(0.25, 0.05, sleeves ?? shirt, ua); fa.position.y = -0.31;
+    part(new THREE.SphereGeometry(.077,seg,8),sleeves??shirt,torso,s*.17,.49,0);
+    const ua = limb(0.27, 0.058, sleeves ?? shirt, torso); ua.position.set(s * 0.215, 0.50, 0);
+    const fa = limb(0.25, 0.05, sleeves ?? shirt, ua); fa.position.y = -0.285;
     part(new THREE.SphereGeometry(0.05, seg, seg), skin, fa, 0, -0.3, 0);
+    if (bands) part(new THREE.CylinderGeometry(0.066, 0.066, 0.05, seg, 1, true), bands, ua, 0, -0.07, 0);
     arms.push({ ua, fa, s });
   }
   if (cloak) {

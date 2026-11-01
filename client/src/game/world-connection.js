@@ -51,6 +51,8 @@ export class WorldConnection {
     });
     events.on('chunk_denied',message=>{if(message.zone!=='ship')this.world?.chunks?.denied?.(message.zone,message.key,message.reason);});
     events.on('entity',message=>this.applyEntity(message.id,message.state??message));
+    // действия игроков (еда, бег, меч, выстрел, танец, разговор) — жители и животные реагируют сами (world/fauna.js)
+    events.on('world_event',message=>this.world?.fauna?.react?.(message));
     events.on('scene_progress',message=>{
       if(this.world&&message.scene===this.scene?.id&&Number.isFinite(message.serverNow))this.world.npcClockOffset=message.serverNow-Date.now();
     });
@@ -67,6 +69,8 @@ export class WorldConnection {
     });
     events.on('player_action',message=>{
       this.setClock(message.serverNow);
+      // набрали воду у колодца — у всех, и у самого игрока, крутится ворот и едет ведро (world/props.js)
+      if(message.action?.kind==='fill'&&message.action.target){const well=this.world?.entity?.(message.action.target);if(well?.userData.winch)well.userData.winchAt=Date.now();}
       if(message.id===this.you?.id)return;
       const p=this.remotePlayers.get(message.id);if(p)this.remotePlayers.set(message.id,{...p,action:message.action});
       this.world?.players?.action?.(message);
@@ -122,6 +126,9 @@ export class WorldConnection {
     if(Number.isFinite(this.scene.tod))this.world.setTimeOfDay(this.scene.tod);
     if(this.lastScene!==this.scene.id){
       this.lastScene=this.scene.id;this.requestShip();
+      // часть 2: что есть на Гуанахани в этой сцене (люди Колумба — только 12 октября) и стоят ли корабли
+      this.world.setScene?.(this.scene.id);
+      if(this.scene.zone==='guanahani')this.world.setFleet?.('guanahani',!!this.scene.fleet);
       if(this.scene.type==='cutscene'&&this.scene.id!=='intro')this.world.cutscene?.play?.(this.scene.id,this.scene.startAt);
     }
   }
@@ -129,7 +136,7 @@ export class WorldConnection {
     if(!this.world)return;
     this.world.applyEntity?.(id,state);
     // NPC стоит, пока с ним говорят (пауза маршрута — shared/npc-activity.js)
-    for(const field of ['paused','speaker','behavior'])if(field in state)this.world.setEntityState?.(id,{[field]:state[field]});
+    for(const field of ['paused','speaker','behavior','performance'])if(field in state)this.world.setEntityState?.(id,{[field]:state[field]});
   }
   startLoop(){
     if(this.frameId||!this.active)return;

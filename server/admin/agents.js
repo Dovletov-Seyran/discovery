@@ -67,7 +67,8 @@ export function validateAgent(a, id) {
         for (const s of isStrList(x?.scenes) ? x.scenes : []) need(SCENES.has(s), `${at}.scenes: нет сцены «${s}» (есть: ${[...SCENES].join(', ')})`);
         if (x?.cooldownSec != null) need(Number.isFinite(x.cooldownSec) && x.cooldownSec >= 0, `${at}.cooldownSec: число ≥ 0`);
         if (x?.once != null) need(typeof x.once === 'boolean', `${at}.once: true или false`);
-        need(Array.isArray(x?.patch), `${at}.patch: список операций`);
+        // patch — изменение мира; у действий без него (музыка гитариста: performance) его нет
+        need(x?.patch == null ? typeof x?.performance === 'string' : Array.isArray(x.patch), `${at}.patch: список операций (или performance)`);
         (Array.isArray(x?.patch) ? x.patch : []).forEach((op, j) => {
           const v = validateOp(op);
           if (typeof v === 'string') errors.push(`${at}.patch[${j}]: ${v}`);

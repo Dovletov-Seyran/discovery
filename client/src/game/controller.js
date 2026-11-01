@@ -20,6 +20,7 @@ export class Controller {
     this.capsule = {start:new Vector3(),end:new Vector3(),radius:0.35};
     this.keys = new Set();
     this.focused=false;this.dragging=false;this.wasLocked=false;
+    this.dragButton=null;this.lookDistance=0;this.suppressClick=false;
     canvas.tabIndex=0;
     this.abort = new AbortController();
     const options = {signal:this.abort.signal};
@@ -33,16 +34,24 @@ export class Controller {
     canvas.addEventListener?.('blur',()=>{this.focused=false;this.dragging=false;this.keys.clear();},options);
     canvas.addEventListener?.('mousedown',event=>{
       if(!this.enabled)return;
-      if(event.button===2){event.preventDefault();this.focused=true;canvas.focus?.({preventScroll:true});this.dragging=true;}
+      if(event.button===0||event.button===2){
+        if(event.button===2)event.preventDefault();
+        this.focused=true;canvas.focus?.({preventScroll:true});this.dragButton=event.button;
+        this.lookDistance=0;this.suppressClick=false;this.dragging=event.button===2;
+      }
     },options);
     canvas.addEventListener?.('contextmenu',event=>{if(this.enabled)event.preventDefault();},options);
-    window.addEventListener('mouseup',()=>this.dragging=false,options);
+    window.addEventListener('mouseup',()=>{this.suppressClick=this.dragButton===0&&this.dragging;this.dragging=false;this.dragButton=null;},options);
     document.addEventListener('pointerlockchange', () => {
       const locked=document.pointerLockElement===canvas;
       if(this.wasLocked&&!locked)this.focused=false;
       this.wasLocked=locked;this.keys.clear();
     }, options);
     document.addEventListener('mousemove', event => {
+      if(this.enabled&&this.focused&&this.dragButton===0&&document.pointerLockElement!==canvas){
+        this.lookDistance+=Math.hypot(event.movementX,event.movementY);
+        if(this.lookDistance>=4)this.dragging=true;
+      }
       if (!this.enabled || !(document.pointerLockElement===canvas||(this.focused&&this.dragging))) return;
       this.yaw -= event.movementX * this.sensitivity;
       if (this.lookOnly) this.yaw = MathUtils.clamp(this.yaw, this.anchorYaw - MathUtils.degToRad(100), this.anchorYaw + MathUtils.degToRad(100));
@@ -56,11 +65,12 @@ export class Controller {
     this.lookOnly = nextLookOnly;
     this.enabled = mode === 'play' || nextLookOnly;
     this.keys.clear();
-    if(!this.enabled){this.focused=false;this.dragging=false;}
+    if(!this.enabled){this.focused=false;this.dragging=false;this.dragButton=null;this.suppressClick=false;}
     if (!this.enabled && document.pointerLockElement === this.canvas) document.exitPointerLock();
   }
 
   get hasControl(){return document.pointerLockElement===this.canvas||this.focused;}
+  consumeLookClick(){const dragged=this.suppressClick;this.suppressClick=false;return dragged;}
   lock() {
     if(!this.enabled)return;
     this.focused=true;this.canvas.focus?.({preventScroll:true});
@@ -87,7 +97,9 @@ export class Controller {
   }
   update(delta, time) {
     let x=0, z=0;
-    if (this.enabled && !this.lookOnly && this.hasControl) {
+    // WASD работают и без захвата мыши (после окна «Предмет получен» мышь отпущена): клавиши и так
+    // ловятся, только когда игра не заблокирована окном и фокус не в поле ввода
+    if (this.enabled && !this.lookOnly) {
       x = Number(this.keys.has('KeyD')) - Number(this.keys.has('KeyA'));
       z = Number(this.keys.has('KeyS')) - Number(this.keys.has('KeyW'));
     }
@@ -111,7 +123,7 @@ export class Controller {
       // Прыжок — пробел, только стоя на палубе или земле (onGround с прошлого кадра)
       const wasGrounded=this.onGround, from=this.position.clone();
       let jumped=false;
-      if(this.keys.has('Space')&&this.onGround&&this.hasControl){this.velocityY=5.5;this.onGround=false;jumped=true;}
+      if(this.keys.has('Space')&&this.onGround){this.velocityY=5.5;this.onGround=false;jumped=true;}
 
       this.velocityY-=20*dt;
       const step=dt/4;

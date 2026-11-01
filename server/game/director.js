@@ -10,7 +10,7 @@ import * as entities from './entities.js';
 import { resolveLayout } from '../world/terrain.js';
 
 let scenes = new Map();
-let canaryWorld = null;
+let islandWorlds = {}; // зона острова → resolveLayout: высота рельефа для restoreGround
 const FIRST = 'lobby';
 const DEFAULT_POS = [0, 1.6, 0];
 
@@ -33,20 +33,36 @@ export function loadScenes() {
     if (sp && s.spawns) s.spawns = sp;
     if (Array.isArray(shipLayout.seats) && shipLayout.seats.length && s.seats) s.seats = shipLayout.seats;
   }
-  // На Канарах — из content/canary_layout.json (spawns, обычно рядом с пристанью), уже с высотой рельефа
-  canaryWorld = (() => {
-    const layout = loadContent('canary_layout.json', null);
-    return layout?.spawns ? resolveLayout(layout) : null;
-  })();
-  for (const s of scenes.values()) if (s.zone === 'canary' && s.spawns && canaryWorld) s.spawns = canaryWorld.layout.spawns;
+  // На островах — из content/<zone>_layout.json (spawns), уже с высотой рельефа. На Канарах (у пристани) — всегда;
+  // на Гуанахани (у гамаков) — где в scenes.json стоит spawns: "layout". Точка [x, null, z] в scenes.json
+  // получает высоту рельефа в этом месте.
+  islandWorlds = {};
+  for (const zone of ['canary', 'guanahani']) {
+    const raw = loadContent(`${zone}_layout.json`, null);
+    if (!raw?.shape) continue;
+    const resolved = (islandWorlds[zone] = resolveLayout(raw));
+    const { heightAt, layout } = resolved;
+    const fromLayout = Object.keys(layout.spawns ?? {}).length ? layout.spawns : null;
+    const ground = (v) => {
+      const pt = point(v);
+      if (pt?.p[1] === null) pt.p = [pt.p[0], Math.round(Math.max(heightAt(pt.p[0], pt.p[2]), 0) * 10) / 10, pt.p[2]];
+      return pt;
+    };
+    for (const s of scenes.values()) {
+      if (s.zone !== zone || !s.spawns) continue;
+      if (fromLayout && (zone === 'canary' || s.spawns === 'layout')) s.spawns = fromLayout;
+      else if (typeof s.spawns === 'object') s.spawns = Object.fromEntries(Object.entries(s.spawns).map(([role, v]) => [role, ground(v)]));
+    }
+  }
 }
 loadScenes();
 
 // Исправление старого сохранения делается и на сервере: иначе защита от телепорта
 // постоянно возвращает клиент, выбравшийся из-под земли, в его старую яму.
 export function restoreGround(p) {
-  if (p.zone !== 'canary' || !p.p || !canaryWorld) return false;
-  const floor = canaryWorld.heightAt(p.p[0],p.p[2]);
+  const island = islandWorlds[p.zone];
+  if (!island || !p.p) return false;
+  const floor = island.heightAt(p.p[0],p.p[2]);
   if (!Number.isFinite(floor) || floor < 0 || p.p[1] >= floor - 0.5) return false;
   p.p = [p.p[0],floor + 0.05,p.p[2]];
   return true;
@@ -115,6 +131,7 @@ export function sceneMessage(p, { withSpawn = false } = {}) {
     tod: currentTod(), zone: state.zone, duration: sceneDuration(s),
     advance: s.advance, next: s.next, progress: progressMessage(),
   };
+  if (s.fleet != null) msg.fleet = s.fleet; // часть 2: стоят ли корабли у Гуанахани
   if (withSpawn && p.p && s.spawns) msg.spawn = p.p;
   if (p.seat) msg.seat = p.seat;
   if (msg.spawn || msg.seat) msg.r = p.r; // куда смотреть после появления

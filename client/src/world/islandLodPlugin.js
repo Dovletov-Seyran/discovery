@@ -1,22 +1,24 @@
-// Vite plugin (runs in Node at dev/build time): `import lod from 'virtual:island-lod'` gives the client a coarse
-// summary of La Gomera for the far view — heights every 8 m, the trees and the buildings. It is computed from the
-// server's own generator, so it always matches the real chunks; the generator itself never reaches the browser.
+// Vite plugin (runs in Node at dev/build time): `import lod from 'virtual:island-lod'` (La Gomera) or
+// 'virtual:island-lod/guanahani' (part 2) gives the client a coarse summary of the island for the far view —
+// heights every 8 m, the trees and the buildings. It is computed from the server's own generator, so it always
+// matches the real chunks; the generator itself never reaches the browser.
 // The summary is part of the 10% budget: export its UTF-8 size so Chunks reserves space before loading nearby chunks.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const ID = 'virtual:island-lod', RID = '\0' + ID, STEP = 8;
+const ID = 'virtual:island-lod', STEP = 8;
 const TERRAIN = fileURLToPath(new URL('../../../server/world/terrain.js', import.meta.url));
-const LAYOUT = fileURLToPath(new URL('../../../content/canary_layout.json', import.meta.url));
-const TREES = new Set(['palm_canary', 'dragon_tree']);
+const layoutFile = (name) => fileURLToPath(new URL(`../../../content/${name}_layout.json`, import.meta.url));
+const TREES = new Set(['palm_canary', 'dragon_tree', 'palm_fan', 'gumbo_limbo', 'mangrove']);
 const r1 = (v) => Math.round(v * 10) / 10;
 
 export default function islandLod() {
   return {
     name: 'island-lod',
-    resolveId: (id) => (id === ID ? RID : null),
+    resolveId: (id) => (id === ID || id.startsWith(ID + '/') ? '\0' + id : null),
     async load(id) {
-      if (id !== RID) return null;
+      if (!id.startsWith('\0' + ID)) return null;
+      const LAYOUT = layoutFile(id.slice(ID.length + 2) || 'canary');
       this.addWatchFile(TERRAIN); this.addWatchFile(LAYOUT);
       const { generateCanary } = await import(`${pathToFileURL(TERRAIN).href}?t=${Date.now()}`); // fresh after an edit; as a file:// URL, a bare Windows path (C:/...) fails
       const layout = JSON.parse(readFileSync(LAYOUT, 'utf8'));

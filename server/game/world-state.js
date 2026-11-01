@@ -186,7 +186,16 @@ export function onQuestDone(questId) {
   if (!deed.scene) apply(deed.patch, { source: `deed:${questId}` });
 }
 
+// Что лежит в начале сцены. Канары: товар торговца на прилавке сразу, а не только по просьбе
+// «покажи товар» (иначе прилавок перед ним пустой); проданное (флаг sold:) не возвращается.
+const GOODS = [['cheese', 'Сыр', -0.6], ['meat', 'Солонина', 0], ['biscuit', 'Сухари', 0.6]];
+const SCENE_START = {
+  canary: GOODS.map(([item, name, dz]) => ({ op: 'spawn', id: `goods_${item}`, kind: 'prop', item, label: `${name} на прилавке`, at: 'trader', off: [-1.6, 0.95, dz], state: {} })),
+};
+
 export function onSceneStart(scene) {
+  const start = (SCENE_START[scene.id] ?? []).filter((op) => !hasFlag(`sold:${op.id}`) && !get(op.id));
+  if (start.length) apply(start, { source: `scene:${scene.id}` });
   // Клиент при смене зоны забывает объекты другой зоны — повторяем всё, что лежит в мире
   if (objects.size) hooks.broadcast(fullMessage());
   for (const [questId, deed] of Object.entries(DEEDS)) {

@@ -17,6 +17,7 @@
     "seed": "node server/scripts/seed-world.js",
     "reset": "node server/scripts/reset.js",
     "smoke": "node server/scripts/smoke.js",
+    "smoke:part2": "node server/scripts/smoke-part2.js",
     "start:dev": "npm run build && cross-env DEV=1 DEMO=1 node server/index.js",
     "start:https": "cross-env HTTPS=1 node server/index.js",
     "dev:https": "cross-env HTTPS=1 npm run dev",

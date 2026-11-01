@@ -1,6 +1,7 @@
 [
   {
     "id": "q_hourglass",
+    "doneEn": "turned the sand glass at the stern and sang the prayer",
     "scene": "ship_day",
     "role": "grumete",
     "title": "Песочные часы",
@@ -17,6 +18,7 @@
   },
   {
     "id": "q_latitude",
+    "doneEn": "measured the noon sun with the astrolabe and found our latitude",
     "scene": "ship_day",
     "role": "piloto",
     "title": "Где мы?",
@@ -39,6 +41,7 @@
   },
   {
     "id": "q_ask_columbus",
+    "doneEn": "asked the Admiral why we sail west and what the voyage is for",
     "scene": "ship_day",
     "role": "lengua",
     "title": "Слово адмирала",
@@ -52,7 +55,8 @@
           "reward",
           "distance"
         ],
-        "text": "Узнай у Колумба две вещи: зачем плывём, что ему обещано, сколько плыть",
+        "text": "Спроси Колумба о любых двух вещах из трёх",
+        "labels": ["Зачем плывём на запад", "Что ему обещали король и королева", "Сколько плыть до Индий"],
         "en": "Ask the Admiral about two things: why we sail west, what the monarchs promised him, and how far it is to the Indies"
       }
     ],
@@ -60,6 +64,7 @@
   },
   {
     "id": "q_items",
+    "doneEn": "looked over the ship and found its instruments and weapons",
     "scene": "ship_day",
     "role": "all",
     "optional": true,
@@ -97,6 +102,7 @@
   },
   {
     "id": "q_water",
+    "doneEn": "filled a barrel at the well on La Gomera and carried it to the boat",
     "scene": "canary",
     "role": "grumete",
     "title": "Вода для Америки",
@@ -125,6 +131,7 @@
   },
   {
     "id": "q_rudder",
+    "doneEn": "brought planks and tar to the carpenter, so the rudder of the Pinta was mended",
     "scene": "canary",
     "role": "piloto",
     "title": "Руль «Пинты»",
@@ -172,6 +179,7 @@
   },
   {
     "id": "q_trade",
+    "doneEn": "bought cheese, salted meat and biscuit from Gonzalo the merchant",
     "scene": "canary",
     "role": "lengua",
     "title": "Провизия",
@@ -200,6 +208,7 @@
   },
   {
     "id": "q_feast",
+    "doneEn": "joined the feast with the crew",
     "scene": "ship_evening",
     "role": "all",
     "title": "Праздник",
@@ -237,6 +246,7 @@
   },
   {
     "id": "q_navigation",
+    "doneEn": "checked our heading west with the compass and the sea chart",
     "scene": "ship_day",
     "role": "all",
     "optional": true,
@@ -256,5 +266,71 @@
       }
     ],
     "log": "navigation_checked"
-  }
+  },
+
+  {"id": "q_p2_fish", "doneEn": "took the spear, speared three fish in the lagoon, gathered a conch shell and brought the catch to the cacique", "scene": "p2_day", "role": "grumete", "title": "Утренний улов",
+    "steps": [
+      {"type": "pickup", "item": "spear", "text": "Возьми острогу у каноэ на берегу"},
+      {"type": "interact", "target": "fish_shoal", "count": 3, "text": "Зайди на отмель лагуны и наколи острогой три рыбы"},
+      {"type": "pickup", "item": "conch", "text": "Собери раковину-лямби на мелководье"},
+      {"type": "all_of", "of": [{"type": "deliver", "item": "fish", "target": "cacique"}, {"type": "deliver", "item": "conch", "target": "cacique"}], "text": "Отнеси улов и раковину касику — он у большого дома-канея"}
+    ], "log": "p2_fish" },
+
+  {"id": "q_p2_casabe", "doneEn": "dug manioc, grated it, squeezed out the poisonous juice, baked casabe on the burén and brought it to the cacique", "scene": "p2_day", "role": "piloto", "title": "Касабе",
+    "steps": [
+      {"type": "pickup", "item": "cassava", "log": "p2_cassava", "text": "Выкопай палкой-коа клубни маниока на огороде за деревней"},
+      {"type": "pickup", "item": "cassava_grated", "text": "Натри клубни на тёрке у бурена, где хлопочет жительница"},
+      {"type": "pickup", "item": "cassava_pulp", "text": "Отожми ядовитый сок в плетёном жгуте"},
+      {"type": "pickup", "item": "casabe", "text": "Испеки лепёшку на глиняной плите-бурене"},
+      {"type": "deliver", "item": "casabe", "target": "cacique", "text": "Отнеси касабе касику"}
+    ], "log": "p2_casabe" },
+
+  {"id": "q_p2_hammock", "doneEn": "gathered cotton, wove a hammock and brought it to the cacique for his guests", "scene": "p2_day", "role": "lengua", "title": "Гамак для гостей касика",
+    "steps": [
+      {"type": "all_of", "of": [{"type": "interact", "target": "cotton_1"}, {"type": "interact", "target": "cotton_2"}, {"type": "interact", "target": "cotton_3"}], "text": "Собери хлопок с трёх кустов за бохио"},
+      {"type": "pickup", "item": "hammock_gift", "text": "Сплети гамак на раме у дома на краю площади"},
+      {"type": "deliver", "item": "hammock_gift", "target": "cacique", "text": "Отнеси гамак касику"}
+    ], "log": "p2_hammock" },
+
+  {"id": "q_p2_village", "doneEn": "talked with the people of the village and looked around", "scene": "p2_day", "role": "all", "optional": true, "title": "Деревня",
+    "steps": [
+      {"type": "any_of", "need": 3, "of": [{"type": "interact", "target": "cacique", "text": "Касик"}, {"type": "interact", "target": "villager_1", "text": "Жительница у бурена"}, {"type": "interact", "target": "villager_2", "text": "Житель на огороде"}, {"type": "interact", "target": "villager_3", "text": "Рыбак у каноэ"}, {"type": "interact", "target": "zemi", "text": "Земи"}, {"type": "interact", "target": "water_jar", "text": "Кувшин с водой"}], "text": "Поговори с жителями и осмотрись: 3 из 6"}
+    ] },
+
+  {"id": "q_p2_areito", "doneEn": "brought firewood for the fire on the batey, danced the areíto with the maracas and listened to the elder", "scene": "p2_evening", "role": "all", "title": "Ареито",
+    "steps": [
+      {"type": "pickup", "item": "firewood", "text": "Возьми хворост из кучи у края батея"},
+      {"type": "deliver", "item": "firewood", "target": "fire", "text": "Подбрось хворост в костёр на площади"},
+      {"type": "interact", "target": "maracas", "text": "Возьми маракасы и станцуй ареито"},
+      {"type": "interact", "target": "elder", "text": "Послушай старейшину: он расскажет, откуда взялось море"}
+    ], "log": "p2_areito" },
+
+  {"id": "q_p2_torch", "doneEn": "went down to the canoe at night with a torch to fish by its light", "scene": "p2_night", "role": "grumete", "title": "Свет на воде",
+    "steps": [
+      {"type": "pickup", "item": "torch", "text": "Возьми факел у костра"},
+      {"type": "interact", "target": "canoe_1", "text": "Спустись с факелом к каноэ: ночью рыба идёт на свет"},
+      {"type": "interact", "target": "hammock_g", "text": "Возвращайся в свой гамак"}
+    ], "log": "p2_torch" },
+
+  {"id": "q_p2_sleep_p", "scene": "p2_night", "role": "piloto", "title": "Ночь",
+    "steps": [
+      {"type": "interact", "target": "hammock_p", "text": "Ложись спать в свой гамак"}
+    ] },
+
+  {"id": "q_p2_sleep_l", "scene": "p2_night", "role": "lengua", "title": "Ночь",
+    "steps": [
+      {"type": "interact", "target": "hammock_l", "text": "Ложись спать в свой гамак"}
+    ] },
+
+  {"id": "q_p2_meet", "doneEn": "went down to the shore to the strangers and traded with them without words", "scene": "p2_landing", "role": "all", "title": "Чужие на берегу",
+    "steps": [
+      {"type": "interact", "target": "banners", "text": "Спустись к берегу и посмотри, что чужаки поставили на песке"},
+      {"type": "any_of", "need": 1, "of": [{"type": "trade_complete", "item": "bell", "text": "Острога → колокольчик"}, {"type": "trade_complete", "item": "beads", "text": "Попугай → бусы"}, {"type": "trade_complete", "item": "red_cap", "text": "Хлопок → красная шапка"}], "text": "Обменяйся с чужаками без слов: отдай матросу с бусами острогу, попугая или моток хлопка"},
+      {"type": "interact", "target": "admiral", "text": "Вождь чужаков что-то спрашивает. Подойди к нему"}
+    ], "log": "p2_meet" },
+
+  {"id": "q_p2_steel", "doneEn": "touched the long shining knife of the strangers", "scene": "p2_landing", "role": "all", "optional": true, "title": "Блестящий нож",
+    "steps": [
+      {"type": "interact", "target": "steel", "text": "Рядом с чужаками лежит длинный блестящий нож. Потрогай его"}
+    ] }
 ]

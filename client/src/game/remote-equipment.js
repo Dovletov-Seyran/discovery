@@ -18,6 +18,8 @@ export class RemoteEquipment {
     this.rig=rig;this.M=M;this.equipped=null;this.equipmentRev=-1;this.lastSeq=0;this.action=null;this.item=null;
     this.right=rig.arms.find(a=>a.s===1)??rig.arms[1];this.left=rig.arms.find(a=>a.s===-1)??rig.arms[0];
     this.grip=new THREE.Group();this.grip.position.set(0,-.3,0);this.right.fa.add(this.grip);
+    // The espingarda is shouldered, not held in the fist: its place follows the torso and the arms reach for it
+    this.shoulder=new THREE.Group();this.shoulder.position.set(this.right.s*.12,.47,0);rig.torso.add(this.shoulder);
   }
   setEquipment(item,rev){
     if(Number.isFinite(rev)&&rev<this.equipmentRev)return;
@@ -41,15 +43,19 @@ export class RemoteEquipment {
     const built=make(this.M);built.col?.forEach(g=>g.dispose());const model=built.obj;bake(model);
     const box=new THREE.Box3().setFromObject(model),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
     const scale=(sizes[item]??.35)/Math.max(size.x,size.y,size.z,.01);model.scale.setScalar(scale);
-    if(item==='sword')model.position.set(0,0,0); // forged blade's origin is the grip
-    else if(item==='espingarda')model.position.set(0,-.25*scale,0);
-    else model.position.copy(center).multiplyScalar(-scale);
-    this.grip.rotation.set(item==='espingarda'?Math.PI:Math.PI/2,0,0);
-    this.grip.add(model);this.model=model;
+    this.model=model;
     if(item==='espingarda'){
+      // Model origin is the wrist of the stock, muzzle along +Y (world/espingarda.js): barrel forward,
+      // trigger down, wrist in front of the shoulder so the butt rests against it
+      model.position.set(0,0,.28);model.rotation.set(Math.PI/2,0,0);this.shoulder.add(model);
       const material=new THREE.MeshBasicMaterial({color:0xffda85,transparent:true,opacity:.95,depthWrite:false});material.userData.equipmentOwned=true;
-      this.flash=new THREE.Mesh(new THREE.SphereGeometry(.1,8,6),material);this.flash.position.set(0,1.375*Math.cos(.18),-1.375*Math.sin(.18));this.flash.visible=false;model.add(this.flash);
+      this.flash=new THREE.Mesh(new THREE.SphereGeometry(.1/scale,8,6),material);this.flash.position.fromArray(model.userData.muzzle??[0,1.18,0]);this.flash.visible=false;model.add(this.flash);
+      return;
     }
+    if(item==='sword')model.position.set(0,0,0); // forged blade's origin is the grip
+    else model.position.copy(center).multiplyScalar(-scale);
+    this.grip.rotation.set(Math.PI/2,0,0);
+    this.grip.add(model);
   }
   update(now,pitch=0){
     pitch=THREE.MathUtils.clamp(pitch,-1.35,1.35);this.rig.head.rotation.x=-pitch*.65;
@@ -64,8 +70,14 @@ export class RemoteEquipment {
       if(['map','espingarda','planks','barrel','barrel_full'].includes(item)){
         left.ua.rotation.set(-.8,0,.22);left.fa.rotation.set(-.85,.25,-.15);
       }
-      if(item==='espingarda'){right.ua.rotation.x=-1.2-pitch;right.fa.rotation.x=-.3;left.ua.rotation.x=-1.25-pitch;}
+      if(item==='espingarda'){
+        // aimed where the player looks: the gun turns about the shoulder, the hands go with it
+        this.shoulder.rotation.x=-pitch*.8;
+        right.ua.rotation.set(-.85-pitch*.8,0,-right.s*.35);right.fa.rotation.set(-1.05,0,0);
+        left.ua.rotation.set(-1.3-pitch*.8,0,-left.s*.55);left.fa.rotation.set(-.35,0,0);
+      }
     }
+    if(item!=='espingarda')this.shoulder.rotation.x=0;
     if(!action||now<action.startedAt)return;
     const u=THREE.MathUtils.clamp((now-action.startedAt)/action.duration,0,1),wave=Math.sin(u*Math.PI);
     switch(action.kind){
@@ -90,5 +102,5 @@ export class RemoteEquipment {
       case 'scare':right.ua.rotation.x=-2*wave;left.ua.rotation.x=-2*wave;break;
     }
   }
-  dispose(){this.showItem(null);this.grip.removeFromParent();}
+  dispose(){this.showItem(null);this.grip.removeFromParent();this.shoulder.removeFromParent();}
 }

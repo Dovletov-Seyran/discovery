@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { V3, mesh, cylGeo, lenUV, boxGeo, lathe, bake } from './geom.js';
 import { person, pose, guitarist, NPC_LOOK } from './people.js';
+import {espingarda} from './espingarda.js';
 
 // Builders for every model id (`m`) that content/ship_layout.json may use.
 // Each returns { obj, col?: BufferGeometry[] (local space) }.
@@ -265,15 +266,16 @@ export const MODELS = {
     const strap = new THREE.TorusGeometry(0.17, 0.008, 4, 24, Math.PI); strap.rotateY(Math.PI / 2); strap.translate(0, 0.1, 0); g.add(mesh(strap, M.get('leather')));
     return { obj: g };
   },
-  espingarda: (M) => {
-    const g = new THREE.Group(), gun = new THREE.Group();
-    gun.add(mesh(cylGeo(0.022, 0.018, 1.05, 10).translate(0, 0.85, 0), M.get('iron')));
-    gun.add(mesh(boxGeo(0.05, 0.55, 0.07, 0, 0.27, 0.01), M.get('trim')));
-    gun.add(mesh(boxGeo(0.055, 0.2, 0.11, 0, 0.08, 0.03), M.get('trim')));
-    gun.rotation.x = -0.18; g.add(gun);
+  espingarda,
+  none: () => ({ obj: new THREE.Group() }),
+  // Круг танцующих на празднике: модели нет (пляшут матросы), но прицел должен в него попадать —
+  // невидимый цилиндр 0,7 м в радиусе посреди круга (сами танцоры снаружи — с ними можно заговорить);
+  // столкновений нет, сквозь круг можно пройти
+  dance_circle: () => {
+    const g = new THREE.Group(), hit = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 1.8, 12).translate(0, 0.9, 0), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }));
+    hit.userData.noBake = true; hit.castShadow = false; g.add(hit);
     return { obj: g };
   },
-  none: () => ({ obj: new THREE.Group() }),
   cards: (M) => {
     const g = new THREE.Group(), faces = [0xf2ead8, 0xf2ead8, 0x9a2a22, 0xf2ead8, 0x2a3f6a];
     for (let i = 0; i < 9; i++) {
@@ -281,6 +283,9 @@ export const MODELS = {
       g.add(mesh(c, M.canvas('card' + (i % 5), 16, (x) => { x.fillStyle = '#' + faces[i % 5].toString(16).padStart(6, '0'); x.fillRect(0, 0, 16, 16); })));
     }
     for (let i = 0; i < 5; i++) g.add(mesh(cylGeo(0.016, 0.016, 0.004, 10).translate(0.2 + i * 0.012, 0.004 * i + 0.002, -0.1), M.get('brass')));
+    // карты — тонкие листики вразброс, прицел проскакивал между ними: невидимая область над всей раздачей
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.42).translate(0.03, 0.06, 0), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }));
+    hit.userData.noBake = true; g.add(hit);
     return { obj: g };
   },
   lantern: (M) => {
@@ -293,7 +298,8 @@ export const MODELS = {
 // Entity state from the server: { holder } — somebody picked the item up; { emptyAt } — hourglass.
 export function applyState(obj, state = {}) {
   obj.userData.state={...obj.userData.state,...state};
-  if('holder' in state)obj.visible=!state.holder;
+  // offScene: объекта нет в этой сцене (island.setScene, часть 2)
+  if('holder' in state){obj.userData.held=!!state.holder;obj.visible=!state.holder&&!obj.userData.offScene;}
   if('visible' in state)obj.visible=state.visible;
   if(state.p)obj.position.fromArray(state.p);
   if(Number.isFinite(state.r))obj.rotation.y=state.r;
@@ -307,6 +313,12 @@ export function applyState(obj, state = {}) {
 
 export function animateProp(obj,now){
   const u=obj.userData;
+  // Колодец: 4 с после набора воды ворот крутится, ведро уходит вниз до воды и возвращается
+  if(u.winch&&u.winchAt!=null){
+    const k=THREE.MathUtils.clamp((now-u.winchAt)/4000,0,1),depth=Math.sin(k*Math.PI)*0.75,w=u.winch;
+    w.axle.rotation.x=-k*Math.PI*6;w.bucket.position.y=1.1-depth;w.rope.scale.y=0.9+depth;
+    if(k>=1)u.winchAt=null;
+  }
   if(u.emptyAt&&u.setFill){
     u.setFill(THREE.MathUtils.clamp((u.emptyAt-now)/u.turnSpan,0,1));
     if(u.flipPivot){const t=u.flipAt==null?1:THREE.MathUtils.clamp((now-u.flipAt)/650,0,1);u.flipPivot.rotation.z=t<1?Math.PI*t*t*(3-2*t):0;}

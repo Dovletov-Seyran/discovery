@@ -162,14 +162,14 @@ function onMove(p, msg) {
       p.r = spawn.r;
       p.lastCorrectAt = now;
       players.send(p, { t: S2C.POS_CORRECT, p: p.p, r: p.r });
-      notice(p, p.zone === 'ship' ? 'Человек за бортом! Матросы вытащили тебя на палубу' : 'Тебя вытащили на берег');
+      notice(p, p.zone === 'ship' ? 'Человек за бортом! Матросы вытащили тебя на палубу' : p.zone === 'guanahani' ? 'За рифом глубоко — ты вернулся на берег' : 'Тебя вытащили на берег');
     }
   }
   players.save(p);
 }
 
 // Ниже этой высоты игрок «утонул»: море у корабля на -2,25 м (WATER_Y Фронта 1), у острова — на 0
-const FALL_Y = { ship: -3, canary: -2.5 };
+const FALL_Y = { ship: -3, canary: -2.5, guanahani: -2.5 };
 
 function onInteract(p, msg) {
   const id = typeof msg.id === 'string' ? msg.id : '';

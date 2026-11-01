@@ -10,7 +10,7 @@ import CUTSCENES from '../../../content/cutscenes.json';
 // so all players see the same shot and someone who joins late starts in the middle.
 // The game keeps calling world.frame(); the cutscene takes the camera inside it, after the game has set it.
 
-const EASE = { linear: (u) => u, inOut: (u) => u * u * (3 - 2 * u), out: (u) => 1 - (1 - u) ** 3 };
+const EASE = { linear: (u) => u, inOut: (u) => u * u * (3 - 2 * u), out: (u) => 1 - (1 - u) ** 3, in: (u) => u * u };
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 // piecewise-linear [[t, v], …]
 const track = (list, t) => {
@@ -23,7 +23,7 @@ const track = (list, t) => {
 };
 const curve = (pts) => new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p)), false, 'centripetal');
 
-const SPLASH = 18, X = new THREE.Vector3(1, 0, 0);
+const SPLASH = 18, X = new THREE.Vector3(1, 0, 0), _q = new THREE.Quaternion();
 
 export class Cutscenes {
   constructor(world) {
@@ -49,7 +49,7 @@ export class Cutscenes {
     const def = CUTSCENES[id];
     this.stop();
     if (!def) { console.warn('[world] no cutscene', id); return Promise.resolve(); }
-    const shots = def.shots.map((s) => ({ ...s, cam: curve(s.cam), look: curve(s.look), end: new THREE.Vector3(...s.cam.at(-1)), ease: EASE[s.ease ?? 'inOut'] }));
+    const shots = def.shots.map((s) => s.player ? { ...s, ease: EASE[s.ease ?? 'inOut'] } : ({ ...s, cam: curve(s.cam), look: curve(s.look), end: new THREE.Vector3(...s.cam.at(-1)), ease: EASE[s.ease ?? 'inOut'] }));
     // zone / time-of-day switches, each behind a dip to black; a single one may be given as zone/tod/switchAt
     const switches = def.switch ?? [{ at: def.switchAt ?? 0, zone: def.zone, tod: def.tod, focus: def.focus }];
     return new Promise((done) => {
@@ -80,18 +80,28 @@ export class Cutscenes {
       c.switched = true;
       if (sw.zone && w.zone !== sw.zone) w.setZone(sw.zone);
       if (sw.tod != null) w.setTimeOfDay(sw.tod, true);
+      if (sw.fleet != null) w.setFleet(w.zone, sw.fleet);
       w.chunks.focus = sw.focus ? new THREE.Vector3(sw.focus[0], 0, sw.focus[1]) : null;
     }
     if (c.switched && w.chunks.focus) w.chunks.update(w.chunks.focus, dt);
     if (def.todTrack && c.switched) w.setTimeOfDay(track(def.todTrack, t), true);
+    w.env.fogOverride = def.fog ? track(def.fog, t) ?? null : null; // fog: [[t, density | null]]
 
     const shot = def.shots.findIndex((s) => t >= s.from && t < s.to);
     if (shot >= 0) {
       const s = c.shots[shot], u = s.ease(clamp01((t - s.from) / (s.to - s.from)));
-      s.cam.getPoint(u, cam.position);
-      cam.lookAt(s.look.getPoint(u, this.look));
-      // shadows centre on where the shot ends, so the last frame has the same shadows as the game's first
-      this.shadowFocus = s.end;
+      if (s.player) {
+        // the player's own eyes; lie: [drop m, pitch up rad] — lying in the hammock, then sitting up into the game view
+        const k = 1 - u, [dy, up] = s.lie ?? [0, 0];
+        cam.position.copy(this.gamePos); cam.position.y -= dy * k;
+        cam.quaternion.copy(this.gameQuat).multiply(_q.setFromAxisAngle(X, up * k));
+        this.shadowFocus = null;
+      } else {
+        s.cam.getPoint(u, cam.position);
+        cam.lookAt(s.look.getPoint(u, this.look));
+        // shadows centre on where the shot ends, so the last frame has the same shadows as the game's first
+        this.shadowFocus = s.end;
+      }
       // fov keys may end on "game": back to the player's own lens, so the hand-over does not zoom
       const fov = def.fov ? track(def.fov.map(([k, v]) => [k, v === 'game' ? c.fov : v]), t) : c.fov;
       if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
@@ -104,12 +114,15 @@ export class Cutscenes {
       }
     }
 
-    if (c.switched) { this.fleet(def, t); this.rowboat(def, t); }
+    if (c.switched) { this.fleet(def, t); this.rowboat(def, t); this.extras(def, t); this.shipLights(def, t); this.fires(def, t); }
     this.anchor(def, t);
     this.lamps(def, t);
 
     const o = this.overlay();
     o.fade.style.opacity = def.fade ? track(def.fade, t) : 0;
+    // eyelids: 1 shut, 0 open (waking up, falling asleep)
+    const lid = def.lids ? track(def.lids, t) : 0;
+    o.lidTop.style.transform = `translateY(${(lid - 1) * 100}%)`; o.lidBottom.style.transform = `translateY(${(1 - lid) * 100}%)`;
     const bars = Math.min(clamp01((t - def.bars.in[0]) / (def.bars.in[1] - def.bars.in[0])), 1 - clamp01((t - def.bars.out[0]) / (def.bars.out[1] - def.bars.out[0])));
     o.top.style.transform = `translateY(${(bars - 1) * 100}%)`;
     o.bottom.style.transform = `translateY(${(1 - bars) * 100}%)`;
@@ -125,7 +138,7 @@ export class Cutscenes {
     const env = this.w.env;
     for (const f of def.fleet ?? []) {
       if (t < f.t[0] || (t > f.t[1] && f.until !== 'end')) continue;
-      const u = clamp01((t - f.t[0]) / (f.t[1] - f.t[0]));
+      const u = (EASE[f.ease] ?? EASE.linear)(clamp01((t - f.t[0]) / (f.t[1] - f.t[0]))); // ease: 'out' glides to a halt
       if (f.run != null) {
         const [x, z, h] = env.fleet[f.ship].userData.bay, left = f.run * (1 - EASE.out(u));
         env.placeShip(f.ship, x + Math.sin(h) * left, z + Math.cos(h) * left, h);
@@ -162,11 +175,15 @@ export class Cutscenes {
   // The rowboat: one oarsman on the middle thwart facing aft, a passenger in the stern. The oars swing on
   // their oarlocks in a real stroke (catch → drive with the blades in the water → recovery in the air) and
   // the oarsman's hands stay on the handles (people.reach), leaning into each pull.
-  // `entity` — the game's own boat, hidden while this one is about.
+  // `entity` — the game's own boat, hidden while this one is about. rower / passenger: NPC_LOOK ids (part 2: the
+  // admiral comes ashore; a villager taken as a guide sits in the stern).
   rowboat(def, t) {
     const b = def.boat;
     if (!b) return;
-    if (!this.boat) this.boat = this.buildRowboat();
+    const key = `${b.rower ?? 'sailor_1'}|${b.passenger ?? 'sailor_2'}`;
+    if (this.boat && this.boat.key !== key) { this.boat.group.removeFromParent(); this.boat = null; }
+    if (!this.boat) this.boat = { ...this.buildRowboat(b.rower, b.passenger), key };
+    if (b.until != null && t > b.until) { this.boat.group.visible = false; return; } // gone behind a cut
     const u = clamp01((t - b.t[0]) / (b.t[1] - b.t[0])), k = u < 0.85 ? u / 0.85 * 0.92 : 0.92 + EASE.out((u - 0.85) / 0.15) * 0.08;
     const { group: g, oars, rower } = this.boat, rowing = u < 0.97;
     const ph = ((t - b.t[0]) * 0.8) % 1, drive = ph < 0.55, q = drive ? ph / 0.55 : (ph - 0.55) / 0.45;
@@ -188,7 +205,7 @@ export class Cutscenes {
     if (b.entity) this.w.setEntityState(b.entity, { visible: false });
   }
 
-  buildRowboat() {
+  buildRowboat(rowerLook = 'sailor_1', passengerLook = 'sailor_2') {
     const M = this.w.M, group = new THREE.Group(), model = ISLAND_MODELS.boat(M).obj;
     model.children.slice(-2).forEach((o) => o.removeFromParent()); // the model's resting oars: ours move
     group.add(model);
@@ -202,10 +219,10 @@ export class Cutscenes {
       return { s, pivot, pole: new THREE.Vector3(s, -1, -0.3) };
     });
     // oarsman faces aft (+z, the model's own front) as rowers do; the boat moves towards −z
-    const rower = person(M.person, NPC_LOOK.sailor_1);
+    const rower = person(M.person, NPC_LOOK[rowerLook] ?? NPC_LOOK.sailor_1);
     pose(rower, 'sit');
     rower.root.position.set(0, -0.3, -0.5);
-    const passenger = person(M.person, NPC_LOOK.sailor_2);
+    const passenger = person(M.person, NPC_LOOK[passengerLook] ?? NPC_LOOK.sailor_2);
     pose(passenger, 'sit');
     passenger.root.position.set(0, -0.3, 1.35);
     passenger.root.rotation.y = Math.PI; // looks ahead, at the ship
@@ -213,6 +230,84 @@ export class Cutscenes {
     group.visible = false;
     this.w.scene.add(group);
     return { group, oars, rower };
+  }
+
+  // Extras: people who only exist in the cutscene. { look (NPC_LOOK id), pose, p: [x, z], r, run: { to, t }, torch }
+  // — standing, or running to `to` during t (feet on the ground, the run cycle in step with the distance).
+  extras(def, t) {
+    if (!def.extras) return;
+    if (!this.cast) {
+      this.cast = def.extras.map((e) => {
+        const rig = person(this.w.M.person, NPC_LOOK[e.look] ?? NPC_LOOK.villager_2);
+        pose(rig, e.pose ?? 'stand');
+        if (e.torch) rig.root.add(this.torch());
+        this.w.scene.add(rig.root);
+        return { e, rig };
+      });
+    }
+    for (const { e, rig } of this.cast) {
+      let [x, z] = e.p, r = e.r ?? 0;
+      if (e.run) {
+        const u = clamp01((t - e.run.t[0]) / (e.run.t[1] - e.run.t[0])), dx = e.run.to[0] - x, dz = e.run.to[1] - z;
+        if (u > 0 && u < 1) { pose(rig, 'run', u * Math.hypot(dx, dz) * 1.2); r = Math.atan2(-dx, -dz); } else pose(rig, e.pose ?? 'stand');
+        if (u >= 1) r = e.run.r ?? r;
+        x += dx * u; z += dz * u;
+      }
+      rig.root.position.set(x, this.w.groundHeight(x, z, 20) ?? 0.5, z);
+      rig.root.rotation.y = r + Math.PI; // r: camera-style yaw, the model faces +z
+    }
+    for (const tc of this.torches ?? []) tc.userData.flicker(t);
+  }
+
+  // a burning torch raised in the right hand: a stick, a flickering flame and its light
+  torch() {
+    const g = new THREE.Group(), M = this.w.M;
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.7, 6).translate(0, 0.35, 0), M.get('trim')));
+    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.w.smokeMat.map, color: 0xffb050, blending: THREE.AdditiveBlending, depthWrite: false }));
+    flame.position.y = 0.8; flame.scale.setScalar(0.6);
+    const light = new THREE.PointLight(0xff9a40, 6, 16, 2); light.position.y = 0.85;
+    g.add(flame, light);
+    g.position.set(-0.32, 1.5, 0.15);
+    g.userData.flicker = (t) => { const k = 0.85 + 0.15 * Math.sin(t * 17) * Math.sin(t * 7.3 + 1); light.intensity = 6 * k; flame.scale.setScalar(0.55 + 0.12 * k); };
+    this.torches = [...(this.torches ?? []), g];
+    return g;
+  }
+
+  // fires: [[x, z], …] until firesUntil — hearths still glowing in a sleeping village (a light that reaches the huts, a glow to see from afar)
+  fires(def, t) {
+    if (!def.fires) return;
+    if (!this.hearths) {
+      this.hearths = def.fires.map(([x, z]) => {
+        const g = new THREE.Group(), y = (this.w.groundHeight(x, z, 30) ?? 1) + 0.4;
+        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.w.smokeMat.map, color: 0xff9a40, blending: THREE.AdditiveBlending, depthWrite: false }));
+        glow.scale.setScalar(3.5);
+        const light = new THREE.PointLight(0xff8a3a, 30, 26, 2); light.position.y = 0.6;
+        g.add(glow, light); g.position.set(x, y, z);
+        this.w.scene.add(g);
+        return { g, light, glow };
+      });
+    }
+    const on = t < (def.firesUntil ?? Infinity); // out by morning
+    this.hearths.forEach(({ g }) => { g.visible = on; });
+    this.hearths.forEach(({ light, glow }, i) => { const k = 0.85 + 0.15 * Math.sin(t * 9 + i * 2) * Math.sin(t * 5.3 + i); light.intensity = 30 * k; glow.scale.setScalar(3.2 + 0.6 * k); });
+  }
+
+  // the ships' lanterns at night, seen from the shore
+  shipLights(def, t) {
+    if (!def.shipLights) return;
+    if (!this.glows) {
+      this.glows = this.w.env.fleet.map(() => {
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.w.smokeMat.map, color: 0xffb060, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+        s.scale.setScalar(8); this.w.scene.add(s);
+        return s;
+      });
+    }
+    this.w.env.fleet.forEach((f, i) => {
+      const g = this.glows[i];
+      g.visible = f.visible;
+      if (f.visible) g.position.copy(this.v.set(0, 7, 13).applyMatrix4(f.matrixWorld)); // the stern lantern
+      g.material.opacity = 0.8 + 0.2 * Math.sin(t * 2.1 + i);
+    });
   }
 
   // deterministic in t: every player sees the same drops
@@ -239,7 +334,7 @@ export class Cutscenes {
       c.ended = performance.now();
       // the fleet as the game expects it: at anchor in the bay, or under sail at sea (setZone placed those)
       const env = this.w.env, f = c.def.furl;
-      if (this.w.zone === 'canary') for (const m of c.def.fleet ?? []) if (m.run != null) { const b = env.fleet[m.ship].userData.bay; env.placeShip(m.ship, b[0], b[1], b[2]); }
+      if (this.w.zone !== 'ship') for (const m of c.def.fleet ?? []) if (m.run != null) { const b = env.fleet[m.ship].userData.bay; env.placeShip(m.ship, b[0], b[1], b[2]); }
       if (f) for (const ship of env.fleet) furlSails(ship.userData.sails, typeof f[0] === 'number' ? 1 : f.at(-1)[1]);
       c.done();
     }
@@ -253,6 +348,7 @@ export class Cutscenes {
       o.top.style.transform = 'translateY(-100%)'; o.bottom.style.transform = 'translateY(100%)';
       return;
     }
+    if (last.player) { this.stop(); return; } // it ended in the player's own eyes already
     const near = c.def.blend ? 10 : 4; // with a blend the game camera only has to be close to the shot's end
     if (cam.position.distanceTo(last.end) < near || performance.now() - c.ended > 2500) { this.stop(); return; }
     if (this.w.chunks.focus) this.w.chunks.update(this.w.chunks.focus, 1 / 60);
@@ -270,8 +366,13 @@ export class Cutscenes {
     w.chunks.focus = null;
     this.shadowFocus = null;
     if (this.boat) this.boat.group.visible = false;
+    for (const { rig } of this.cast ?? []) { rig.root.removeFromParent(); rig.root.traverse((o) => o.geometry?.dispose()); }
+    for (const g of this.glows ?? []) { g.removeFromParent(); g.material.dispose(); }
+    for (const h of this.hearths ?? []) h.g.removeFromParent();
+    this.cast = this.glows = this.torches = this.hearths = null;
     if (c.def.boat?.entity) w.setEntityState(c.def.boat.entity, { visible: true });
     if (!c.def.lamps?.persist) w.env.lampScale = null;
+    w.env.fogOverride = null;
     if (w.camera.fov !== c.fov) { w.camera.fov = c.fov; w.camera.updateProjectionMatrix(); }
     w.players.group.visible = true;
     this.splash.visible = false;
@@ -289,7 +390,11 @@ export class Cutscenes {
     const fade = el('position:absolute;inset:0;background:#000;opacity:0', root);
     const title = el("position:absolute;left:0;right:0;bottom:15vh;text-align:center;color:#f1e7cf;opacity:0;font-family:'Chronicle','Iowan Old Style',Georgia,serif;text-shadow:0 2px 14px rgba(0,0,0,0.55)", root);
     document.body.appendChild(root);
-    this.dom = { root, top, bottom, fade, title };
+    const lid = 'position:absolute;left:0;right:0;height:50.5vh;background:#000;';
+    const lidTop = el(lid + 'top:0;border-radius:0 0 50% 50% / 0 0 18% 18%;transform:translateY(-100%)', root);
+    const lidBottom = el(lid + 'bottom:0;border-radius:50% 50% 0 0 / 18% 18% 0 0;transform:translateY(100%)', root);
+    root.appendChild(title); // above the lids and the black
+    this.dom = { root, top, bottom, fade, title, lidTop, lidBottom };
     return this.dom;
   }
 
@@ -298,6 +403,7 @@ export class Cutscenes {
     o.title.innerHTML = '';
     if (!t) return;
     const line = (text, css) => { const d = document.createElement('div'); d.textContent = text; d.style.cssText = css; o.title.appendChild(d); };
+    o.title.style.bottom = t.center ? '44vh' : '15vh';
     line(t.text, 'font-size:clamp(22px,3.2vw,44px);letter-spacing:0.06em');
     if (t.sub) line(t.sub, 'font-size:clamp(14px,1.6vw,22px);letter-spacing:0.32em;text-transform:uppercase;margin-top:0.5em;opacity:0.85');
   }

@@ -33,7 +33,7 @@ export const HOLD_POSES={
  astrolabe:{size:.40,rotation:[1.40,0,0],depth:.78},
  map:{size:.68,rotation:[1.05,0,-.10],depth:.88},
  wine:{size:.40,rotation:[.75,0,-.15],depth:.72},
- espingarda:{size:1.05,rotation:[-.70,.12,-.12],depth:1.0},
+ espingarda:{size:1.28,rotation:[-1.05,-.12,-.10],depth:1.0},
  barrel:{size:.55,rotation:[.05,-.25,0],depth:.92},
  barrel_full:{size:.55,rotation:[.05,-.25,0],depth:.92},
  tar:{size:.45,rotation:[.12,-.15,0],depth:.82},
@@ -64,15 +64,16 @@ export class Equipment {
   const box=new THREE.Box3().setFromObject(model),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
   const scale=(pose?.size||.4)/Math.max(size.x,size.y,size.z,.01);
   model.scale.setScalar(scale);
-  if(id==='sword')model.position.set(0,0,0); // pivot at the grip, not the centre of the blade
+  if(id==='sword'||id==='espingarda')model.position.set(0,0,0); // pivot at the grip
   else {model.position.copy(center).multiplyScalar(-scale);model.position.y+=(pose?.size||.4)*.32;}
   this.object=new THREE.Group();this.object.add(model);
   this.heldModel=model;
   const grip=hand();if(['map','planks'].includes(id))grip.position.set(-.13,-.04,.04);
   this.object.add(grip);
   if(id==='espingarda'){
+   const support=hand();support.position.set(-.01,.40,.035);support.rotation.y=Math.PI;this.object.add(support);
    const material=new THREE.MeshBasicMaterial({color:0xffdd91,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false});material.userData.equipmentOwned=true;
-   this.flash=new THREE.Mesh(new THREE.ConeGeometry(.09,.24,7),material);this.flash.position.set(0,.84,0);this.flash.visible=false;this.object.add(this.flash);
+   this.flash=new THREE.Mesh(new THREE.ConeGeometry(.065,.20,9),material);this.flash.position.fromArray(model.userData.muzzle).multiplyScalar(scale);this.flash.position.y+=.08;this.flash.visible=false;this.object.add(this.flash);
   }else this.flash=null;
   this.root.add(this.object);
  }

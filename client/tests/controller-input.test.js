@@ -10,9 +10,10 @@ function setup(request){
  const world={camera:new PerspectiveCamera(),groundHeight:()=>0,collide:()=>({onGround:false})};
  const c=new Controller(world,canvas);c.setMode('play');return {c,canvas};
 }
-test('missing Pointer Lock: click enables WASD; blur and modal stop movement',()=>{
- const {c,canvas}=setup();window.dispatchEvent(event('keydown',{code:'KeyW'}));c.update(.05,0);assert.equal(c.position.z,0);
- c.lock();window.dispatchEvent(event('keydown',{code:'KeyW'}));c.update(.05,1);assert.ok(c.position.z<0);
+test('WASD works without a click (after an item card closes); blur and modal stop movement',()=>{
+ const {c,canvas}=setup();window.dispatchEvent(event('keydown',{code:'KeyW'}));c.update(.05,0);assert.ok(c.position.z<0);
+ c.setMode('blocked');c.setMode('play');const z=c.position.z;c.update(.05,1);assert.equal(c.position.z,z,'окно сбросило нажатые клавиши');
+ c.lock();window.dispatchEvent(event('keydown',{code:'KeyW'}));c.update(.05,2);assert.ok(c.position.z<z);
  canvas.dispatchEvent(event('blur'));assert.equal(c.hasControl,false);assert.equal(c.keys.size,0);
  c.lock();c.setMode('blocked');assert.equal(c.hasControl,false);c.dispose();
 });
@@ -32,4 +33,13 @@ test('exhausted sprint slows to walking and stamina recovers while resting',()=>
  c.update(.05,0);c.update(.05,.05);assert.equal(c.exhausted,true);assert.equal(c.animation,'walk');
  c.keys.clear();for(let i=0;i<90;i++)c.update(.05,i*.05);
  assert.ok(c.stamina>=20);assert.equal(c.exhausted,false);c.dispose();
+});
+
+test('left drag rotates the camera without using an item; a short click remains available',()=>{
+ const {c,canvas}=setup();c.lock();const yaw=c.yaw;
+ canvas.dispatchEvent(event('mousedown',{button:0}));document.dispatchEvent(event('mousemove',{movementX:35,movementY:-20}));
+ assert.ok(c.yaw<yaw);assert.ok(c.pitch>0);
+ window.dispatchEvent(event('mouseup',{button:0}));assert.equal(c.consumeLookClick(),true);assert.equal(c.consumeLookClick(),false);
+ canvas.dispatchEvent(event('mousedown',{button:0}));window.dispatchEvent(event('mouseup',{button:0}));assert.equal(c.consumeLookClick(),false);
+ c.setMode('blocked');const stopped=c.yaw;document.dispatchEvent(event('mousemove',{movementX:35,movementY:-20}));assert.equal(c.yaw,stopped);c.dispose();
 });

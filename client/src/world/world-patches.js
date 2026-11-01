@@ -41,7 +41,8 @@ export class WorldPatches {
         ctx.fillStyle = '#5a3022'; ctx.fillRect(x + size * .22, y + size * .29, size * .06, size * .11);
       }
     }, { side: THREE.DoubleSide });
-    this.flag = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), mat);
+    this.flag = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8, 8, 4), mat);
+    this.flagBase = Float32Array.from(this.flag.geometry.attributes.position.array);
     this.flag.position.set(0.65, 11.8, 10); this.flag.castShadow = true;
     this.world.ship.add(this.flag); return this.flag;
   }
@@ -88,6 +89,18 @@ export class WorldPatches {
     if (flag || this.flag) (this.flag ?? this.makeFlag()).visible = flag;
     env.lampPatch = lampPatch.size ? lampPatch : null;
     env.fogOverride = fog;
+  }
+
+  // Флаг колышется на ветру: волна бежит от древка к краю (дёшево: 45 вершин, только пока флаг виден)
+  flutter(t) {
+    const f = this.flag;
+    if (!f?.visible) return;
+    const a = f.geometry.attributes.position, base = this.flagBase;
+    for (let i = 0; i < a.count; i++) {
+      const x = base[i * 3] + 0.6; // 0 — у древка
+      a.array[i * 3 + 2] = Math.sin(t * 5 - x * 6 + base[i * 3 + 1] * 2) * 0.09 * x;
+    }
+    a.needsUpdate = true; f.geometry.computeVertexNormals();
   }
 
   collide() { return false; }

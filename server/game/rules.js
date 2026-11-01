@@ -6,6 +6,7 @@ import {emitWorldEvent} from './world-events.js';
 import {toggle,canPickup} from './objects.js';
 import {applyItemUse,advanceStamina} from './item-actions.js';
 import {ITEM_RULES} from '../../shared/item-actions.js';
+import {SONGS,activePerformance} from '../../shared/npc-performance.js';
 import { CONFIG } from '../../shared/config.js';
 import { ASTROLABE, latitude } from '../../shared/astrolabe.js';
 import { S2C } from '../../shared/protocol.js';
@@ -19,10 +20,15 @@ import * as ai from './ai-bridge.js';
 
 const NPCS = new Map(loadContent('npcs.json', []).map((n) => [n.id, n]));
 const ROUTINES = loadContent('npc-routines.json', {});
+const ITEM_NAMES = new Map(loadContent('items.json', []).map((i) => [i.id, i.name]));
 
 const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
 const sceneId = () => director.scene().id;
 const playable = () => director.acceptsMove() && !director.isTransitioning();
+const itemName = (id) => ITEM_NAMES.get(id) ?? id;
+const countOf = (p, item) => p.inventory.filter((x) => x === item).length;
+// Объект только для некоторых сцен (scenes: [...]): шлюпки и люди Колумба на Гуанахани есть только 12 октября
+const present = (d) => !d.scenes || d.scenes.includes(sceneId());
 
 function event(p, ev) {
   const boatScene = !!director.scene().readyAt;
@@ -62,7 +68,7 @@ export function pickup(p, msg) {
   if (!playable()) return;
   const id = msg.id;
   const d = entities.def(id);
-  if (d?.kind !== 'item') return;
+  if (d?.kind !== 'item' || !present(d)) return;
   if (!entities.isNear(p, id)) return notice(p, 'Подойди ближе');
   const st = entities.stateOf(id);
   if (st?.holder) return notice(p, st.holder === p.id ? 'Это уже у тебя' : 'Кто-то уже взял это');
@@ -126,13 +132,22 @@ export function interact(p, msg) {
   if (!playable()) return;
   const id = msg.id;
   const d = entities.def(id);
-  if (!d || d.zone !== p.zone) return;
+  if (!d || d.zone !== p.zone || !present(d)) return;
   if (d.kind === 'item') return pickup(p, msg);
   if (d.kind === 'toggle') return toggle(p,msg);
   if (!entities.isNear(p, id)) return notice(p, 'Подойди ближе');
   if (d.kind === 'npc' && npcOwner(id) && npcOwner(id) !== p) return claimNpc(p, id);
-  if (d.kind === 'dance') worldEvent(p, 'dance');
+  if (d.kind === 'dance') { worldEvent(p, 'dance'); performAction(p, 'dance'); sayLine('feast_dance', p); }
+  // Карты на празднике: E у стола — партия с матросом. Сервер сдаёт сам: выиграл или проиграл,
+  // засчитывается сама игра (задание «Праздник»: сыграть в карты)
+  if (d.kind === 'cards') {
+    const win = Math.random() < 0.5;
+    sayLine(win ? 'feast_cards_lose' : 'feast_cards_win', p);
+    notice(p, win ? 'Партия в карты: ты выиграл!' : 'Партия в карты: матрос выиграл. Ещё партию?');
+    event(p, { type: 'minigame', game: 'cards', success: true });
+  }
 
+  let gained = []; // предметы, которые игрок получил этим нажатием (→ события pickup / trade_complete)
   switch (d.kind) {
     case 'hourglass': {
       const now = Date.now();
@@ -155,20 +170,82 @@ export function interact(p, msg) {
       break;
     case 'npc':
       if (id === 'trader') players.send(p, tradeState(p, id));
+      if (d.swap) gained = swap(p, d);
+      break;
+    case 'source': {
+      const got = takeFrom(p, id, d);
+      if (got === null) return;
+      gained = got;
+      break;
+    }
+    case 'station':
+      if (d.takes && !(gained = craft(p, d))) return;
       break;
   }
+  if (gained.length) {
+    players.sendInventory(p);
+    players.save(p, { now: true });
+  }
+  if (d.say && (d.kind !== 'source' || gained.length)) notice(p, d.say);
 
   const rudderStep = quests.stateOf(p, sceneId(), 'q_rudder')?.step;
   event(p, { type: 'interact', target: id });
+  for (const item of gained) event(p, { type: d.swap ? 'trade_complete' : 'pickup', item });
 
   // E у NPC или шлюпки — отдать всё, что ждут задания
-  for (const item of [...p.inventory]) deliver(p, item, id);
+  let delivered = 0;
+  for (const item of [...p.inventory]) if (deliver(p, item, id)) delivered++;
+  if (delivered && d.thanks) sayLine(d.thanks, p);
   if (id === 'carpenter') {
     const st = quests.stateOf(p, sceneId(), 'q_rudder');
     sayLine(st?.status === 'done' ? 'carpenter_done' : rudderStep ? 'carpenter_wait' : 'carpenter_task', p);
   }
 
   if (director.scene().readyAt === id) boardBoat(p, id);
+}
+
+// --- Часть 2: огород, кусты хлопка, лагуна, тёрка, бурен, обмен ---
+
+// Источник: каждый раз даёт gives, пока у игрока их меньше max (по умолчанию 1).
+// needs — без этого предмета не выйдет (острога); hits — сколько раз ударить, пока получится (рыба).
+// → [предмет] или [] (удар мимо), null — ничего не произошло
+function takeFrom(p, id, d) {
+  if (d.needs && !p.inventory.includes(d.needs)) { notice(p, d.needText ?? `Нужно: ${itemName(d.needs)}`); return null; }
+  if (countOf(p, d.gives) >= (d.max ?? 1)) { notice(p, `У тебя уже есть: ${itemName(d.gives)}`); return null; }
+  if (d.hits > 1) {
+    const hits = { ...entities.stateOf(id)?.hits };
+    hits[p.id] = (hits[p.id] ?? 0) + 1;
+    const done = hits[p.id] >= d.hits;
+    if (done) delete hits[p.id];
+    entities.setState(id, { hits });
+    if (!done) { notice(p, `${d.hitText ?? 'Есть!'} (${hits[p.id]} из ${d.hits})`); return []; }
+  }
+  p.inventory.push(d.gives);
+  return [d.gives];
+}
+
+// Станция: забирает takes (n штук) и даёт gives — тёрка, жгут, бурен, рама для гамака
+function craft(p, d) {
+  const n = d.n ?? 1;
+  if (countOf(p, d.takes) < n) { notice(p, d.needText ?? `Нужно: ${itemName(d.takes)}${n > 1 ? ` × ${n}` : ''}`); return null; }
+  for (let i = 0; i < n; i++) removeItem(p, d.takes);
+  p.inventory.push(d.gives);
+  return [d.gives];
+}
+
+// Обмен без слов (матрос со сундучком): swap { что отдаёшь: что получаешь }
+function swap(p, d) {
+  const got = [];
+  for (const item of [...p.inventory]) {
+    const back = d.swap[item];
+    if (!back) continue;
+    removeItem(p, item);
+    p.inventory.push(back);
+    got.push(back);
+    notice(p, `${d.label ?? 'Чужак'} взял: ${itemName(item)} — и дал тебе: ${itemName(back)}`);
+  }
+  if (!got.length) notice(p, d.swapText ?? 'Он показывает на твои руки: ему нужно что-то взамен');
+  return got;
 }
 
 function boardBoat(p, id) {
@@ -196,11 +273,13 @@ export function minigame(p, msg) {
 // --- Разговор с NPC ---
 
 export function context(p, npc) {
+  const performance=entities.stateOf(npc)?.performance;
+  const performing=activePerformance(performance,{id:sceneId(),startAt:director.startAt()});
   const behavior = entities.stateOf(npc)?.behavior;
   const job = behavior?.scene === `${sceneId()}@${director.startAt()}`
     ? ROUTINES[npc]?.scenes?.[sceneId()]?.jobs.find(j => j.id === behavior.job) : null;
   return {
-    ...(job ? { activity: job.title } : {}),
+    ...(performing ? {activity:`Playing ${SONGS[performance.song].description} on my guitar. The music is already audible to the crew.`,performing:true} : job ? { activity: job.title } : {}),
     role: p.role, name: p.name, scene: sceneId(), inventory: p.inventory,
     questsDone: Object.keys(p.quests).filter((id) => p.quests[id]?.status === 'done'), log: p.log,
     // для ИИ: подсказка по текущему шагу задания и кто ещё в экипаже
@@ -393,6 +472,15 @@ export function scare(p, msg) {
 
 export function onSceneStart(scene, party) {
   syncNpcDialogues();
+  // Часть 2 начинается с чистых рук: жители Гуанахани не носят астролябий
+  if (scene.clearInventory) {
+    for (const p of party) {
+      p.inventory = [];
+      p.money = 0;
+      players.sendInventory(p);
+      players.save(p, { now: true });
+    }
+  }
   if (scene.id === 'ship_day') {
     const d = entities.def('hourglass');
     if (d) {

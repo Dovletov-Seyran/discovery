@@ -1,4 +1,4 @@
-// Генератор острова Ла-Гомера — чистые функции без БД и Node API, поэтому им пользуются и сервер
+// Генератор островов (Ла-Гомера; Гуанахани части 2 — shape.kind "flat") — чистые функции без БД и Node API, поэтому им пользуются и сервер
 // (generate.js → таблица chunks), и офлайн-страница мира клиента (client/src/world/dev/fakeServer.js).
 //
 // canary_layout.json:
@@ -25,14 +25,60 @@ const FOOTPRINTS = {
   shipyard: [-3.5, 5, -8, 8],
   well: [-1.7, 1.7, -1.7, 1.7],
   pier: [-2.6, 2.6, -4, 1.2], // только сухой конец: настил и земля вровень
+  // Гуанахани (часть 2)
+  bohio: [-3.6, 3.6, -3.6, 3.6],
+  caney: [-6.5, 6.5, -5, 5],
+  batey: [-16, 16, -12, 12],
+  conuco: [-7.5, 7.5, -6, 6],
+  cotton_bush: [-1, 1, -1, 1],
+  buren: [-0.7, 0.7, -0.7, 0.7],
+  loom: [-1.3, 1.3, -0.4, 0.4],
 };
 const BLEND = 4; // м: плавный переход площадки в рельеф
 
 // Поворот как у three.js rotation.y: локальные (x, z) → мировые смещения
 const rot = (r, x, z) => [x * Math.cos(r) + z * Math.sin(r), -x * Math.sin(r) + z * Math.cos(r)];
 
+// Плоский известняковый остров (Гуанахани, часть 2): shape.kind = "flat".
+//   shape: { center, radius: [rx, rz], hills (м), lake: [x, z, rx, rz], lagoon (м до рифа), reef (м ширины) }
+// Низкие холмы, дюна за пляжем, мелкая лагуна до рифа с разрывами, за рифом — глубина; солёное озеро внутри.
+function flatHeight(layout) {
+  const rand = mulberry32(layout.seed);
+  const hillsNoise = createNoise2D(rand), shapeNoise = createNoise2D(rand), reefNoise = createNoise2D(rand);
+  const { center: [cx, cz], radius: [rx, rz], hills: hh = 8, lake, lagoon = 30, reef = 3 } = layout.shape;
+  const { center: [tx, tz], half, height: townH } = layout.town;
+  const R = (rx + rz) / 2, L = lagoon / R, W = reef / R; // в долях радиуса
+  return (x, z) => {
+    const e = Math.hypot((x - cx) / rx, (z - cz) / rz) + 0.07 * shapeNoise(x / 80, z / 80) + 0.025 * shapeNoise(x / 18, z / 18);
+    let h;
+    if (e < 1) {
+      const hills = (fbm(hillsNoise, x / 90, z / 90, 4) + 1) / 2;
+      h = 1.2 + hh * Math.pow(hills, 1.6) * smoothstep(1.0, 0.75, e);
+      h += 1.4 * Math.exp(-(((e - 0.92) / 0.05) ** 2)); // невысокая дюна за пляжем
+      h = lerp(h, 0.9 - 1.2 * (e - 0.95) / 0.05, smoothstep(0.93, 0.985, e)); // пологий пляж к воде
+    } else {
+      // лагуна 0.8–2.2 м до рифа, риф почти до поверхности (с разрывами), за ним обрыв
+      // от кромки пляжа (−0.3 м) дно опускается плавно, без ступеньки
+      const lag = lerp(-0.3, -1.0 - 0.7 * (fbm(reefNoise, x / 40, z / 40, 3) + 1) / 2, smoothstep(1, 1.07, e)) - 0.5 * smoothstep(1, 1 + L, e);
+      const gap = smoothstep(0.35, 0.6, (reefNoise(x / 45, z / 45) + 1) / 2);
+      const crest = lerp(-0.5, -1.6, gap); // just awash: breakers, but no mangroves take root on it
+      const onReef = Math.exp(-(((e - 1 - L) / (W + 0.01)) ** 2));
+      h = lerp(lag, crest, onReef);
+      h = lerp(h, -10, smoothstep(1 + L + W, 1 + L + W + 0.12, e));
+    }
+    if (lake) { // солёное озеро внутри острова
+      const [lx, lz, lrx, lrz] = lake, d = Math.hypot((x - lx) / lrx, (z - lz) / lrz) + 0.12 * shapeNoise(x / 30, z / 30);
+      h = lerp(h, -1.0, 1 - smoothstep(0.85, 1.15, d));
+    }
+    // деревня почти ровная (она стоит за дюной, до берега от её края больше 18 м)
+    const dv = Math.max(Math.abs(x - tx), Math.abs(z - tz));
+    return lerp(h, townH + 0.2 * shapeNoise(x / 25, z / 25), 1 - smoothstep(half, half + 18, dv));
+  };
+}
+
 // Базовый рельеф без площадок
 function baseHeight(layout) {
+  if (layout.shape.kind === 'flat') return flatHeight(layout);
   const rand = mulberry32(layout.seed);
   const hillsNoise = createNoise2D(rand), shapeNoise = createNoise2D(rand);
   const { center: [cx, cz], radius: [rx, rz], peak: [px, pz, pr], peakHeight } = layout.shape;
@@ -144,7 +190,7 @@ const onPad = (pads, x, z, margin) => pads.some((pd) => {
 });
 
 // Радиус основания моделей разброса (при масштабе 1), м
-const SINK = { rock: 1.0, palm_canary: 0.45, dragon_tree: 0.8, bush: 0.7 };
+const SINK = { rock: 1.0, palm_canary: 0.45, dragon_tree: 0.8, bush: 0.7, palm_fan: 0.3, sea_grape: 0.9, gumbo_limbo: 0.5, mangrove: 1.2, rock_lime: 1.0 };
 
 // Растительность и камни: случайные точки с минимальным расстоянием, не в городе, не на дорожках и площадках
 function scatter(layout, heightAt, pads, warn) {
@@ -193,7 +239,7 @@ export function generateCanary(layout, { warn = console.warn } = {}) {
     for (let cx = 0; cx < n; cx++) {
       const h = new Array(RES * RES);
       for (let iz = 0; iz < RES; iz++) for (let ix = 0; ix < RES; ix++) h[iz * RES + ix] = r1(heightAt(cx * CS + ix, cz * CS + iz));
-      chunks.set(`${cx},${cz}`, { zone: 'canary', cx, cz, size: CS, res: RES, h, objects: [], interact: [], npcs: [] });
+      chunks.set(`${cx},${cz}`, { zone: layout.zone ?? 'canary', cx, cz, size: CS, res: RES, h, objects: [], interact: [], npcs: [] });
     }
   }
   const put = (list, obj) => {

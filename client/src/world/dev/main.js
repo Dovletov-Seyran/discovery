@@ -1,16 +1,18 @@
 // Stand-alone page for working on the world without the server: /world-dev.html
 // The real first-person controller, HUD and networking belong to Фронт 2; this is just enough to walk around.
-//   ?zone=canary  start on La Gomera (Z switches zones); chunks come from dev/fakeServer.js
+//   ?zone=canary|guanahani  start on an island (Z cycles ship → La Gomera → Guanahani); chunks from dev/fakeServer.js
 //   ?q=low|high|ultra   start on this preset (otherwise high with auto-detect)
 //   ?tod=0.72    time of day
 //   ?bots=2      fake remote players walking in circles (tests interpolation)
 //   ?cam=x,y,z,yaw,pitch   fixed camera, no controls (for screenshots)
 //   ?bench       measure every preset on this machine (see bench.js)
 // Keys: C plays cut_canary (from the ship to the pier of La Gomera), V plays cut_evening (back to sea at sunset),
-//   N plays cut_night (dusk, calm and fog, down to the lantern).
+//   N plays cut_night (dusk, calm and fog, down to the lantern), P opens part 2 (p2_prologue on Guanahani),
+//   L the night alarm (p2_alarm).
 import * as THREE from 'three';
 import { world } from '../index.js';
 import layout from '../../../../content/ship_layout.json';
+import guanahani from '../../../../content/guanahani_layout.json';
 import { createFakeServer } from './fakeServer.js';
 
 const P = new URLSearchParams(location.search);
@@ -43,9 +45,11 @@ const RADIUS = 0.3, EYE = 1.62;
 const feet = new THREE.Vector3(), vel = new THREE.Vector3();
 let yaw = 0, pitch = 0, onGround = false;
 const keys = new Set();
-const TOWN = [252, 300, 0]; // on La Gomera: the square between the market and the well, facing the church
+// where to stand on each island: La Gomera — the square facing the church; Guanahani — the batey facing the cacique's house
+const TOWNS = { canary: [252, 300, 0], guanahani: [168, 262, 0] };
+let TOWN = TOWNS.canary;
 function spawn(role = 'piloto') {
-  if (world.zone === 'canary') { feet.set(TOWN[0], fake.heightAt(TOWN[0], TOWN[1]) + 0.3, TOWN[1]); yaw = TOWN[2]; }
+  if (world.zone !== 'ship') { TOWN = TOWNS[world.zone]; feet.set(TOWN[0], fake.heightAt(TOWN[0], TOWN[1]) + 0.3, TOWN[1]); yaw = TOWN[2]; }
   else { const { p, r } = layout.spawns[role]; feet.set(p[0], p[1] + 0.05, p[2]); yaw = r; }
   pitch = -0.05; vel.set(0, 0, 0);
   world.camera.position.set(feet.x, feet.y + EYE, feet.z);
@@ -53,7 +57,7 @@ function spawn(role = 'piloto') {
 function setZone(zone) { world.setZone(zone); spawn(); }
 // for screenshots from the console: dev.go(x, z, yaw, pitch)
 window.dev = { go: (x, z, y = 0, p = 0) => { feet.set(x, (world.groundHeight(x, z) ?? fake.heightAt(x, z)) + 0.1, z); yaw = y; pitch = p; vel.set(0, 0, 0); } };
-setZone(P.get('zone') === 'canary' ? 'canary' : 'ship');
+setZone(TOWNS[P.get('zone')] ? P.get('zone') : 'ship');
 
 const fixedCam = P.get('cam')?.split(',').map(Number);
 const canvas = $('c');
@@ -74,7 +78,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Digit2') spawn('piloto');
   if (e.code === 'Digit3') spawn('lengua');
   if (e.code === 'KeyE' && target) interact(target);
-  if (e.code === 'KeyZ') setZone(world.zone === 'ship' ? 'canary' : 'ship');
+  if (e.code === 'KeyZ') setZone({ ship: 'canary', canary: 'guanahani', guanahani: 'ship' }[world.zone]);
   // as in the game: the server's cut_canary moves everyone to the pier at once and switches the zone
   if (e.code === 'KeyC' && !world.cutscene.active) {
     world.setZone('canary');
@@ -92,6 +96,17 @@ addEventListener('keydown', (e) => {
     world.setZone('ship');
     const { p, r } = layout.seats[1]; feet.set(p[0], p[1] + 0.05, p[2]); yaw = r; pitch = 0; vel.set(0, 0, 0);
     world.cutscene.play('cut_night');
+  }
+  // part 2 opens: the ships at dawn from above, the title, waking up in a hammock in one's own bohío
+  if (e.code === 'KeyP' && !world.cutscene.active) {
+    world.setZone('guanahani');
+    const { p, r } = guanahani.spawns.grumete; feet.set(p[0], fake.heightAt(p[0], p[1], 'guanahani') + 0.05, p[1]); yaw = r; pitch = 0; vel.set(0, 0, 0);
+    world.cutscene.play('p2_prologue');
+  }
+  if (e.code === 'KeyL' && !world.cutscene.active) { // the night alarm: lights on the sea
+    world.setZone('guanahani');
+    const { p, r } = guanahani.spawns.grumete; feet.set(p[0], fake.heightAt(p[0], p[1], 'guanahani') + 0.05, p[1]); yaw = r; pitch = 0; vel.set(0, 0, 0);
+    world.cutscene.play('p2_alarm');
   }
 });
 addEventListener('keyup', (e) => keys.delete(e.code));

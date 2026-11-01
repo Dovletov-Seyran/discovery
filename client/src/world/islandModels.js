@@ -3,8 +3,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { V3, mesh, boxUV, cylGeo, between, boxGeo, lathe, lenUV, bake } from './geom.js';
 import { MODELS } from './props.js';
 import { ihash } from './texgen.js';
+import { TAINO_MODELS, TAINO_VEGETATION } from './guanahaniModels.js';
 
-// Models of La Gomera (ids from content/canary_layout.json). Buildings face +z (door side).
+// Models of La Gomera (ids from content/canary_layout.json); Guanahani's are in guanahaniModels.js. Buildings face +z (door side).
 // Each builder returns { obj, col?: BufferGeometry[] } like the ship props.
 
 // Whitewashed walls, stone corners and plinth, a gable roof of curved tiles; ridge along x.
@@ -13,10 +14,13 @@ function gableHouse(M, w, d, h, { wall = 'plaster', pitch = 0.45, over = 0.4, en
   const walls=[];
   if(entry){
     const {x=0,w:dw,h:dh}=entry,e=.2;
-    walls.push(boxGeo(w,h,e,0,h/2,-d/2),boxGeo(e,h,d,-w/2,h/2,0),boxGeo(e,h,d,w/2,h/2,0),boxGeo(w,.1,d,0,-.05,0));
+    walls.push(boxGeo(w,h,e,0,h/2,-d/2),boxGeo(e,h,d,-w/2,h/2,0),boxGeo(e,h,d,w/2,h/2,0));
     const left=x-dw/2+w/2,right=w/2-x-dw/2;
     walls.push(boxGeo(left,h,e,-w/2+left/2,h/2,d/2),boxGeo(right,h,e,w/2-right/2,h/2,d/2),boxGeo(dw,h-dh,e,x,dh+(h-dh)/2,d/2));
     for(const geo of walls)g.add(mesh(geo.clone(),M.get(wall)));
+    // Дощатый пол на 15 см выше земли: песок под домом больше не проступает внутрь. Толщина 0,5 м уходит
+    // в рельеф; пол заходит и под дверной проём, поэтому на пороге нет ступеньки, о которую спотыкаться.
+    const floor=boxGeo(w-e,.5,d+e,0,-.1,0);g.add(mesh(floor.clone(),M.get('deck')));walls.push(floor);
   }else{
     g.add(mesh(boxGeo(w,h,d,0,h/2,0),M.get(wall)));
     g.add(mesh(boxGeo(w+.08,.45,d+.08,0,.22,0),M.get('stone')));
@@ -170,9 +174,16 @@ function well(M) {
   g.add(mesh(new THREE.TorusGeometry(0.74, 0.13, 6, 20).rotateX(Math.PI / 2).translate(0, 0.9, 0), M.get('stone')));
   g.add(mesh(new THREE.CircleGeometry(0.62, 20).rotateX(-Math.PI / 2).translate(0, 0.3, 0), M.get('seaWater')));
   for (const s of [-1, 1]) g.add(mesh(boxGeo(0.12, 1.9, 0.12, s * 0.8, 1.35, 0), M.get('trim')));
-  g.add(mesh(cylGeo(0.06, 0.06, 1.8, 8).rotateZ(Math.PI / 2).translate(0, 2.1, 0), M.get('wood')));
-  g.add(mesh(cylGeo(0.012, 0.012, 0.9, 4).translate(0, 1.65, 0), M.get('rope')));
-  g.add(mesh(lenUV(new THREE.CylinderGeometry(0.15, 0.12, 0.25, 12, 1, true), 0.25, 1).translate(0, 1.1, 0), M.get('staveDouble')));
+  // Ворот с ручкой, верёвка и ведро — не запекаются: когда игрок набирает воду, ворот крутится,
+  // ведро опускается в колодец и поднимается (props.js, animateProp: winchAt)
+  const axle = new THREE.Group(); axle.position.set(0, 2.1, 0); axle.userData.noBake = true;
+  axle.add(mesh(cylGeo(0.06, 0.06, 1.8, 8).rotateZ(Math.PI / 2), M.get('wood')));
+  axle.add(mesh(boxGeo(0.05, 0.32, 0.05, 0.95, -0.14, 0), M.get('trim')), mesh(cylGeo(0.025, 0.025, 0.22, 6).rotateZ(Math.PI / 2).translate(1.04, -0.28, 0), M.get('wood')));
+  const hang = new THREE.Group(); hang.userData.noBake = true;
+  const rope = mesh(cylGeo(0.012, 0.012, 1, 4).translate(0, -0.5, 0), M.get('rope')); rope.position.y = 2.1; rope.scale.y = 0.9;
+  const bucket = mesh(lenUV(new THREE.CylinderGeometry(0.15, 0.12, 0.25, 12, 1, true), 0.25, 1), M.get('staveDouble')); bucket.position.y = 1.1;
+  hang.add(rope, bucket); g.add(axle, hang);
+  g.userData.winch = { axle, rope, bucket };
   return { obj: g, col: [boxGeo(1.9, 1.0, 1.9, 0, 0.5, 0)] };
 }
 
@@ -213,6 +224,7 @@ function tarBucket(M) {
 export const ISLAND_MODELS = {
   house, house_governor: governorHouse, church, warehouse, market_stall: marketStall, market_stall_trade: (M) => marketStall(M, false), shipyard, pier,
   well, boat: rowboat, planks: plankStack, tar_bucket: tarBucket, barrel: MODELS.barrel,
+  ...TAINO_MODELS,
 };
 
 // --- vegetation, drawn with InstancedMesh: { parts: [{ geo, mat, cast }], col?: BufferGeometry[] } ---
@@ -296,4 +308,5 @@ export const VEGETATION = {
     }
     return { parts: [{ geo: mergeGeometries(geos), mat: M.get('bush') }] };
   },
+  ...TAINO_VEGETATION,
 };

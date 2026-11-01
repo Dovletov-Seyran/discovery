@@ -4,7 +4,7 @@ import {drawLocalMap,unlockItemAudio,playShot} from './ui/item-feedback.js';
 import {ITEM_RULES,freshVitals} from '../../shared/item-actions.js';
 import {sceneProgressView} from './ui/scene-progress.js';
 import {Equipment,itemPictures} from './game/equipment.js';
-import {itemIcon,ITEM_ACTIONS} from './ui/item-icons.js';
+import {itemIcon,itemAction} from './ui/item-icons.js';
 import {CONFIG} from '../../shared/config.js';
 import {ASTROLABE,latitude,answers,signed} from '../../shared/astrolabe.js';
 import {SocketClient,Events,forwardGameEvents} from './net/socket.js';
@@ -13,7 +13,7 @@ import {Telemetry} from './net/telemetry.js';
 import {FPS_PLAY,FPS_CALM} from './game/frame-limit.js';
 import {GameplayRuntime} from './game/runtime.js';
 import {WorldConnection} from './game/world-connection.js';
-import {ROLES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,escape,itemId} from './ui/content.js';
+import {ROLES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,EPILOGUE,escape,itemId} from './ui/content.js';
 import {shellView,loginView,lobbyView} from './ui/views.js';
 import {VoiceLibrary} from './ui/voice.js';
 import {narrativeContent,INTRO_TITLES} from './ui/narrative.js';
@@ -26,6 +26,8 @@ const root = $('#ui');
 const canvas = $('#game');
 const preview = new URLSearchParams(location.search).get('offline') === '1';
 const PLAY_SCENES = new Set(['ship_day','canary','ship_evening']);
+// часть 2 (Гуанахани): игровые сцены узнаём по типу, а не по списку
+const isPlay = s => PLAY_SCENES.has(s?.id) || s?.type==='play';
 
 // Consumers can subscribe before opening the connection. Chunk data is forwarded,
 // never retained here; ownership and cache limits belong to Front 1.
@@ -46,7 +48,7 @@ const itemCooldowns=new Map();
 let scriptIndex=0,scriptLines=[],tradeState=null,partyReady={},serverBuild=null;
 const knownCards=new Set();
 const telemetry=new Telemetry(()=>world); // ping и метрики клиента для админки
-const settings={quality:'high',sensitivity:2,voices:0.8,fps:FPS_PLAY};
+const settings={quality:'high',sensitivity:2,voices:0.8,fps:FPS_PLAY,fauna:1};
 const voices=new VoiceLibrary({onVoice:playing=>gameEvents.emit('voice',{playing})});
 const narrative=new NarrativePlayer(voices,{
   onFrame:frame=>{
@@ -79,6 +81,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
   if(scene.zone)world.setZone?.(scene.zone);
   if(Number.isFinite(scene.tod))world.setTimeOfDay?.(scene.tod);
   world.setQuality?.(settings.quality);
+  world.fauna?.setDensity?.(settings.fauna);
   runtime.controller.sensitivity=settings.sensitivity/1000;
   $('#world-status').hidden=true;
   syncInput();
@@ -88,13 +91,13 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
     update(delta,time){
       if(runtime!==attachedRuntime)return;
       attachedRuntime.update(delta,time);
-      equipment?.update(delta,time,screen==='game'&&!modal&&!chatOpen&&PLAY_SCENES.has(scene.id));
+      equipment?.update(delta,time,screen==='game'&&!modal&&!chatOpen&&isPlay(scene));
       if(pendingUnequip&&equipment.action<=0){if(equipped===pendingUnequip)equipItem(null,{sync:false});pendingUnequip=null;}
       updateInstrument();renderVitals();
       const hint=$('#control-hint');
       if(hint){
-        hint.hidden=screen!=='game'||!!modal||chatOpen||!connected||!PLAY_SCENES.has(scene.id)||document.pointerLockElement===canvas;
-        const text=runtime.controller.hasControl?'WASD — ходить · зажмите ПКМ — осмотреться · E — действие':'Щёлкните по игре, чтобы управлять';
+        hint.hidden=screen!=='game'||!!modal||chatOpen||!connected||!isPlay(scene)||document.pointerLockElement===canvas;
+        const text=runtime.controller.hasControl?'WASD — ходить · тяните ЛКМ или ПКМ — обзор · клик ЛКМ — предмет · E — действие':'Щёлкните по игре, чтобы управлять';
         if(hint.textContent!==text)hint.textContent=text;
       }
       if(!$('#debug').hidden){
@@ -113,9 +116,9 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
 
 function syncInput(){
   const blocked=screen!=='game'||modal||chatOpen||!connected;
-  runtime?.setMode(blocked?'blocked':scene.id==='night_story'?'seated':PLAY_SCENES.has(scene.id)?'play':'blocked');
+  runtime?.setMode(blocked?'blocked':scene.id==='night_story'?'seated':isPlay(scene)?'play':'blocked');
   if($('#control-hint'))$('#control-hint').hidden=!!blocked;
-  $('#crosshair').hidden=blocked||!runtime||!PLAY_SCENES.has(scene.id);
+  $('#crosshair').hidden=blocked||!runtime||!isPlay(scene);
   if(blocked&&throwMode){throwMode=false;renderEquipment();}
   if(blocked){$('#prompt').hidden=true;currentTarget=null;}
 }
@@ -250,7 +253,7 @@ function applyScene(message){
     screen='game';$('#hud').hidden=false;$('#screen').innerHTML='';
     $('#world-status').hidden=!!runtime;
     $('#preview-controls').hidden=!preview;
-    if(!PLAY_SCENES.has(message.id)&&message.id!=='night_story')renderSceneOverlay(message);
+    if(!isPlay(message)&&message.id!=='night_story')renderSceneOverlay(message);
     if(message.id==='night_story'&&narrativeContent.night){
       $('#screen').innerHTML='<p id="subtitles" class="subtitles" aria-live="off"></p>';
       narrative.start(narrativeContent.night,{startAt:message.startAt,duration:message.duration});
@@ -274,8 +277,13 @@ function renderSceneOverlay(message){
     narrative.start(narrativeContent.intro,{startAt:message.startAt,duration:message.duration});
     return;
   }
-  // Text-only fallback before the content branch merges.
-  const titles={intro:'1492',cut_canary:'Канарские острова',cut_evening:'Курс на запад',cut_night:'Атлантика',sleep:'12 октября 1492 года',end:'Продолжение следует'};
+  if(message.id==='p2_after'){
+    $('#screen').innerHTML=`<section class="epilogue-screen"><span class="overline">ГУАНАХАНИ · 1492</span><h2>${escape(EPILOGUE.title)}</h2><ul>${EPILOGUE.facts.map(fact=>`<li>${escape(fact)}</li>`).join('')}</ul><button class="quiet-button" id="skip">Дальше <span id="skip-votes"></span></button></section>`;
+    $('#skip').onclick=()=>net.send('skip_vote');
+    return;
+  }
+  // Text-only fallback before the content branch merges. Катсцены части 2 подписывает сам мир (cutscenes.json).
+  const titles={intro:'1492',cut_canary:'Канарские острова',cut_evening:'Курс на запад',cut_night:'Атлантика',sleep:'12 октября 1492 года',end:'Конец'};
   $('#screen').innerHTML=`<div class="scene-caption"><h2>${titles[message.id]||''}</h2>${message.id==='intro'?'<button class="quiet-button" id="skip">Пропустить <span id="skip-votes"></span></button>':''}</div>`;
   if($('#skip'))$('#skip').onclick=()=>net.send('skip_vote');
 }
@@ -294,7 +302,10 @@ function renderQuest(){
   if(scene.id==='canary'&&list.length&&list.every(item=>item.status==='done'||item.optional)&&!boarded)quest={title:'Шлюпка',text:'Иди к шлюпке у причала и нажми E — вернёмся на корабль',status:'active',progress:0,total:1};
   $('#quest').hidden=!quest;
   if(!quest)return;
-  $('#quest').innerHTML=`<h3>${escape(quest.title)}</h3>${quest.text?`<p>${escape(quest.text)}</p>`:''}<small>${quest.status==='done'?'Выполнено':`${quest.progress} / ${quest.total}`}${quest.need?` · ${quest.count||0}/${quest.need}`:''}</small>`;
+  // Варианты «любые N из M» — списком с галочками: сразу видно, что сделано и что осталось
+  const options=quest.status!=='done'&&Array.isArray(quest.options)?`<ul class="quest-options">${quest.options.map((label,i)=>{const done=(quest.sub||[]).includes(i);return `<li class="${done?'done':''}">${done?'✓':'○'} ${escape(ITEMS[label]?.name||label)}</li>`;}).join('')}</ul>`:'';
+  const counter=quest.status==='done'?'Выполнено':[quest.total>1?`шаг ${quest.progress+1} из ${quest.total}`:'',quest.need?`сделано ${quest.count||0} из ${quest.need}`:''].filter(Boolean).join(' · ');
+  $('#quest').innerHTML=`<h3>${escape(quest.title)}</h3>${quest.text?`<p>${escape(quest.text)}</p>`:''}${options}<small>${escape(counter)}</small>`;
 }
 function showModal(type,html){
   if(modal==='dialogue')endDialogue();
@@ -302,7 +313,9 @@ function showModal(type,html){
   $('#modal').querySelectorAll('[data-close]').forEach(button=>button.onclick=closeModal);syncInput();
   $('#modal').querySelector('input,button,select')?.focus();
 }
-function closeModal(){endDialogue();clearTimeout(dialogueTimer);voices.stop();stopNpcAudio();modal='';activeNpc=null;waitingForReply=false;$('#modal').hidden=true;$('#modal').innerHTML='';syncInput();}
+function closeModal(){endDialogue();clearTimeout(dialogueTimer);voices.stop();stopNpcAudio();modal='';activeNpc=null;waitingForReply=false;$('#modal').hidden=true;$('#modal').innerHTML='';syncInput();
+  // окно закрыли кликом — сразу вернуть мышь в игру, без лишнего клика по экрану
+  if(screen==='game'&&isPlay(scene))runtime?.controller?.lock?.();}
 function closeButton(){return '<button class="close-button" data-close aria-label="Закрыть">×</button>';}
 function openKnowledge(id){
   const data=ITEMS[id]||{name:id,text:''};
@@ -312,8 +325,8 @@ function picture(id){return pictures[id]||itemIcon(id);}
 function equipItem(id,{sync=true}={}){throwMode=false;pendingUnequip=null;equipped=id;equipment?.equip(id);renderEquipment();if(sync&&connected&&screen==='game')net?.send('equip',{item:id});}
 function renderEquipment(){
   const hud=$('#equipment');if(!hud)return;
-  hud.hidden=!equipped||!PLAY_SCENES.has(scene.id);
-  hud.innerHTML=equipped?`<img src="${picture(equipped)}" alt=""><span>${escape(ITEMS[equipped]?.name||equipped)}<small>${escape(throwMode?'Бросить · ЛКМ · F — отменить':`${ITEM_ACTIONS[equipped]||'В руке'} · ЛКМ`)}${itemUses[equipped]!=null?` · ${itemUses[equipped]} ост.`:''}</small><small>G — положить · F — бросок</small></span><output id="instrument"></output>`:'';
+  hud.hidden=!equipped||!isPlay(scene);
+  hud.innerHTML=equipped?`<img src="${picture(equipped)}" alt=""><span>${escape(ITEMS[equipped]?.name||equipped)}<small>${escape(throwMode?'Бросить · ЛКМ · F — отменить':`${itemAction(equipped,scene.zone)||'В руке'} · ЛКМ`)}${itemUses[equipped]!=null?` · ${itemUses[equipped]} ост.`:''}</small><small>G — положить · F — бросок</small></span><output id="instrument"></output>`:'';
 }
 function updateInstrument(){
   const output=$('#instrument');if(!output||!runtime)return;
@@ -331,7 +344,7 @@ function openInventory(){
   showModal('inventory',`<section class="menu-panel inventory-panel">${closeButton()}<h2>Снаряжение</h2><div class="inventory-layout"><div class="inventory-slots">${Array.from({length:Math.max(8,ids.length)},(_,index)=>{
     const id=ids[index];
     return `<button class="inventory-slot ${id===selectedItem?'selected':''}" ${id?`data-item="${escape(id)}" aria-pressed="${id===selectedItem}"`:'disabled aria-label="Пустое место"'}><small>${index+1}</small>${id?`<img src="${picture(id)}" alt=""><span>${escape(ITEMS[id]?.name||id)}</span>`:'<span>—</span>'}</button>`;
-  }).join('')}</div><div class="item-detail">${selectedItem?`<img src="${picture(selectedItem)}" alt=""><h3>${escape(data?.name||selectedItem)}</h3><p>${escape(ITEM_ACTIONS[selectedItem]||'Предмет из припасов')}</p><button id="equip-item" class="primary">${equipped===selectedItem?'Убрать':'Взять в руку'}</button>${data?.text?`<details><summary>О предмете</summary><p>${escape(data.text)}</p></details>`:''}`:'<p>Пока пусто</p>'}</div></div><small>1–9 — выбрать предмет · ЛКМ — использовать</small></section>`);
+  }).join('')}</div><div class="item-detail">${selectedItem?`<img src="${picture(selectedItem)}" alt=""><h3>${escape(data?.name||selectedItem)}</h3><p>${escape(itemAction(selectedItem,scene.zone)||'Предмет из припасов')}</p><button id="equip-item" class="primary">${equipped===selectedItem?'Убрать':'Взять в руку'}</button>${data?.text?`<details><summary>О предмете</summary><p>${escape(data.text)}</p></details>`:''}`:'<p>Пока пусто</p>'}</div></div><small>1–9 — выбрать предмет · ЛКМ — использовать</small></section>`);
   document.querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>{selectedItem=button.dataset.item;openInventory();});
   if($('#equip-item'))$('#equip-item').onclick=()=>{equipItem(equipped===selectedItem?null:selectedItem);closeModal();};
 }
@@ -374,10 +387,10 @@ function openMap(){
   drawLocalMap($('#local-map'),world,position,yaw,scene.zone);
 }
 function useEquipped(){
-  if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!PLAY_SCENES.has(scene.id)||sceneProgress?.phase==='departing')return;
+  if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!isPlay(scene)||sceneProgress?.phase==='departing')return;
   if((itemCooldowns.get(equipped)||0)>Date.now())return;
   if(throwMode){if(world&&net.send('throw',launch(world,equipped))){throwMode=false;renderEquipment();}return;}
-  const target=ITEM_RULES[equipped]?.target===currentTarget?.id?currentTarget.id:undefined;
+  const target=ITEM_RULES[equipped]?.target&&ITEM_RULES[equipped].target===currentTarget?.id?currentTarget.id:undefined;
   net.send('use',{item:equipped,...(target?{target}:{})});
 }
 // Каждый раз другой день пути: своя высота Солнца и склонение (shared/astrolabe.js), ответ проверяет сервер
@@ -472,8 +485,9 @@ function receiveDialogue(message){
 }
 function stopNpcAudio(){if(npcAudio){npcAudio.pause();npcAudio=null;gameEvents.emit('voice',{playing:false});}}
 function openMenu(){
-  showModal('menu',`<section class="menu-panel">${closeButton()}<h2>Настройки</h2><label for="quality">Качество</label><select id="quality"><option value="high">Высокое</option><option value="low">Низкое</option></select><label for="fps">Кадров в секунду</label><select id="fps"><option value="60">60 — плавно</option><option value="30">30 — тише и холоднее</option></select><label for="sensitivity">Чувствительность</label><input id="sensitivity" type="range" min="1" max="5" step="0.1" value="${settings.sensitivity}"><label for="voice-volume">Голос</label><input id="voice-volume" type="range" min="0" max="1" step="0.05" value="${settings.voices}"><button class="primary" data-close>Продолжить</button><button id="leave" class="quiet-button">Выйти</button></section>`);
+  showModal('menu',`<section class="menu-panel">${closeButton()}<h2>Настройки</h2><label for="quality">Качество</label><select id="quality"><option value="high">Высокое</option><option value="low">Низкое</option></select><label for="fps">Кадров в секунду</label><select id="fps"><option value="60">60 — плавно</option><option value="30">30 — тише и холоднее</option></select><label for="fauna">Жители и животные</label><select id="fauna"><option value="1">Все</option><option value="0.5">Половина</option><option value="0">Нет</option></select><label for="sensitivity">Чувствительность</label><input id="sensitivity" type="range" min="1" max="5" step="0.1" value="${settings.sensitivity}"><label for="voice-volume">Голос</label><input id="voice-volume" type="range" min="0" max="1" step="0.05" value="${settings.voices}"><button class="primary" data-close>Продолжить</button><button id="leave" class="quiet-button">Выйти</button></section>`);
   $('#quality').value=settings.quality;$('#quality').onchange=event=>{settings.quality=event.target.value;world?.setQuality?.(settings.quality);};
+  $('#fauna').value=String(settings.fauna);$('#fauna').onchange=event=>{settings.fauna=Number(event.target.value);world?.fauna?.setDensity(settings.fauna);};
   $('#fps').value=String(settings.fps);$('#fps').onchange=event=>{settings.fps=Number(event.target.value);};
   $('#sensitivity').oninput=event=>{settings.sensitivity=Number(event.target.value);if(runtime)runtime.controller.sensitivity=settings.sensitivity/1000;};
   $('#voice-volume').oninput=event=>{settings.voices=Number(event.target.value);if(npcAudio)npcAudio.volume=settings.voices;voices.volume=settings.voices;};
@@ -518,7 +532,7 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
   if(type==='astrolabe')openAstrolabe();
   if(type==='quest')net.emit('quest',{id:'q_astrolabe',title:'Определить широту',step:'Измерьте высоту Солнца.',status:'active',progress:0,total:1});
 });
-canvas.addEventListener('click',()=>{unlockItemAudio();if(screen==='game'&&!modal&&!chatOpen&&connected){useEquipped();runtime?.controller.lock();}});
+canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
@@ -528,7 +542,7 @@ window.addEventListener('keydown',event=>{
   if(event.code==='Tab'){event.preventDefault();if(modal==='inventory')closeModal();else if(!modal)openInventory();return;}
   if(event.code==='KeyJ'&&!event.repeat){event.preventDefault();if(modal==='journal')closeModal();else if(!modal)openJournal();return;}
   if(/^Digit[1-9]$/.test(event.code)&&!modal&&!chatOpen){const id=inventory[Number(event.code.slice(5))-1];if(id)equipItem(itemId(id));return;}
-  if(!modal&&!chatOpen&&connected&&PLAY_SCENES.has(scene.id)&&equipped&&!event.repeat){
+  if(!modal&&!chatOpen&&connected&&isPlay(scene)&&equipped&&!event.repeat){
     if(event.code==='KeyF'){event.preventDefault();throwMode=!throwMode;renderEquipment();return;}
     if(event.code==='KeyG'){
       event.preventDefault();if(sceneProgress?.phase==='departing')return;
