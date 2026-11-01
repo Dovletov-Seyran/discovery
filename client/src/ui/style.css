@@ -182,11 +182,11 @@ details p { font-size: 15px; line-height: 1.5; margin-top: 6px; }
 .scene-caption { position: fixed; left: 10%; right: 10%; top: 40%; text-align: center; text-shadow: 0 2px 8px #000; }
 .scene-caption .quiet-button { display: block; margin: 30px auto; }
 .epilogue-screen { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px 16px; background: #0b0d0de6; text-align: center; overflow: auto; }
-.epilogue-screen h2 { margin: 18px 0 28px; font-weight: 300; letter-spacing: 2px; }
-.epilogue-screen ul { list-style: none; padding: 0; margin: 0; max-width: 640px; text-align: left; }
-.epilogue-screen li { padding: 14px 0 14px 22px; border-top: 1px solid #ccd0be29; line-height: 1.55; color: #d8d9cf; position: relative; }
-.epilogue-screen li::before { content: ''; position: absolute; left: 2px; top: 23px; width: 6px; height: 6px; background: #b3b4aa; transform: rotate(45deg); }
-.epilogue-screen .quiet-button { margin-top: 26px; }
+.epilogue-screen h2 { margin: 18px 0 30px; font-size: clamp(30px, 4vw, 46px); font-weight: 300; letter-spacing: 2px; }
+.epilogue-screen ul { list-style: none; padding: 0; margin: 0; max-width: 820px; text-align: left; }
+.epilogue-screen li { padding: 16px 0 16px 28px; border-top: 1px solid #ccd0be29; font-size: clamp(17px, 1.6vw, 22px); line-height: 1.5; color: #e2e3d9; position: relative; }
+.epilogue-screen li::before { content: ''; position: absolute; left: 4px; top: calc(16px + 0.62em); width: 7px; height: 7px; background: #b3b4aa; transform: rotate(45deg); }
+.epilogue-screen .quiet-button { margin-top: 28px; font-size: 18px; }
 @media(max-width: 700px) {
   .login-screen { grid-template-columns: 1fr; gap: 45px; padding: 60px 13vw 90px; }
   .title-block { max-width: 220px; margin: auto; }

@@ -102,7 +102,7 @@ test('leaving the batey loses the bout; a scene change or a village alarm stops 
  const brute=player('brute','lengua',at(212.5,250.5));combat.attack(brute,{target:'villager_2'},now);
  duel.tick(now+100);assert.equal(me(young.id).result,'draw','the alarm ends the bout');
  assert.equal(duel.challenge(p,young.id,now+200),false,'no bouts while the village is alarmed');
- ({p,now}=start('switch'));director.setScene('p2_night');duel.tick(now+100);
+ ({p,now}=start('switch'));director.setScene('p2_sleep');duel.tick(now+100);
  assert.equal(duel.state().duelists[0].state,'idle');assert.ok(p.msgs.some(m=>m.t==='duel'&&m.duelists.length===0),'warriors leave the batey at night');
  director.setScene('p2_day');combat.reset();duel.reset();
  const stranger=player('stranger','piloto',at(young.home[0]+1,young.home[1]));

@@ -12,7 +12,7 @@ import { performAction } from './player-actions.js';
 import { worldEvent } from './world-events.js';
 
 export const ZONE = 'guanahani';
-const SCENES = new Set(['p2_day', 'p2_evening', 'p2_night', 'p2_landing']);
+const SCENES = new Set(['p2_day', 'p2_evening', 'p2_landing']); // ночной сцены с заданиями больше нет: после ареито сразу p2_sleep
 const TAINO = new Set(['cacique', 'elder', 'villager_1', 'villager_2', 'villager_3']);
 const GIFTS = ['fish', 'conch', 'casabe', 'cotton', 'gift_cotton', 'parrot'];
 export const C = {

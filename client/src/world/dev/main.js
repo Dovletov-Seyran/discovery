@@ -103,10 +103,22 @@ addEventListener('keydown', (e) => {
     const { p, r } = guanahani.spawns.grumete; feet.set(p[0], fake.heightAt(p[0], p[1], 'guanahani') + 0.05, p[1]); yaw = r; pitch = 0; vel.set(0, 0, 0);
     world.cutscene.play('p2_prologue');
   }
+  if (e.code === 'KeyK' && !world.cutscene.active) { // after the areíto: falling asleep in one's own hammock
+    world.setZone('guanahani');
+    const { p, r } = guanahani.spawns.grumete; feet.set(p[0], fake.heightAt(p[0], p[1], 'guanahani') + 0.05, p[1]); yaw = r; pitch = 0; vel.set(0, 0, 0);
+    world.cutscene.play('p2_sleep');
+  }
   if (e.code === 'KeyL' && !world.cutscene.active) { // the night alarm: lights on the sea
     world.setZone('guanahani');
     const { p, r } = guanahani.spawns.grumete; feet.set(p[0], fake.heightAt(p[0], p[1], 'guanahani') + 0.05, p[1]); yaw = r; pitch = 0; vel.set(0, 0, 0);
     world.cutscene.play('p2_alarm');
+  }
+  // the morning of 12 October (B: the boat comes ashore) and the 14th (O: the ships leave with seven guides)
+  for (const [code, id] of [['KeyB', 'p2_boats'], ['KeyO', 'p2_departure']]) {
+    if (e.code !== code || world.cutscene.active) continue;
+    world.setZone('guanahani');
+    feet.set(117, fake.heightAt(117, 251.5, 'guanahani') + 0.05, 251.5); yaw = 1.57; pitch = 0; vel.set(0, 0, 0);
+    world.cutscene.play(id);
   }
 });
 addEventListener('keyup', (e) => keys.delete(e.code));

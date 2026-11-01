@@ -26,6 +26,7 @@ import { npcActivity } from '../../../shared/npc-activity.js';
 import { prepareNpc, animateNpc, collideNpcs, giveChart } from './npc-animation.js';
 import { WorldPatches } from './world-patches.js';
 import { Fauna } from './fauna.js';
+import { Firelight } from './firelight.js';
 import { strum } from './people.js';
 import canaryLayout from '../../../content/canary_layout.json';
 import guanahaniLayout from '../../../content/guanahani_layout.json';
@@ -73,6 +74,7 @@ export const world = {
     this.smoke = new THREE.Group();
     this.smokeMat = new THREE.SpriteMaterial({ map: tex.soft.map, color: 0xc9c4bc, transparent: true, depthWrite: false });
     this.scene.add(this.smoke);
+    this.firelight = new Firelight(this);
     this.cutscene = new Cutscenes(this);
 
     // The islands, each its own chunk zone: La Gomera (part 1) and Guanahani (part 2). Paths are the static town
@@ -192,6 +194,7 @@ export const world = {
     this.env.setZone(zone);
     this.env.setShore({ canary: canaryLod, guanahani: guanahaniLod }[zone] ?? null);
     this.players.setLooks(zone === 'guanahani' ? 'taino' : 'crew'); // part 2: the players are villagers
+    this.firelight.setZone(zone);
     this.chunks.setZone(zone);
   },
 
@@ -271,6 +274,7 @@ export const world = {
     this.updateDowned();
     this.objects?.update();
     for(const o of this.interactables)if(!this.objects?.records.has(o.userData.id))animateProp(o,Date.now()+(this.objects?.clockOffset??0));
+    this.firelight.update(this.env.time); // after dark on Guanahani: torches and the batey fire
     this.updateSmoke(dt);
     if (!this.cutscene.active) this.fauna?.update(dt);
     this.renderer.info.reset();

@@ -315,23 +315,6 @@
       {"type": "minigame", "game": "duel", "text": "Подойди к воину касика на батее, нажми E и победи в поединке: отступай на его замахе, бей, пока он открыт", "en": "Challenge a warrior of the cacique on the batey and win the sparring bout"}
     ] },
 
-  {"id": "q_p2_torch", "doneEn": "went down to the canoe at night with a torch to fish by its light", "scene": "p2_night", "role": "grumete", "title": "Свет на воде",
-    "steps": [
-      {"type": "pickup", "item": "torch", "text": "Возьми факел у костра"},
-      {"type": "interact", "target": "canoe_1", "text": "Спустись с факелом к каноэ: ночью рыба идёт на свет"},
-      {"type": "interact", "target": "hammock_g", "text": "Возвращайся в свой гамак"}
-    ], "log": "p2_torch" },
-
-  {"id": "q_p2_sleep_p", "scene": "p2_night", "role": "piloto", "title": "Ночь",
-    "steps": [
-      {"type": "interact", "target": "hammock_p", "text": "Ложись спать в свой гамак"}
-    ] },
-
-  {"id": "q_p2_sleep_l", "scene": "p2_night", "role": "lengua", "title": "Ночь",
-    "steps": [
-      {"type": "interact", "target": "hammock_l", "text": "Ложись спать в свой гамак"}
-    ] },
-
   {"id": "q_p2_meet", "doneEn": "went down to the shore to the strangers and traded with them without words", "scene": "p2_landing", "role": "all", "title": "Чужие на берегу",
     "steps": [
       {"type": "interact", "target": "banners", "text": "Спустись к берегу и посмотри, что чужаки поставили на песке"},
