@@ -10,6 +10,7 @@
 //   world.stats()                — numbers for the F3 overlay
 // Chunk wiring for Фронт 2 is described at the top of chunks.js.
 import * as THREE from 'three';
+import { Warriors } from './warriors.js';
 import { generateTextures, Materials } from './materials.js';
 import { buildShip } from './ship.js';
 import {WorldObjects} from './objects.js';
@@ -91,8 +92,10 @@ export const world = {
 
     this.objects = new WorldObjects(this);
     this.players = new Players(this.scene, this.M);
-    this.fauna = new Fauna(this, { layouts: { canary: canaryLayout } });
-    this.chunks.deferBuild = true; // чанки острова строятся по нескольку за кадр (chunks.drain в frame) // жители и животные (fauna.js): маршруты от общего времени, реакции на world_event
+    this.warriors = new Warriors(this.scene, this.M); // бой на Гуанахани: воины таино (docs/tz-combat.md)
+    this.duelists = new Warriors(this.scene, this.M, { kind: 'duelist' }); // воины касика на батее: поединки
+    this.fauna = new Fauna(this, { layouts: { canary: canaryLayout } }); // жители и животные (fauna.js): маршруты от общего времени, реакции на world_event
+    this.chunks.deferBuild = true; // чанки острова строятся по нескольку за кадр (chunks.drain в frame)
     this.env.mirrorHide.push(this.zoneRoot, this.smoke, this.players.group);
     this.patches = new WorldPatches(this);
     this.pipeline = new Pipeline(r, this.scene, this.camera);
@@ -146,7 +149,12 @@ export const world = {
   get island() { return this.islands?.[this.zone] ?? null; },
 
   // what the player can use right now: the ship's or the island's visible chunks'
-  get interactables() { return [...(this.island ? this.island.interactables : this.shipInteractables),...(this.objects?.selectable??[])]; },
+  get interactables() { return [...(this.island ? this.island.interactables : this.shipInteractables),...(this.objects?.selectable??[]),...(this.warriors?.targets??[]),...(this.duelists?.targets??[])]; },
+
+  // `combat` сервера: ступень деревни и воины
+  applyCombat(message) { this.warriors?.apply(message); },
+  // `duel` сервера: воины на батее; me — id этого игрока (ему подсказка «ЛКМ — удар»)
+  applyDuel(message, me) { this.duelists?.applyDuel(message, me); },
 
   // world_patch: предметы и декор (сухари, товар, бочки, брошенное игроками) — WorldObjects Санджара;
   // изменения корабля и неба (паруса, флаг, фонари, туман) — WorldPatches
@@ -167,6 +175,7 @@ export const world = {
     if (!o) return;
     if ('visible' in state) { o.userData.held = !state.visible; o.visible = state.visible && !o.userData.offScene; }
     for (const field of ['paused','speaker','behavior','performance']) if (field in state) o.userData[field] = state[field];
+    if ('down' in state) o.userData.downUntil = state.down; // житель таино лежит после ударов до этого времени (сервера)
     if ('fill' in state) o.userData.setFill?.(state.fill);
   },
 
@@ -174,6 +183,8 @@ export const world = {
     this.zone = zone;
     this.objects?.setZone(zone);
     this.players?.setZone(zone);
+    this.warriors?.setZone(zone);
+    this.duelists?.setZone(zone);
     this.patches?.invalidate();
     const ship = zone === 'ship';
     this.ship.visible = ship; this.zoneRoot.visible = ship; this.smoke.visible = ship;
@@ -229,6 +240,20 @@ export const world = {
       }
     }
   },
+  // Жители острова после трёх ударов лежат навзничь, потом встают (статичные фигуры — наклоном целиком)
+  updateDowned() {
+    const now = Date.now() + this.npcClockOffset;
+    for (const o of this.island?.interactables ?? []) {
+      const u = o.userData;
+      if (u.kind !== 'npc' || (!u.downUntil && !u.lying)) continue;
+      const lying = u.downUntil > now;
+      if (lying === !!u.lying) continue;
+      u.lying = lying;
+      o.rotation.order = 'YXZ';
+      o.rotation.x = lying ? -Math.PI / 2 : 0;
+      o.position.y = (u.baseY ?? o.position.y) + (lying ? 0.18 : 0);
+    }
+  },
   groundHeight(x, z, fromY) { return this.island ? this.island.groundHeight(x, z, fromY) : this.collider.groundHeight(x, z, fromY); },
 
   frame(dt) {
@@ -240,7 +265,10 @@ export const world = {
     this.patches?.update();
     this.patches?.flutter(performance.now() / 1000);
     this.players.update(dt);
+    this.warriors.update(dt);
+    this.duelists.update(dt);
     this.updateNpcs(dt);
+    this.updateDowned();
     this.objects?.update();
     for(const o of this.interactables)if(!this.objects?.records.has(o.userData.id))animateProp(o,Date.now()+(this.objects?.clockOffset??0));
     this.updateSmoke(dt);

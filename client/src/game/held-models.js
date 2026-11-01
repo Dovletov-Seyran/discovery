@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {espingarda} from '../world/espingarda.js';
+import {macana} from '../world/macana.js';
 
 const own=(color,roughness=.5,metalness=0)=>{const m=new THREE.MeshStandardMaterial({color,roughness,metalness});m.userData.equipmentOwned=true;return m;};
 const part=(root,geometry,material,p=[0,0,0],rotation=[0,0,0])=>{
@@ -91,7 +92,7 @@ function taino(id){
   return {obj:g};
 }
 const TAINO_ITEMS=['spear','fish','conch','cassava','cassava_grated','cassava_pulp','casabe','cotton','hammock_gift','firewood','torch','parrot','gift_cotton','bell','beads','red_cap'];
-export const HELD_MODELS={sword,espingarda,purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit'),
+export const HELD_MODELS={sword,espingarda,macana,purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit'),
   ...Object.fromEntries(TAINO_ITEMS.map(id=>[id,()=>taino(id)]))};
 
 export function releaseModel(obj){

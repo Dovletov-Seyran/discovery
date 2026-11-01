@@ -53,6 +53,8 @@ export class WorldConnection {
     events.on('entity',message=>this.applyEntity(message.id,message.state??message));
     // действия игроков (еда, бег, меч, выстрел, танец, разговор) — жители и животные реагируют сами (world/fauna.js)
     events.on('world_event',message=>this.world?.fauna?.react?.(message));
+    events.on('combat',message=>this.world?.applyCombat?.(message)); // бой на Гуанахани: воины (docs/tz-combat.md)
+    events.on('duel',message=>this.world?.applyDuel?.(message,this.you?.id)); // поединки на батее
     events.on('scene_progress',message=>{
       if(this.world&&message.scene===this.scene?.id&&Number.isFinite(message.serverNow))this.world.npcClockOffset=message.serverNow-Date.now();
     });
@@ -136,7 +138,7 @@ export class WorldConnection {
     if(!this.world)return;
     this.world.applyEntity?.(id,state);
     // NPC стоит, пока с ним говорят (пауза маршрута — shared/npc-activity.js)
-    for(const field of ['paused','speaker','behavior','performance'])if(field in state)this.world.setEntityState?.(id,{[field]:state[field]});
+    for(const field of ['paused','speaker','behavior','performance','down'])if(field in state)this.world.setEntityState?.(id,{[field]:state[field]});
   }
   startLoop(){
     if(this.frameId||!this.active)return;
