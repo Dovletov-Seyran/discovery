@@ -172,6 +172,7 @@ export function init() {
 export function setScene(id) {
   const s = scenes.get(id);
   if (!s) return false;
+  state.presentationHold=false;
   state.id = id;
   state.startAt = Math.max(Date.now() + CONFIG.SCENE_START_DELAY_MS,state.startAt+1);
   state.transitioning = false;
@@ -237,7 +238,7 @@ export function tick(now = Date.now()) {
   if (entities.takeDirty()) persist();
   const s = scene();
   broadcastProgress(now);
-  if (state.transitioning || !s.next || now < state.startAt) return;
+  if (state.presentationHold || state.transitioning || !s.next || now < state.startAt) return;
   const party = players.party();
   if (!party.some((p) => p.connected)) return; // никого нет — сцена ждёт
 
@@ -401,4 +402,9 @@ export function seatOnJoin(p) {
 export function resetToStart() {
   entities.reset();
   setScene(FIRST);
+}
+
+// Revisiting a finished gameplay checkpoint must not immediately auto-depart again.
+export function holdCompletedCheckpoint(){
+ const s=scene();state.presentationHold=s.type==='play'&&hooks.isSceneComplete(s,players.party());
 }

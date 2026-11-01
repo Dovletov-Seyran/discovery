@@ -21,6 +21,7 @@ export const C2S = {
   NPC_HINT: 'npc_hint',     // { npc, hint, dialogueId?, requestId? }
   TRADE: 'trade',           // { npc, item, offer }
   READY: 'ready',           // { value: true/false }
+  SCENE_SHORTCUT: 'scene_shortcut', // {index:1..9} — restart presentation checkpoint for the party
   SKIP_VOTE: 'skip_vote',   // —
   SCARE: 'scare',           // { target }
   PING: 'ping',             // { ts } — раз в 2 с; сервер сразу отвечает pong, клиент считает задержку

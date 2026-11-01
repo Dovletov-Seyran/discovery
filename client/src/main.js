@@ -1,3 +1,4 @@
+import {sceneShortcut} from './game/scene-shortcuts.js';
 import {STAMINA} from '../../shared/stamina.js';
 import './ui/style.css';
 import {placement,launch} from './game/object-actions.js';
@@ -556,6 +557,7 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
 canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){const target=attackTarget();if(target)net.send('attack',{target});else useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
+  if(sceneShortcut(event,{connected,send:(t,p)=>net.send(t,p),notify}))return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
   if(event.code==='Escape'){event.preventDefault();if(modal&&modal!=='ended')closeModal();else if(chatOpen)closeChat();else if(!modal)openMenu();return;}
   if(typing)return;

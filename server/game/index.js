@@ -1,3 +1,4 @@
+import {makeSceneShortcuts} from './scene-shortcuts.js';
 import {freshVitals} from '../../shared/item-actions.js';
 // Игровая логика: вход/выход игрока, обработчики сообщений, циклы.
 import { statSync } from 'node:fs';
@@ -207,7 +208,9 @@ function takenFromWorld(id) {
   }
 }
 
+const sceneShortcut=makeSceneShortcuts({director,players});
 const handlers = {
+  [C2S.SCENE_SHORTCUT]:sceneShortcut,
   [C2S.MOVE]: onMove,
   [C2S.INTERACT]: (p, msg) => { onInteract(p, msg); takenFromWorld(msg.id); },
   [C2S.CHAT]: onChat,
