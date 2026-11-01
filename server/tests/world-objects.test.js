@@ -17,7 +17,7 @@ const p=player('object-owner',messages),other=player('object-peer',second);
 director.setScene('ship_day');p.zone=other.zone='ship';p.p=[1,0,-3];other.p=[1.4,0,-3];
 after(()=>{clearObjectColliders();db.closeDb();});
 const drops=()=>entities.allDefs().filter(d=>d.dynamic);
-const reset=()=>{entities.reset();p.lastObjectAction=0;p.inventory=['wine','rum','sword'];p.itemUses={wine:2};p.zone='ship';p.p=[1,0,-3];other.zone='ship';messages.length=second.length=0;};
+const reset=()=>{entities.reset();p.lastObjectAction=0;p.inventory=['wine','cup','sword'];p.itemUses={wine:2};p.zone='ship';p.p=[1,0,-3];other.zone='ship';messages.length=second.length=0;};
 
 test('placement removes inventory atomically, preserves servings and reaches both clients',()=>{
  reset();objects.place(p,{item:'wine',p:[1,.185,-3.8],r:0});
@@ -34,13 +34,13 @@ test('server rejects distant placements, non-finite coordinates, empty air and e
  assert.equal(drops().length,0);assert.equal(p.inventory.length,3);
 });
 test('throw gets a server launch time, simulation and final authoritative rest; persists across reload',()=>{
- reset();const now=Date.now();objects.throwItem(p,{item:'rum',p:[1,1.5,-3.3],v:[0,2,-3]});
+ reset();const now=Date.now();objects.throwItem(p,{item:'cup',p:[1,1.5,-3.3],v:[0,2,-3]});
  assert.equal(drops().length,1);const id=drops()[0].id;
  assert.ok(messages.some(m=>m.t==='world_event'&&m.type==='throw'&&m.who===p.id));
  for(let t=now;t<=now+9000;t+=100)objects.tickObjects(t);
  const st=entities.stateOf(id);assert.ok(st.body.sleeping);assert.ok(st.p[1]>=-.02);
  const saved=structuredClone(entities.snapshot());entities.reset();entities.load(saved);
- assert.equal(entities.def(id).item,'rum');assert.deepEqual(entities.stateOf(id).p,st.p);
+ assert.equal(entities.def(id).item,'cup');assert.deepEqual(entities.stateOf(id).p,st.p);
 });
 test('door and chest state is authoritative, nearby only, and closing does not trap a player',()=>{
  reset();const chest=entities.def('nav_chest');p.p=[...chest.p];objects.toggle(p,{id:chest.id});assert.equal(entities.stateOf(chest.id).open,true);
@@ -65,7 +65,7 @@ test('a consumed dynamic serving frees its registry entry; agent ids cannot resp
  p.lastItemUse={};rules.use(p,{item:'biscuit'});assert.equal(entities.def(d.id),undefined);
 });
 test('agent helpers move and remove a dynamic object, and changes persist',()=>{
- reset();const d=objects.spawnWorldItem({id:'agent:move',item:'rum',zone:'ship',p:[1,0,-3]});
+ reset();const d=objects.spawnWorldItem({id:'agent:move',item:'cup',zone:'ship',p:[1,0,-3]});
  assert.equal(objects.setWorldObject(d.id,{p:[2,0,-3]}),true);assert.deepEqual(entities.positionOf(d.id),[2,0,-3]);
  assert.equal(objects.setWorldObject(d.id,{p:[NaN,0,0]}),false);
  assert.equal(objects.removeWorldObject(d.id),true);assert.equal(entities.def(d.id),undefined);
@@ -75,7 +75,7 @@ test('island throws use streamed terrain/colliders and finish above the water',a
  reset();const {resolveLayout}=await import('../world/terrain.js'),{loadContent}=await import('../content.js');
  const layout=resolveLayout(loadContent('canary_layout.json')).layout;
  p.zone='canary';p.p=[...layout.spawns.piloto.p];p.chunks=new Set([`canary:${Math.floor(p.p[0]/32)},${Math.floor(p.p[2]/32)}`]);
- const now=Date.now();objects.throwItem(p,{item:'rum',p:[p.p[0],p.p[1]+1.6,p.p[2]-.35],v:[0,2,-3]});
+ const now=Date.now();objects.throwItem(p,{item:'cup',p:[p.p[0],p.p[1]+1.6,p.p[2]-.35],v:[0,2,-3]});
  const d=drops()[0];assert.ok(d);
  for(let t=now;t<now+10000;t+=100)objects.tickObjects(t);
  const st=entities.stateOf(d.id);assert.ok(st.body.sleeping);assert.ok(st.p[1]>=-.02);assert.ok(st.p.every(Number.isFinite));
@@ -97,4 +97,11 @@ test('opening a lid wakes a settled item and it falls into the hollow chest',asy
  assert.equal(entities.stateOf(chest.id).open,true);assert.equal(entities.stateOf(id).body.sleeping,false);
  for(let t=now;t<=now+8000;t+=100)objects.tickObjects(t);
  const body=entities.stateOf(id).body;assert.ok(body.sleeping);assert.ok(Math.abs(body.p[1]-(chest.p[1]+.091))<.005,`still floating: ${body.p}`);
+});
+
+test('removed item types cannot be spawned or restored from old world saves',()=>{
+ reset();const old={id:'legacy:removed',item:'retired-fixture-item',kind:'item',zone:'ship',p:[1,0,-3]};
+ assert.equal(objects.spawnWorldItem(old),null);assert.equal(entities.register(old),null);
+ const saved=entities.snapshot();saved.dynamic.push(old);saved.objects[old.id]={holder:null};entities.load(saved);
+ assert.equal(entities.def(old.id),undefined);assert.equal(entities.stateOf(old.id),undefined);
 });

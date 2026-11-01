@@ -9,7 +9,7 @@ import {ITEM_RULES} from '../../../shared/item-actions.js';
 import {PLAYER_ACTION_MS} from '../../../shared/player-presentation.js';
 
 const aliases={barrel_full:'barrel',tar:'tar_bucket'};
-const sizes={sword:1.2,espingarda:1.2,map:.65,compass:.32,astrolabe:.3,rum:.42,wine:.35,barrel:.52,barrel_full:.52,planks:.8,tar:.4,purse:.25,cheese:.26,meat:.3,biscuit:.2,cup:.22};
+const sizes={sword:1.2,espingarda:1.2,macana:.95,map:.65,compass:.32,astrolabe:.3,wine:.35,barrel:.52,barrel_full:.52,planks:.8,tar:.4,purse:.25,cheese:.26,meat:.3,biscuit:.2,cup:.22};
 const temporaryItem=new Set(['swing','shot','drink','eat','inspect','fill']);
 
 // Third-person presentation only. Inventory/cooldowns/actions are all decided by the server.
@@ -53,7 +53,7 @@ export class RemoteEquipment {
       this.flash=new THREE.Mesh(new THREE.SphereGeometry(.1/scale,8,6),material);this.flash.position.fromArray(model.userData.muzzle??[0,1.18,0]);this.flash.visible=false;model.add(this.flash);
       return;
     }
-    if(item==='sword')model.position.set(0,0,0); // forged blade's origin is the grip
+    if(item==='sword'||item==='macana')model.position.set(0,0,0); // the blade's origin is the grip
     else model.position.copy(center).multiplyScalar(-scale);
     this.grip.rotation.set(Math.PI/2,0,0);
     this.grip.add(model);

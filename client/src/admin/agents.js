@@ -12,6 +12,8 @@ const CSS = `
 .aa-list button{display:block;width:100%;text-align:left;padding:8px 10px;margin:0 0 4px;border:1px solid #8884;border-radius:6px;background:none;color:inherit;cursor:pointer}
 .aa-list button[aria-current=true]{background:#8882;border-color:#888}
 .aa-list small{display:block;opacity:.65}
+.aa-list b{font-weight:600}
+.aa-scripted{font-size:12px;opacity:.6;margin:10px 2px 0;line-height:1.5}
 .aa-main{min-width:0;display:grid;gap:14px}
 .aa fieldset{border:1px solid #8884;border-radius:8px;padding:10px 12px;margin:0;min-width:0}
 .aa legend{padding:0 4px;font-weight:600}
@@ -75,7 +77,10 @@ export function mountAgentsTab(container) {
       status(e.message);
       return;
     }
-    $('[data-list]').innerHTML = list.agents.map((a) => `<button type="button" data-id="${esc(a.id)}" aria-current="${a.id === current?.id}">${esc(a.name)}<small>${esc(a.id)} · тем ${a.cards} · действий ${a.actions}</small></button>`).join('');
+    $('[data-list]').innerHTML = list.agents.map((a) => `<button type="button" data-id="${esc(a.id)}" aria-current="${a.id === current?.id}"><b>${esc(a.ru ?? a.name)}</b><small>${esc(a.id)} · тем ${a.cards} · действий ${a.actions}</small></button>`).join('')
+      + (list.scripted?.length ? `<p class="aa-scripted">Без ИИ, готовые реплики: ${list.scripted.map((n) => esc(n.ru)).join(', ')}</p>` : '');
+    // Сразу открываем первого агента: справа — его форма, а не пустое место
+    if (!current && list.agents[0]) open(list.agents[0].id);
     $('[data-user]').innerHTML = list.players.map((p) => `<option value="${p.id}">${esc(p.name)}${p.connected ? ' ●' : ''}</option>`).join('') || '<option value="">нет игроков в памяти сервера</option>';
   }
 

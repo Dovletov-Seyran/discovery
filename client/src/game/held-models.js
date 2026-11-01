@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {espingarda} from '../world/espingarda.js';
+import {macana} from '../world/macana.js';
 
 const own=(color,roughness=.5,metalness=0)=>{const m=new THREE.MeshStandardMaterial({color,roughness,metalness});m.userData.equipmentOwned=true;return m;};
 const part=(root,geometry,material,p=[0,0,0],rotation=[0,0,0])=>{
@@ -62,18 +63,7 @@ function provisions(id){
   }
   return {obj:g};
 }
-function rumBottle(){
- const g=new THREE.Group(),glass=own(0x70421c,.23,.08),label=own(0xe4d1a0,.9),cork=own(0x68492d,.9);
- part(g,new THREE.CylinderGeometry(.07,.064,.23,24),glass,[0,.12,0]);
- part(g,new THREE.CylinderGeometry(.025,.07,.07,24),glass,[0,.27,0]);
- part(g,new THREE.CylinderGeometry(.025,.025,.10,20),glass,[0,.35,0]);
- part(g,new THREE.TorusGeometry(.027,.005,6,20),glass,[0,.395,0],[Math.PI/2,0,0]);
- part(g,new THREE.CylinderGeometry(.026,.026,.035,16),cork,[0,.407,0]);
- part(g,new THREE.CylinderGeometry(.071,.071,.10,24,1,true),label,[0,.14,0]);
- for(let i=0;i<3;i++)part(g,new THREE.BoxGeometry(.06-i*.01,.006,.003),cork,[0,.16-i*.018,.072]);
- return {obj:g};
-}
-// Часть 2 (Гуанахани): вещи деревни таино — простые формы из нескольких частей
+
 function taino(id){
   const g=new THREE.Group(),wood=own(0x7a5530,.9),cotton=own(0xf1ece0,1),fiber=own(0xb89a62,1);
   switch(id){
@@ -102,7 +92,7 @@ function taino(id){
   return {obj:g};
 }
 const TAINO_ITEMS=['spear','fish','conch','cassava','cassava_grated','cassava_pulp','casabe','cotton','hammock_gift','firewood','torch','parrot','gift_cotton','bell','beads','red_cap'];
-export const HELD_MODELS={sword,espingarda,rum:rumBottle,purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit'),
+export const HELD_MODELS={sword,espingarda,macana,purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit'),
   ...Object.fromEntries(TAINO_ITEMS.map(id=>[id,()=>taino(id)]))};
 
 export function releaseModel(obj){

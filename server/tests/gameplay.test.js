@@ -170,3 +170,9 @@ test('вечерние карты и танец запускают сессии,
   director.setScene('ship_day');p.quests={};quests.onSceneStart(director.scene(),[p]);received.length=0;
   rules.interact(p,{id:'dance'});assert.equal(received.some(m=>m.t==='world_event'),false);
 });
+
+test('a completed presentation checkpoint stays available when revisited; the next cinematic keeps its timeline',()=>{
+ director.setHooks({isSceneComplete:()=>true});director.setScene('ship_day');director.holdCompletedCheckpoint();
+ director.tick(director.startAt()+20000);assert.equal(director.scene().id,'ship_day');assert.equal(director.isTransitioning(),false);
+ director.setScene('cut_canary');assert.equal(director.scene().id,'cut_canary');assert.ok(director.sceneMessage(p).duration>0);
+});

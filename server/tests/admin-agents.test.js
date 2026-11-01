@@ -60,8 +60,10 @@ test('без токена и с чужим токеном — 401', async () => 
 test('список и JSON агента', async () => {
   const list = await call('/api/admin/agents');
   assert.equal(list.status, 200);
-  assert.equal(list.body.agents.length,22); // + 8 агентов Гуанахани
-  for(const id of ['columbus','storyteller','trader','cook','boatswain','musician','town_1','cacique','elder','admiral'])assert.ok(list.body.agents.some(a=>a.id===id));
+  // в списке только ИИ-агенты; неагентные NPC — отдельным списком scripted
+  assert.deepEqual(list.body.agents.map(a=>a.id).sort(),['admiral','cacique','columbus','elder','musician','storyteller','trader']);
+  assert.ok(list.body.agents.every(a=>a.ru&&a.ru!==a.id),'русское имя из npcs.json');
+  for(const id of ['cook','boatswain','town_1','villager_1'])assert.ok(list.body.scripted.some(n=>n.id===id));
   const one = await call('/api/admin/agents/columbus');
   assert.equal(one.body.id, 'columbus');
   assert.ok(Array.isArray(one.body.actions));

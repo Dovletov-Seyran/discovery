@@ -9,8 +9,8 @@ function world(){
  const w={scene:new Scene(),zone:'ship',layout:{},M,shipInteractables:[],island:{interactables:[],chunks:new Map()},chunks:{setStaticData(name,bytes){this.bytes=bytes;}}};w.objects=new WorldObjects(w);return w;
 }
 test('spawn → move → remove patches update rendering and pickup targets; hidden holder is not selectable',()=>{
- const w=world();w.objects.applyPatch({ops:[{op:'spawn',id:'drop:one',zone:'ship',kind:'item',item:'rum',model:'rum',p:[1,1,2],r:0,state:{uses:1}}]});
- assert.equal(w.objects.selectable.length,1);assert.equal(w.objects.selectable[0].userData.item,'rum');assert.ok(w.chunks.bytes>0);
+ const w=world();w.objects.applyPatch({ops:[{op:'spawn',id:'drop:one',zone:'ship',kind:'item',item:'cup',model:'cup',p:[1,1,2],r:0,state:{uses:1}}]});
+ assert.equal(w.objects.selectable.length,1);assert.equal(w.objects.selectable[0].userData.item,'cup');assert.ok(w.chunks.bytes>0);
  w.objects.applyPatch({ops:[{op:'set',id:'drop:one',p:[3,1,2]}]});assert.equal(w.objects.selectable[0].position.x,3);
  w.objects.applyEntity('drop:one',{holder:7});assert.equal(w.objects.selectable.length,0);
  w.objects.applyPatch({ops:[{op:'remove',id:'drop:one'}]});assert.equal(w.objects.records.size,0);
@@ -65,7 +65,7 @@ test('houses keep an openable doorway instead of a solid building collider',asyn
 test('patch cache reserves its bytes within the same 10% world budget and evicts farthest objects',async()=>{
  const {Chunks}=await import('../src/world/chunks.js');
  const w=world();w.chunks=new Chunks();w.chunks.setWorldMeta({totalBytes:1000000,totalChunks:257,cacheLimit:25});w.chunks.setStaticData('existing',88000);
- w.objects.applyPatch({ops:Array.from({length:60},(_,i)=>({op:'spawn',id:`drop:${i}`,zone:'ship',kind:'item',item:'rum',model:'rum',p:[i,0,0],state:{note:'x'.repeat(250)}}))});
+ w.objects.applyPatch({ops:Array.from({length:60},(_,i)=>({op:'spawn',id:`drop:${i}`,zone:'ship',kind:'item',item:'cup',model:'cup',p:[i,0,0],state:{note:'x'.repeat(250)}}))});
  assert.ok(w.chunks.stats().bytes<=100000);assert.ok(w.objects.records.has('drop:0'));assert.equal(w.objects.records.has('drop:59'),false);
 });
 

@@ -17,6 +17,7 @@ export class Chunks {
     this.send = null;
     this.zone = null;
     this.builders = {}; // zone → { add(key, data), remove(key), setVisible(key, v) }
+    this.incoming = []; this.deferBuild = false;
     this.timer = 0;
     this.lastPos = null;
     this.staticData=new Map();
@@ -79,7 +80,22 @@ export class Chunks {
     this.evict();
   }
 
+  // deferBuild (мир включает его в init): чанки строятся не все в кадре прихода, а в drain() по бюджету
+  // времени — когда при пробуждении в деревне приходит 20 чанков разом, игра не замирает
   receive(zone, key, data) {
+    if (this.deferBuild) { this.incoming.push([zone, key, data]); return; } // pending снимается при постройке — без повторного запроса
+    this.build(zone, key, data);
+  }
+
+  drain(budgetMs = 6) {
+    const until = performance.now() + budgetMs;
+    while (this.incoming.length) {
+      this.build(...this.incoming.shift());
+      if (performance.now() > until) break; // хотя бы один чанк за кадр
+    }
+  }
+
+  build(zone, key, data) {
     const id = `${zone}:${key}`;
     this.pending.delete(id);
     const builder = this.builders[zone];

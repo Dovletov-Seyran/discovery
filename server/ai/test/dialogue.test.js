@@ -118,3 +118,13 @@ test('a hungry player talking to the cook gets first-person facts, not direction
  const msgs=buildMessages({agent:getAgent('cook'),context:{scene:'ship_day'},intent:{kind:'need'},mem:{told:[],turns:[]},text:'че пожрать есть?'});
  assert.match(msgs.at(-2).content,/I am the cook/);assert.match(msgs[0].content,/first person/);
 });
+
+test('Taíno before the landing know nobody of the crew; the village gets its own facts, not the ship',async()=>{
+ const {understand}=await import('../understand.js');const {worldFacts}=await import('../agents.js');
+ assert.equal((await understand({agent:getAgent('elder'),text:'Кто такой боцман?'})).kind,'unknown');
+ assert.equal((await understand({agent:getAgent('trader'),text:'Кто такой Пинсон?'})).kind,'stranger');
+ const village=worldFacts({scene:'p2_day'},'cacique').join(' ');
+ assert.match(village,/casabe/);assert.doesNotMatch(village,/boatswain|cook/i);
+ const msgs=buildMessages({agent:getAgent('cacique'),context:{scene:'p2_day',role:'lengua'},intent:{kind:'need',agentId:'cacique'},mem:{told:[],turns:[]},text:'где взять воды?'});
+ assert.match(msgs.at(-2).content,/the cacique or the elder/);assert.doesNotMatch(msgs.at(-2).content,/boatswain/);
+});

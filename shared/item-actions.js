@@ -1,9 +1,9 @@
+import {STAMINA} from './stamina.js';
 // Every inventory item has an explicit action. Quantities/effects are decided by the server.
 export const ITEM_RULES={
  cup:{effect:'cup',cooldown:500},
  compass:{effect:'compass',cooldown:400},map:{effect:'map',cooldown:400},astrolabe:{effect:'astrolabe',cooldown:400},
  wine:{effect:'drink',cooldown:1200,servings:3,drunkMs:10000,strength:.35},
- rum:{effect:'drink',cooldown:1500,servings:2,drunkMs:20000,strength:.65},
  sword:{effect:'swing',cooldown:580},espingarda:{effect:'shot',cooldown:2500},
  barrel:{effect:'supplies',target:'well',cooldown:500},
  barrel_full:{effect:'water',target:'boat',cooldown:1000,servings:3,energy:12},
@@ -24,7 +24,8 @@ export const ITEM_RULES={
  hammock_gift:{effect:'supplies',target:'cacique',cooldown:500,hint:'Отнеси гамак касику и нажми E рядом с ним.'},
  firewood:{effect:'supplies',target:'fire',cooldown:500,hint:'Подойди к костру на площади и нажми E.'},
  torch:{effect:'light',cooldown:800},
+ macana:{effect:'swing',cooldown:550}, // дубинка воина: выдают на поединок (server/game/duel.js), после — забирают
  parrot:{effect:'show',cooldown:800},gift_cotton:{effect:'show',cooldown:800},
  bell:{effect:'show',cooldown:800},beads:{effect:'show',cooldown:800},red_cap:{effect:'show',cooldown:800},
 };
-export const freshVitals=()=>({stamina:100,drunkUntil:0,drunkStrength:0});
+export const freshVitals=()=>({stamina:STAMINA.max,staminaMax:STAMINA.max,drunkUntil:0,drunkStrength:0});

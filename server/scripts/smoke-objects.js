@@ -24,8 +24,8 @@ try{
  a.send('interact',{id:'role:piloto'});b.send('interact',{id:'role:grumete'});a.send('chat',{text:'/scene ship_day'});
  const scene=await wait(()=>a.messages.findLast(m=>m.t==='scene'&&m.id==='ship_day'),'scene');
  const spawn=scene.spawn;
- a.send('chat',{text:'/give wine'});a.send('chat',{text:'/give rum'});
- await wait(()=>a.messages.findLast(m=>m.t==='inventory'&&m.items.includes('wine')&&m.items.includes('rum')),'inventory');
+ a.send('chat',{text:'/give wine'});a.send('chat',{text:'/give cup'});
+ await wait(()=>a.messages.findLast(m=>m.t==='inventory'&&m.items.includes('wine')&&m.items.includes('cup')),'inventory');
  a.messages.length=b.messages.length=0;
  a.send('place',{item:'wine',p:[spawn[0]+.5,spawn[1]+.185,spawn[2]-.8],r:0});
  const drop=await wait(()=>a.messages.flatMap(m=>m.t==='world_patch'?m.ops:[]).find(op=>op.id.startsWith('drop:')&&op.item==='wine'),'placed wine');
@@ -34,7 +34,7 @@ try{
  a.send('pickup',{id:drop.id});await wait(()=>a.messages.findLast(m=>m.t==='inventory')?.items.includes('wine'),'pickup dropped wine');
  a.send('pickup',{id:drop.id});await sleep(100);assert.equal(a.messages.findLast(m=>m.t==='inventory').items.filter(i=>i==='wine').length,1);
  await sleep(400);a.messages.length=b.messages.length=0;
- a.send('throw',{item:'rum',p:[spawn[0],spawn[1]+1.6,spawn[2]-.35],v:[0,2,-4],r:0});
+ a.send('throw',{item:'cup',p:[spawn[0],spawn[1]+1.6,spawn[2]-.35],v:[0,2,-4],r:0});
  const thrown=await wait(()=>a.messages.find(m=>m.t==='world_event'&&m.type==='throw'),'throw event');
  const flight=await wait(()=>a.messages.flatMap(m=>m.t==='world_patch'?m.ops:[]).find(op=>op.id===thrown.id&&op.state?.body),'flight');
  const peer=await wait(()=>b.messages.flatMap(m=>m.t==='world_patch'?m.ops:[]).find(op=>op.id===flight.id&&op.state?.body),'peer flight');

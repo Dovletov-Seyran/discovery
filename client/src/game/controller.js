@@ -1,3 +1,4 @@
+import {STAMINA,staminaStep} from '../../../shared/stamina.js';
 import {Vector3, MathUtils} from 'three';
 const UP = new Vector3(0,1,0);
 
@@ -16,7 +17,7 @@ export class Controller {
     this.sensitivity = 0.002;
     this.animation = 'idle';
     this.velocityY = 0;
-    this.stamina=100;this.exhausted=false;
+    this.stamina=STAMINA.max;this.exhausted=false;
     this.capsule = {start:new Vector3(),end:new Vector3(),radius:0.35};
     this.keys = new Set();
     this.focused=false;this.dragging=false;this.wasLocked=false;
@@ -104,9 +105,9 @@ export class Controller {
       z = Number(this.keys.has('KeyS')) - Number(this.keys.has('KeyW'));
     }
     const moving = x !== 0 || z !== 0;
-    if(this.stamina<=0)this.exhausted=true;else if(this.stamina>=20)this.exhausted=false;
+    if(this.stamina<=0)this.exhausted=true;else if(this.stamina>=STAMINA.resume)this.exhausted=false;
     const running = !this.exhausted&&(this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'));
-    if(this.enabled&&!this.lookOnly)this.stamina=Math.max(0,Math.min(100,this.stamina+(moving&&running?-12:6)*Math.min(delta,.05)));
+    if(this.enabled&&!this.lookOnly)this.stamina=staminaStep(this.stamina,moving&&running,Math.min(delta,.05));
     this.animation = this.lookOnly ? 'sit' : moving ? running ? 'run' : 'walk' : 'idle';
     if (this.enabled && !this.lookOnly) {
       // Island chunks arrive asynchronously. Never simulate gravity over an absent collider.

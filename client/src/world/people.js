@@ -13,7 +13,7 @@ export const ROLE_NAME = { grumete: 'Юнга', piloto: 'Штурман', lengua
 
 // Part 2: the same three players as Lucayan Taíno of Guanahani. Bare skin with red achiote paint and cotton.
 const TAINO_SKIN = 0xa8714c, TAINO_HAIR = 0x120d0a;
-const taino = (o) => ({ shirt: TAINO_SKIN, sleeves: TAINO_SKIN, pants: TAINO_SKIN, skin: TAINO_SKIN, hair: TAINO_HAIR, hat: 'none', longHair: true, barefoot: true, ...o });
+export const taino = (o) => ({ shirt: TAINO_SKIN, sleeves: TAINO_SKIN, pants: TAINO_SKIN, skin: TAINO_SKIN, hair: TAINO_HAIR, hat: 'none', longHair: true, barefoot: true, ...o });
 export const TAINO_ROLE_LOOK = {
   grumete: taino({ loincloth: 0xe9e2d0, bodyPaint: 0x9a2a1c }), // the fisher
   piloto: taino({ nagua: 0xece5d2, bands: 0xece5d2 }), // the woman who bakes the casabe

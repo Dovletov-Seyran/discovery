@@ -1,6 +1,9 @@
+import {makeSceneShortcuts} from './scene-shortcuts.js';
+import {freshVitals} from '../../shared/item-actions.js';
 // Игровая логика: вход/выход игрока, обработчики сообщений, циклы.
 import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {ITEM_RULES} from '../../shared/item-actions.js';
 import { CONFIG } from '../../shared/config.js';
 import { C2S, S2C, ANIMS, CLOSE } from '../../shared/protocol.js';
 import { worldMeta, resetProgress } from '../db.js';
@@ -18,6 +21,8 @@ import * as ai from './ai-bridge.js';
 import {tickNpcBrain,resetNpcBrain} from './npc-brain.js';
 import { worldEvent, forget as forgetEvents } from './world-events.js';
 import { clientReport, countTick, forgetClient } from './stats.js';
+import * as combat from './combat.js';
+import * as duel from './duel.js';
 import { onChunkReq, onChunkDrop } from '../world/chunks.js';
 
 director.setHooks({
@@ -82,6 +87,7 @@ export function join(session, ws) {
 
   // Роль могли занять, пока игрока не было
   if (p.role && players.roleOwner(p.role, p.id)) p.role = null;
+  duel.cleanup(p); // макана после перезапуска посреди поединка
   director.placeOnJoin(p);
   director.seatOnJoin(p);
 
@@ -182,6 +188,7 @@ const FALL_Y = { ship: -3, canary: -2.5, guanahani: -2.5 };
 function onInteract(p, msg) {
   const id = typeof msg.id === 'string' ? msg.id : '';
   if (id.startsWith('role:')) return director.pickRole(p, id.slice(5));
+  if (duel.isDuelist(id)) return duel.challenge(p, id); // E у воина касика — вызов на поединок
   rules.interact(p, msg);
 }
 
@@ -213,7 +220,9 @@ function takenFromWorld(id) {
   }
 }
 
+const sceneShortcut=makeSceneShortcuts({director,players});
 const handlers = {
+  [C2S.SCENE_SHORTCUT]:sceneShortcut,
   [C2S.MOVE]: onMove,
   [C2S.INTERACT]: (p, msg) => { onInteract(p, msg); takenFromWorld(msg.id); },
   [C2S.CHAT]: onChat,
@@ -238,6 +247,8 @@ const handlers = {
   // Задержка до сервера и обратно: клиент сам вычтет свой ts (раз в 2 с, для HUD и админки)
   [C2S.PING]: (p, msg) => players.send(p, { t: S2C.PONG, ts: Number.isFinite(msg.ts) ? msg.ts : null, serverNow: Date.now() }),
   [C2S.CLIENT_STATS]: (p, msg) => clientReport(p.id, msg),
+  // бой на Гуанахани (docs/tz-combat.md): воин касика на батее — поединок, остальные таино — закон деревни
+  [C2S.ATTACK]: (p, msg) => (duel.isDuelist(msg.target) ? duel.attack(p, msg.target) : combat.attack(p, msg)),
 };
 
 export function handle(p, msg) {
@@ -254,7 +265,7 @@ export function resetAll() {
   resetProgress();
   for (const x of players.all()) {
     if (!x.connected) { players.remove(x.id); continue; } // без ожидания grace
-    x.inventory = []; x.action=null; x.money = 0;x.itemUses={};x.vitals={stamina:100,drunkUntil:0,drunkStrength:0}; x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
+    x.inventory = []; x.action=null; x.money = 0;x.itemUses={};x.vitals=freshVitals(); x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
     players.sendInventory(x);
   }
   director.resetToStart();
@@ -297,6 +308,7 @@ function devCommand(p, text) {
       break;
     case '/give':
       if (!arg) return notice(p, '/give <item>');
+      if(!Object.hasOwn(ITEM_RULES,arg))return notice(p,'Неизвестный предмет');
       p.inventory.push(arg);
       players.sendInventory(p);
       players.save(p);
@@ -342,6 +354,8 @@ export function start() {
     setInterval(() => director.broadcastTod(), CONFIG.TOD_INTERVAL_MS),
     setInterval(() => players.saveAll(), CONFIG.SAVE_INTERVAL_MS),
     setInterval(()=>rules.tickVitals(),1000),
+    setInterval(() => combat.tick(), 100),
+    setInterval(() => duel.tick(), 100),
     setInterval(()=>tickObjects(),100),
     setInterval(() => {
       const gone = players.expire();

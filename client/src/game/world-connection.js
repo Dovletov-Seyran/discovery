@@ -53,6 +53,8 @@ export class WorldConnection {
     events.on('entity',message=>this.applyEntity(message.id,message.state??message));
     // действия игроков (еда, бег, меч, выстрел, танец, разговор) — жители и животные реагируют сами (world/fauna.js)
     events.on('world_event',message=>this.world?.fauna?.react?.(message));
+    events.on('combat',message=>this.world?.applyCombat?.(message)); // бой на Гуанахани: воины (docs/tz-combat.md)
+    events.on('duel',message=>this.world?.applyDuel?.(message,this.you?.id)); // поединки на батее
     events.on('scene_progress',message=>{
       if(this.world&&message.scene===this.scene?.id&&Number.isFinite(message.serverNow))this.world.npcClockOffset=message.serverNow-Date.now();
     });
@@ -121,11 +123,13 @@ export class WorldConnection {
   requestShip(){if(this.active&&this.world&&this.scene?.zone==='ship'&&!this.shipRequested)this.shipRequested=this.send('chunk_req',{zone:'ship',keys:['0,0']});}
   applyScene(){
     if(!this.scene)return;
+    const runKey=`${this.scene.id}@${this.scene.startAt??0}`;
+    if(this.lastScene!==runKey)this.world.cutscene?.stop?.();
     this.world.setNpcScene?.(this.scene);
     if(this.scene.zone)this.world.setZone(this.scene.zone);
     if(Number.isFinite(this.scene.tod))this.world.setTimeOfDay(this.scene.tod);
-    if(this.lastScene!==this.scene.id){
-      this.lastScene=this.scene.id;this.requestShip();
+    if(this.lastScene!==runKey){
+      this.lastScene=runKey;this.requestShip();
       // часть 2: что есть на Гуанахани в этой сцене (люди Колумба — только 12 октября) и стоят ли корабли
       this.world.setScene?.(this.scene.id);
       if(this.scene.zone==='guanahani')this.world.setFleet?.('guanahani',!!this.scene.fleet);
@@ -136,7 +140,7 @@ export class WorldConnection {
     if(!this.world)return;
     this.world.applyEntity?.(id,state);
     // NPC стоит, пока с ним говорят (пауза маршрута — shared/npc-activity.js)
-    for(const field of ['paused','speaker','behavior','performance'])if(field in state)this.world.setEntityState?.(id,{[field]:state[field]});
+    for(const field of ['paused','speaker','behavior','performance','down'])if(field in state)this.world.setEntityState?.(id,{[field]:state[field]});
   }
   startLoop(){
     if(this.frameId||!this.active)return;

@@ -23,10 +23,12 @@ export const C2S = {
   NPC_HINT: 'npc_hint',     // { npc, hint, dialogueId?, requestId? }
   TRADE: 'trade',           // { npc, item, offer }
   READY: 'ready',           // { value: true/false }
+  SCENE_SHORTCUT: 'scene_shortcut', // {index:1..9} — restart presentation checkpoint for the party
   SKIP_VOTE: 'skip_vote',   // —
   SCARE: 'scare',           // { target }
   PING: 'ping',             // { ts } — раз в 2 с; сервер сразу отвечает pong, клиент считает задержку
   CLIENT_STATS: 'client_stats', // { fps, ping, calls, chunks, pct, mem } — раз в 2 с, для админки
+  ATTACK: 'attack',         // { target } — удар по таино или воину на Гуанахани (docs/tz-combat.md)
 };
 
 // Сервер → Клиент
@@ -65,6 +67,9 @@ export const S2C = {
   TRADE_STATE: 'trade_state',   // { npc, money, goods: [{item, price, sold}] } — при E у торговца и после каждого trade
   PONG: 'pong',                 // { ts, serverNow } — ответ на ping, ts — тот, что прислал клиент
   WORLD_EVENT: 'world_event',   // { type: talk/eat/drink/run/swing/scare/dance, who, p } — для реагирующих NPC
+  COMBAT: 'combat',             // { level: calm/alert/fight, offenders, warriors: [{id, p, r, state, hp}], serverNow }
+  HIT: 'hit',                   // { by, target, kind: npc/warrior/player/duel, hp, down, score?, blocked? }
+  DUEL: 'duel',                 // { duelists: [{id, name, p, r, state, player, score, startsAt, result?, lastPlayer?}], serverNow } — поединки на батее
 };
 
 // Коды закрытия WebSocket

@@ -182,11 +182,11 @@ details p { font-size: 15px; line-height: 1.5; margin-top: 6px; }
 .scene-caption { position: fixed; left: 10%; right: 10%; top: 40%; text-align: center; text-shadow: 0 2px 8px #000; }
 .scene-caption .quiet-button { display: block; margin: 30px auto; }
 .epilogue-screen { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px 16px; background: #0b0d0de6; text-align: center; overflow: auto; }
-.epilogue-screen h2 { margin: 18px 0 28px; font-weight: 300; letter-spacing: 2px; }
-.epilogue-screen ul { list-style: none; padding: 0; margin: 0; max-width: 640px; text-align: left; }
-.epilogue-screen li { padding: 14px 0 14px 22px; border-top: 1px solid #ccd0be29; line-height: 1.55; color: #d8d9cf; position: relative; }
-.epilogue-screen li::before { content: ''; position: absolute; left: 2px; top: 23px; width: 6px; height: 6px; background: #b3b4aa; transform: rotate(45deg); }
-.epilogue-screen .quiet-button { margin-top: 26px; }
+.epilogue-screen h2 { margin: 18px 0 30px; font-size: clamp(30px, 4vw, 46px); font-weight: 300; letter-spacing: 2px; }
+.epilogue-screen ul { list-style: none; padding: 0; margin: 0; max-width: 820px; text-align: left; }
+.epilogue-screen li { padding: 16px 0 16px 28px; border-top: 1px solid #ccd0be29; font-size: clamp(17px, 1.6vw, 22px); line-height: 1.5; color: #e2e3d9; position: relative; }
+.epilogue-screen li::before { content: ''; position: absolute; left: 4px; top: calc(16px + 0.62em); width: 7px; height: 7px; background: #b3b4aa; transform: rotate(45deg); }
+.epilogue-screen .quiet-button { margin-top: 28px; font-size: 18px; }
 @media(max-width: 700px) {
   .login-screen { grid-template-columns: 1fr; gap: 45px; padding: 60px 13vw 90px; }
   .title-block { max-width: 220px; margin: auto; }
@@ -394,6 +394,30 @@ body[data-scene-type="cutscene"] .scene-progress { top:20px; left:20px; }
 .vitals {grid-area:vitals;justify-self:start;box-sizing:border-box;width:max-content;max-width:100%;display:flex;justify-content:flex-start;gap:12px;flex-wrap:wrap;font-size:17px;color:#fff0d4;background:#101511dd;padding:7px 12px;border-radius:3px;}
 .vitals>span {display:flex;align-items:center;gap:10px;}
 .vitals progress {width:100px;height:7px;accent-color:#c8bb93;}
+.vitals .hp progress {accent-color:#b8402f;}
+/* бой на Гуанахани: попадание — красная кромка экрана, оглушение — затемнение с надписью */
+.hurt {position:fixed;inset:0;pointer-events:none;z-index:40;opacity:0;display:grid;place-items:center;font-size:34px;letter-spacing:2px;color:#f3e6d0;
+  background:radial-gradient(ellipse at center,transparent 45%,#9a1c12aa 100%);}
+.hurt.show {animation:hurt .45s ease-out;}
+.hurt.out {background:#0b0a09;animation:knocked 3.2s ease-in-out;}
+@keyframes hurt {from{opacity:1}to{opacity:0}}
+@keyframes knocked {0%{opacity:0}15%{opacity:1}75%{opacity:1}100%{opacity:0}}
+/* поединок на батее: табло сверху по центру; замах — красным, «открыт» — зелёным */
+.duel {position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;min-width:260px;max-width:min(520px,calc(100vw - 32px));
+  padding:10px 18px 12px;text-align:center;color:#f3e6d0;background:#101511e6;border:1px solid #d8d8cd36;border-radius:3px;}
+.duel p {margin:0;}
+.duel-title {font-size:20px;letter-spacing:1px;margin-bottom:4px !important;}
+.duel-score {display:flex;justify-content:center;gap:12px;font-size:17px;}
+.duel-score b {font-size:24px;font-weight:500;}
+.duel-sep {opacity:.6;}
+.duel-count {font-size:44px;line-height:1.1;margin-top:4px !important;}
+.duel-tip {margin-top:6px !important;font-size:15px;color:#d6cdb8;}
+.duel[data-tone="danger"] {border-color:#c8503c;}
+.duel[data-tone="danger"] .duel-tip {color:#f08a70;}
+.duel[data-tone="chance"] {border-color:#7fb07a;}
+.duel[data-tone="chance"] .duel-tip {color:#a8d8a0;}
+.duel[data-tone="win"] .duel-title {color:#c8e6a8;}
+.duel[data-tone="lose"] .duel-title {color:#f0a08a;}
 .map-panel {width:min(640px,95vw);}
 #local-map {width:100%;height:auto;display:block;border:1px solid #9c8254;margin-bottom:16px;}
 @media(max-width:760px){.hud-dock{grid-template-areas:"vitals" "equipment" "hint" "footer";}.vitals{font-size:15px;}}

@@ -12,6 +12,8 @@ export const controlsTab = {
       <section><h2>Объявление</h2>
         <form class="row" id="announce"><input id="text" maxlength="300" placeholder="Текст для всех игроков" aria-label="Объявление" required><button class="primary">Отправить всем</button></form></section>
       <section><h2>Игроки</h2><div class="table-wrap"><table><thead><tr><th>Игрок</th><th>Роль</th><th>Зона</th><th>Состояние</th><th></th></tr></thead><tbody id="players"></tbody></table></div></section>
+      <section><h2>Деревня таино</h2>
+        <div class="row"><span id="village" class="sub">—</span><button id="calm">Успокоить деревню</button></div></section>
       <section><h2>Сброс</h2>
         <div class="row"><button id="reset" class="danger">Сбросить прогресс</button><span class="sub">Все задания, инвентарь и сцена — с начала. Аккаунты остаются.</span></div></section>
       <div id="done" role="status" class="result"></div>`;
@@ -28,6 +30,7 @@ export const controlsTab = {
       const text = $('#text').value.trim();
       if (text) run(async () => { await api('POST', '/announce', { text }); $('#text').value = ''; }, 'Объявление отправлено');
     };
+    $('#calm').onclick = () => run(() => api('POST', '/combat/calm'), 'Деревня успокоена: воины ушли, обиды забыты');
     $('#reset').onclick = () => {
       if (confirm('Сбросить прогресс всех игроков и начать сначала?')) run(() => api('POST', '/reset'), 'Прогресс сброшен');
     };
@@ -39,7 +42,9 @@ export const controlsTab = {
     let sceneIds = '';
     return {
       async refresh() {
-        const [u, c] = await Promise.all([api('GET', '/universe'), api('GET', '/clients')]);
+        const [u, c, war] = await Promise.all([api('GET', '/universe'), api('GET', '/clients'), api('GET', '/combat')]);
+        const names = Object.fromEntries(c.clients.map((p) => [p.id, p.name]));
+        $('#village').textContent = `${{ calm: 'спокойно', alert: 'тревога — воины на посту', fight: 'бой' }[war.level] ?? war.level}${war.offenders.length ? ` · обидчики: ${war.offenders.map((id) => names[id] ?? id).join(', ')}` : ''}${war.warriors.length ? ` · воинов ${war.warriors.filter((w) => w.state !== 'down').length} из ${war.warriors.length}` : ''}`;
         const ids = u.scenes.map((s) => s.id).join();
         if (ids !== sceneIds) {
           sceneIds = ids;

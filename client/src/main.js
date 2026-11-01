@@ -1,3 +1,5 @@
+import {sceneShortcut} from './game/scene-shortcuts.js';
+import {STAMINA} from '../../shared/stamina.js';
 import './ui/style.css';
 import {FeastUI} from './ui/feast-games.js';
 import {placement,launch} from './game/object-actions.js';
@@ -11,6 +13,7 @@ import {ASTROLABE,latitude,answers,signed} from '../../shared/astrolabe.js';
 import {SocketClient,Events,forwardGameEvents} from './net/socket.js';
 import {MockClient} from './net/mock.js';
 import {Telemetry} from './net/telemetry.js';
+import {duelView} from './ui/duel-hud.js';
 import {FPS_PLAY,FPS_CALM} from './game/frame-limit.js';
 import {GameplayRuntime} from './game/runtime.js';
 import {WorldConnection} from './game/world-connection.js';
@@ -204,6 +207,8 @@ function bindNetwork(client){
     if(added&&!modal&&!knownCards.has(itemId(added))){knownCards.add(itemId(added));openKnowledge(itemId(added));}else if(modal==='inventory')openInventory();
   });
   client.on('vitals',message=>applyVitals(message,message.serverNow));
+  client.on('hit',onHit);
+  client.on('duel',renderDuel);
   client.on('item_used',receiveItemUse);
   client.on('player_equipment',message=>{
     if(message.id!==you.id||message.equipmentRev<ownEquipmentRev)return;
@@ -230,7 +235,8 @@ function bindNetwork(client){
   client.on('snapshot',message=>gameEvents.emit('snapshot',message));
   client.on('player_join',message=>gameEvents.emit('player_join',message));
   client.on('player_leave',message=>gameEvents.emit('player_leave',message));
-  client.on('tod',message=>{scene.tod=message.value;world?.setTimeOfDay?.(message.value);gameEvents.emit('tod',message);});
+  // во время катсцены время суток ведёт она сама (ночной пролог части 2 — иначе посреди ночи вставало солнце сцены)
+  client.on('tod',message=>{scene.tod=message.value;if(!world?.cutscene?.active)world?.setTimeOfDay?.(message.value);gameEvents.emit('tod',message);});
   forwardGameEvents(client,gameEvents);
 }
 function renderLobby(){
@@ -369,16 +375,17 @@ function applyVitals(next,serverNow=Date.now()+serverOffset){
 function renderVitals(){
   const el=$('#vitals');if(!el)return;
   const energy=Math.round(runtime?.controller.stamina??vitals.stamina),left=Math.max(0,Math.ceil((vitals.drunkUntil-Date.now()-serverOffset)/1000));
-  el.hidden=energy>=99&&!left;
-  const html=`<span>Силы <progress max="100" value="${energy}" aria-label="Запас сил"></progress> ${energy}</span>${left?`<span>Опьянение ${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}</span>`:''}`;
+  const hp=Math.round(vitals.hp??100);
+  el.hidden=energy>=STAMINA.max-1&&!left&&hp>=100;
+  const html=`${hp<100?`<span class="hp">Здоровье <progress max="100" value="${hp}" aria-label="Здоровье"></progress> ${hp}</span>`:''}<span>Силы <progress max="${STAMINA.max}" value="${energy}" aria-label="Запас сил"></progress> ${energy}</span>${left?`<span>Опьянение ${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}</span>`:''}`;
   if(el.innerHTML!==html)el.innerHTML=html;
 }
 function receiveItemUse(message){
   const left=Math.max(0,message.cooldownUntil-message.serverNow);itemCooldowns.set(message.item,Date.now()+left);
   if(message.vitals)applyVitals(message.vitals,message.serverNow);
   if(equipped===message.item)equipment?.use();
-  if(message.effect==='drink')notify(message.item==='rum'?'Глоток рома.':'Глоток вина.');
-  if(message.effect==='food')notify(`Запас сил: ${Math.round(vitals.stamina)} / 100`);
+  if(message.effect==='drink')notify('Глоток вина.');
+  if(message.effect==='food')notify(`Запас сил: ${Math.round(vitals.stamina)} / ${STAMINA.max}`);
   if(message.effect==='water')notify('Глоток воды.');
   if(message.effect==='shot'){equipment?.fire();playShot();notify('Выстрел · перезарядка 2,5 с');}
   if(message.effect==='map')openMap();
@@ -390,6 +397,35 @@ function openMap(){
   const position=runtime?.controller.position.toArray()||savedPosition||[0,0,0],yaw=runtime?.controller.yaw||0;
   showModal('map',`<section class="menu-panel map-panel">${closeButton()}<h2>Морская карта</h2><canvas id="local-map" width="540" height="380" aria-label="Карта загруженных окрестностей"></canvas><small>Координаты: ${position[0].toFixed(0)}, ${position[2].toFixed(0)} · север наверху</small></section>`);
   drawLocalMap($('#local-map'),world,position,yaw,scene.zone);
+}
+// Бой на Гуанахани (docs/tz-combat.md): ЛКМ по таино или воину — удар. Только когда мышь уже в игре
+// или в руке предмет: первый щелчок, которым захватывают мышь, никого не бьёт.
+const TAINO_TARGETS=new Set(['cacique','elder','villager_1','villager_2','villager_3']);
+function attackTarget(){
+  const t=currentTarget;
+  if(!t||scene.zone!=='guanahani'||!isPlay(scene)||!connected||modal||chatOpen)return null;
+  if(t.kind==='duelist')return t.mine?t.id:null; // воин на батее: бить можно только своего соперника в поединке
+  if(t.kind!=='warrior'&&!TAINO_TARGETS.has(t.id))return null;
+  return document.pointerLockElement===canvas||equipped?t.id:null;
+}
+// Попадание по мне — красная вспышка; оглушили — затемнение, пока сервер переносит на берег
+function onHit(message){
+  if(message.target!==you.id)return;
+  if(message.kind==='duel'){flashHurt(false);return;} // очко воину: только вспышка, здоровье не тратится
+  flashHurt(message.down);
+  applyVitals({hp:message.hp});
+}
+// Табло поединка на батее: счёт, отсчёт, подсказка по замаху воина (ui/duel-hud.js)
+function renderDuel(message){
+  const view=duelView(message,you.id,Date.now()+serverOffset);
+  const el=$('#duel')??document.body.appendChild(Object.assign(document.createElement('div'),{id:'duel',className:'duel'}));
+  el.hidden=!view;if(!view)return;
+  el.dataset.tone=view.tone;if(el.innerHTML!==view.html)el.innerHTML=view.html;
+}
+function flashHurt(down){
+  const flash=$('#hurt')??document.body.appendChild(Object.assign(document.createElement('div'),{id:'hurt',className:'hurt'}));
+  flash.classList.remove('show','out');void flash.offsetWidth;flash.classList.add(down?'out':'show');
+  flash.textContent=down?'Тебя оглушили':'';
 }
 function useEquipped(){
   if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!isPlay(scene)||sceneProgress?.phase==='departing')return;
@@ -538,10 +574,11 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
   if(type==='astrolabe')openAstrolabe();
   if(type==='quest')net.emit('quest',{id:'q_astrolabe',title:'Определить широту',step:'Измерьте высоту Солнца.',status:'active',progress:0,total:1});
 });
-canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){useEquipped();runtime?.controller.lock();}});
+canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){const target=attackTarget();if(target)net.send('attack',{target});else useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   if(feastUI?.handleKey(event))return;
+  if(sceneShortcut(event,{connected,send:(t,p)=>net.send(t,p),notify}))return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
   if(event.code==='Escape'){event.preventDefault();if(modal&&modal!=='ended')closeModal();else if(chatOpen)closeChat();else if(!modal)openMenu();return;}
   if(typing)return;

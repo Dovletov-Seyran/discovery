@@ -72,6 +72,9 @@ export class WorldAudio {
     events.on('entity', (message) => this.onEntity(message));
     events.on('chunk',message=>{for(const npc of message.data?.npcs??[])if(npc.id==='musician'&&npc.state&&'performance' in npc.state)this.onPerformance(npc.state.performance);});
     events.on('scared', () => this.play('sfx_scream', { volume: 1 }));
+    // бой на Гуанахани: глухой удар на каждое попадание, крик — когда деревня поднимает тревогу
+    events.on('hit', (m) => this.play('sfx_hull_thud', { volume: m.kind === 'player' ? 1 : 0.6 }));
+    events.on('world_event', (m) => { if (m.type === 'alarm') this.play('sfx_scream', { volume: 0.55 }); });
     events.on('logout', () => { clearTimeout(this.performanceEnd);this.performanceKey=null;this.setAmbience({}); this.setMusic(null); this.inventory = null; this.doneQuests.clear(); });
   }
 
