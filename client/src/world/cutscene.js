@@ -85,6 +85,7 @@ export class Cutscenes {
     }
     if (c.switched && w.chunks.focus) w.chunks.update(w.chunks.focus, dt);
     if (def.todTrack && c.switched) w.setTimeOfDay(track(def.todTrack, t), true);
+    w.env.fogOverride = def.fog ? track(def.fog, t) ?? null : null; // fog: [[t, density | null]]
 
     const shot = def.shots.findIndex((s) => t >= s.from && t < s.to);
     if (shot >= 0) {
@@ -113,7 +114,7 @@ export class Cutscenes {
       }
     }
 
-    if (c.switched) { this.fleet(def, t); this.rowboat(def, t); this.extras(def, t); this.shipLights(def, t); }
+    if (c.switched) { this.fleet(def, t); this.rowboat(def, t); this.extras(def, t); this.shipLights(def, t); this.fires(def, t); }
     this.anchor(def, t);
     this.lamps(def, t);
 
@@ -137,7 +138,7 @@ export class Cutscenes {
     const env = this.w.env;
     for (const f of def.fleet ?? []) {
       if (t < f.t[0] || (t > f.t[1] && f.until !== 'end')) continue;
-      const u = clamp01((t - f.t[0]) / (f.t[1] - f.t[0]));
+      const u = (EASE[f.ease] ?? EASE.linear)(clamp01((t - f.t[0]) / (f.t[1] - f.t[0]))); // ease: 'out' glides to a halt
       if (f.run != null) {
         const [x, z, h] = env.fleet[f.ship].userData.bay, left = f.run * (1 - EASE.out(u));
         env.placeShip(f.ship, x + Math.sin(h) * left, z + Math.cos(h) * left, h);
@@ -268,6 +269,25 @@ export class Cutscenes {
     return g;
   }
 
+  // fires: [[x, z], …] until firesUntil — hearths still glowing in a sleeping village (a light that reaches the huts, a glow to see from afar)
+  fires(def, t) {
+    if (!def.fires) return;
+    if (!this.hearths) {
+      this.hearths = def.fires.map(([x, z]) => {
+        const g = new THREE.Group(), y = (this.w.groundHeight(x, z, 30) ?? 1) + 0.4;
+        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.w.smokeMat.map, color: 0xff9a40, blending: THREE.AdditiveBlending, depthWrite: false }));
+        glow.scale.setScalar(3.5);
+        const light = new THREE.PointLight(0xff8a3a, 30, 26, 2); light.position.y = 0.6;
+        g.add(glow, light); g.position.set(x, y, z);
+        this.w.scene.add(g);
+        return { g, light, glow };
+      });
+    }
+    const on = t < (def.firesUntil ?? Infinity); // out by morning
+    this.hearths.forEach(({ g }) => { g.visible = on; });
+    this.hearths.forEach(({ light, glow }, i) => { const k = 0.85 + 0.15 * Math.sin(t * 9 + i * 2) * Math.sin(t * 5.3 + i); light.intensity = 30 * k; glow.scale.setScalar(3.2 + 0.6 * k); });
+  }
+
   // the ships' lanterns at night, seen from the shore
   shipLights(def, t) {
     if (!def.shipLights) return;
@@ -344,9 +364,11 @@ export class Cutscenes {
     if (this.boat) this.boat.group.visible = false;
     for (const { rig } of this.cast ?? []) { rig.root.removeFromParent(); rig.root.traverse((o) => o.geometry?.dispose()); }
     for (const g of this.glows ?? []) { g.removeFromParent(); g.material.dispose(); }
-    this.cast = this.glows = this.torches = null;
+    for (const h of this.hearths ?? []) h.g.removeFromParent();
+    this.cast = this.glows = this.torches = this.hearths = null;
     if (c.def.boat?.entity) w.setEntityState(c.def.boat.entity, { visible: true });
     if (!c.def.lamps?.persist) w.env.lampScale = null;
+    w.env.fogOverride = null;
     if (w.camera.fov !== c.fov) { w.camera.fov = c.fov; w.camera.updateProjectionMatrix(); }
     w.players.group.visible = true;
     this.splash.visible = false;
