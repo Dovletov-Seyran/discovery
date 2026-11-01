@@ -10,6 +10,7 @@ import {ASTROLABE,latitude,answers,signed} from '../../shared/astrolabe.js';
 import {SocketClient,Events,forwardGameEvents} from './net/socket.js';
 import {MockClient} from './net/mock.js';
 import {Telemetry} from './net/telemetry.js';
+import {duelView} from './ui/duel-hud.js';
 import {FPS_PLAY,FPS_CALM} from './game/frame-limit.js';
 import {GameplayRuntime} from './game/runtime.js';
 import {WorldConnection} from './game/world-connection.js';
@@ -201,6 +202,7 @@ function bindNetwork(client){
   });
   client.on('vitals',message=>applyVitals(message,message.serverNow));
   client.on('hit',onHit);
+  client.on('duel',renderDuel);
   client.on('item_used',receiveItemUse);
   client.on('player_equipment',message=>{
     if(message.id!==you.id||message.equipmentRev<ownEquipmentRev)return;
@@ -395,16 +397,28 @@ const TAINO_TARGETS=new Set(['cacique','elder','villager_1','villager_2','villag
 function attackTarget(){
   const t=currentTarget;
   if(!t||scene.zone!=='guanahani'||!isPlay(scene)||!connected||modal||chatOpen)return null;
+  if(t.kind==='duelist')return t.mine?t.id:null; // воин на батее: бить можно только своего соперника в поединке
   if(t.kind!=='warrior'&&!TAINO_TARGETS.has(t.id))return null;
   return document.pointerLockElement===canvas||equipped?t.id:null;
 }
 // Попадание по мне — красная вспышка; оглушили — затемнение, пока сервер переносит на берег
 function onHit(message){
   if(message.target!==you.id)return;
-  const flash=$('#hurt')??document.body.appendChild(Object.assign(document.createElement('div'),{id:'hurt',className:'hurt'}));
-  flash.classList.remove('show','out');void flash.offsetWidth;flash.classList.add(message.down?'out':'show');
-  if(message.down)flash.textContent='Тебя оглушили';else flash.textContent='';
+  if(message.kind==='duel'){flashHurt(false);return;} // очко воину: только вспышка, здоровье не тратится
+  flashHurt(message.down);
   applyVitals({hp:message.hp});
+}
+// Табло поединка на батее: счёт, отсчёт, подсказка по замаху воина (ui/duel-hud.js)
+function renderDuel(message){
+  const view=duelView(message,you.id,Date.now()+serverOffset);
+  const el=$('#duel')??document.body.appendChild(Object.assign(document.createElement('div'),{id:'duel',className:'duel'}));
+  el.hidden=!view;if(!view)return;
+  el.dataset.tone=view.tone;if(el.innerHTML!==view.html)el.innerHTML=view.html;
+}
+function flashHurt(down){
+  const flash=$('#hurt')??document.body.appendChild(Object.assign(document.createElement('div'),{id:'hurt',className:'hurt'}));
+  flash.classList.remove('show','out');void flash.offsetWidth;flash.classList.add(down?'out':'show');
+  flash.textContent=down?'Тебя оглушили':'';
 }
 function useEquipped(){
   if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!isPlay(scene)||sceneProgress?.phase==='departing')return;

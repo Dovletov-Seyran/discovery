@@ -63,7 +63,8 @@ export const S2C = {
   PONG: 'pong',                 // { ts, serverNow } — ответ на ping, ts — тот, что прислал клиент
   WORLD_EVENT: 'world_event',   // { type: talk/eat/drink/run/swing/scare/dance, who, p } — для реагирующих NPC
   COMBAT: 'combat',             // { level: calm/alert/fight, offenders, warriors: [{id, p, r, state, hp}], serverNow }
-  HIT: 'hit',                   // { by, target, kind: npc/warrior/player, hp, down }
+  HIT: 'hit',                   // { by, target, kind: npc/warrior/player/duel, hp, down, score?, blocked? }
+  DUEL: 'duel',                 // { duelists: [{id, name, p, r, state, player, score, startsAt, result?, lastPlayer?}], serverNow } — поединки на батее
 };
 
 // Коды закрытия WebSocket

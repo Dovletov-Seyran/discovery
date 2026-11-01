@@ -297,6 +297,11 @@
       {"type": "any_of", "need": 3, "of": [{"type": "interact", "target": "cacique", "text": "Касик"}, {"type": "interact", "target": "villager_1", "text": "Жительница у бурена"}, {"type": "interact", "target": "villager_2", "text": "Житель на огороде"}, {"type": "interact", "target": "villager_3", "text": "Рыбак у каноэ"}, {"type": "interact", "target": "zemi", "text": "Земи"}, {"type": "interact", "target": "water_jar", "text": "Кувшин с водой"}], "text": "Поговори с жителями и осмотрись: 3 из 6"}
     ] },
 
+  {"id": "q_p2_day_duel", "doneEn": "sparred with a warrior of the cacique on the batey and won", "scene": "p2_day", "role": "all", "optional": true, "title": "Испытание воинов",
+    "steps": [
+      {"type": "minigame", "game": "duel", "text": "Подойди к воину касика на батее, нажми E и победи в поединке: отступай на его замахе, бей, пока он открыт", "en": "Challenge a warrior of the cacique on the batey and win the sparring bout"}
+    ] },
+
   {"id": "q_p2_areito", "doneEn": "brought firewood for the fire on the batey, danced the areíto with the maracas and listened to the elder", "scene": "p2_evening", "role": "all", "title": "Ареито",
     "steps": [
       {"type": "pickup", "item": "firewood", "text": "Возьми хворост из кучи у края батея"},
@@ -304,6 +309,11 @@
       {"type": "interact", "target": "maracas", "text": "Возьми маракасы и станцуй ареито"},
       {"type": "interact", "target": "elder", "text": "Послушай старейшину: он расскажет, откуда взялось море"}
     ], "log": "p2_areito" },
+
+  {"id": "q_p2_evening_duel", "doneEn": "sparred with a warrior of the cacique on the batey and won", "scene": "p2_evening", "role": "all", "optional": true, "title": "Испытание воинов",
+    "steps": [
+      {"type": "minigame", "game": "duel", "text": "Подойди к воину касика на батее, нажми E и победи в поединке: отступай на его замахе, бей, пока он открыт", "en": "Challenge a warrior of the cacique on the batey and win the sparring bout"}
+    ] },
 
   {"id": "q_p2_torch", "doneEn": "went down to the canoe at night with a torch to fish by its light", "scene": "p2_night", "role": "grumete", "title": "Свет на воде",
     "steps": [
