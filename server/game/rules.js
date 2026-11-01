@@ -217,7 +217,9 @@ function claimNpc(p, npc, req = {}) {
   }
   if (p.dialogue?.npc !== npc || p.dialogue.until <= Date.now()) {
     p.npcRequest = null;
-    p.dialogue = { id: req.dialogueId ?? `auto:${p.id}:${npc}`, npc, until: Date.now() + 30000 };
+    // Без открытого окна (dialogueId) NPC держится только на время ответа: npcOwner учитывает npcRequest,
+    // а 30 с аренды окна задержали бы смену сцены у всей партии
+    p.dialogue = { id: req.dialogueId ?? `auto:${p.id}:${npc}`, npc, until: Date.now() + (req.dialogueId ? 30000 : 3000) };
   }
   syncNpcDialogues();
   return true;
