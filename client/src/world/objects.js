@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {applyState,animateProp} from './props.js';
 import {releaseModel} from '../game/held-models.js';
 import {bodyQuaternion,supportHeight,OBJECT_PROFILES} from '../../../shared/object-physics.js';
-import {doorSpecs,doorBox,boxContact} from '../../../shared/world-interact.js';
+import {doorSpecs,interactionBoxes,boxContact} from '../../../shared/world-interact.js';
 import {worldItemModel} from '../game/world-item-model.js';
 import {advanceBody,sphereContact} from './physics.js';
 
@@ -79,19 +79,25 @@ export class WorldObjects {
   }
   setZone(zone){for(const [id,r] of this.records)if(r.data.zone!==zone)this.remove(id);this.root.visible=true;this.budget();}
   get selectable(){return [...this.records.values()].filter(r=>r.obj?.visible).map(r=>r.obj);}
+  collisionBoxes(point=null,radius=0,height=0){
+    const records=[...this.records.values()].filter(r=>r.data.toggleType==='door'||r.data.toggleType==='lid');
+    for(const obj of [...this.world.island.interactables,...this.world.shipInteractables]){
+      const def=obj.userData.doorDef??obj.userData.lidDef;
+      if(def&&!this.records.has(obj.userData.id))records.push({data:{...def,toggleType:def.toggleType??'door'},state:obj.userData.state??{}});
+    }
+    return records.filter(r=>r.data.zone===this.world.zone&&r.state.visible!==false&&(!point||Math.hypot(point[0]-r.data.p[0],point[2]-r.data.p[2])<4+radius&&Math.abs(point[1]-r.data.p[1])<4+radius+height)).flatMap(r=>interactionBoxes(r.data,r.state.open));
+  }
   collide(capsule){
     const start=capsule.start.clone();
-    const doors=[...this.records.values()].filter(r=>r.data.toggleType==='door');
-    for(const obj of this.world.island.interactables)if(obj.userData.doorDef&&!this.records.has(obj.userData.id))doors.push({data:{...obj.userData.doorDef,toggleType:'door'},state:obj.userData.state??{}});
+    // крупный декор из патчей (бочки с водой) — твёрдые коробки по своему размеру
     for(const record of this.records.values()){
       if(!record.solid||!record.obj?.visible||record.data.zone!==this.world.zone)continue;
       const o=record.obj.position,box={p:[o.x,o.y+record.solid[1],o.z],r:record.obj.rotation.y,half:record.solid};
       const p=boxContact(capsule.start.toArray(),capsule.radius,box,capsule.end.y-capsule.start.y);
       const delta=new THREE.Vector3().fromArray(p).sub(capsule.start);capsule.start.add(delta);capsule.end.add(delta);
     }
-    for(const record of doors){
-      const d=record.data;if(d.zone!==this.world.zone||d.toggleType!=='door'||record.state.visible===false)continue;
-      const p=boxContact(capsule.start.toArray(),capsule.radius,doorBox(d,record.state.open),capsule.end.y-capsule.start.y);
+    for(const box of this.collisionBoxes(capsule.start.toArray(),capsule.radius,Math.abs(capsule.end.y-capsule.start.y))){
+      const p=boxContact(capsule.start.toArray(),capsule.radius,box,Math.max(0,capsule.end.y-capsule.start.y));
       const delta=new THREE.Vector3().fromArray(p).sub(capsule.start);capsule.start.add(delta);capsule.end.add(delta);
     }
     return capsule.start.clone().sub(start);

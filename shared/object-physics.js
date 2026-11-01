@@ -16,7 +16,7 @@ export const objectProfile = item => OBJECT_PROFILES[item] ?? {radius:.15,half:[
 export const supportHeight = item => {const p=objectProfile(item);return p.roll?p.half[0]:p.half[1];};
 export const finiteVec = v => Array.isArray(v) && v.length === 3 && v.every(n=>Number.isFinite(n)&&Math.abs(n)<10000);
 export function createBody({p,v=[0,0,0],item,startedAt=0,roll=false,r=0}) {
- return {version:2,p:[...p],v:[...v],radius:objectProfile(item).radius,roll:roll&&!!objectProfile(item).roll,item,r,angle:0,startedAt,step:0,rest:0,sleeping:false};
+ return {version:3,p:[...p],v:[...v],radius:objectProfile(item).radius,roll:roll&&!!objectProfile(item).roll,item,r,angle:0,startedAt,step:0,rest:0,sleeping:false};
 }
 // Cylinder roll is derived from fixed-step travel; replaying a snapshot never adds a visual spin.
 export function bodyQuaternion(body){

@@ -112,7 +112,9 @@ function chest(M,w,h,d,arched){
   }
   g.add(mesh(boxGeo(.1,.12,.03,0,h-.08,d/2+.02),M.get('brass')));
   g.userData.setOpen=value=>{pivot.rotation.x=-value*1.65;};
-  return {obj:g,col:[boxGeo(w,h,d,0,h/2,0)]};
+  const col=[boxGeo(w,.06,d,0,.03,0)];
+  for(const side of [-1,1])col.push(boxGeo(.06,h,d,side*(w/2-.03),h/2,0),boxGeo(w,h,.06,0,h/2,side*(d/2-.03)));
+  return {obj:g,col};
 }
 
 export const MODELS = {
@@ -335,6 +337,7 @@ export function buildInteract(M, item, models = MODELS) {
   obj.traverse((o) => { if (o.userData.lamp) lamps.push(o); });
   bake(obj);
   obj.userData = { ...obj.userData, id: item.id, kind: item.kind, item: item.item, label: item.label, period: item.period, noBake: true };
+  if(item.m==='nav_chest'||item.m==='arms_chest')obj.userData.lidDef={...item,toggleType:'lid',zone:'ship'};
   if (item.state) applyState(obj, item.state);
   return { obj, col: item.kind==='item'?[]:col ? colliderFor(col, item) : [], lamps };
 }

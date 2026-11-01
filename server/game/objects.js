@@ -8,7 +8,7 @@ import * as director from './director.js';
 import {S2C} from '../../shared/protocol.js';
 import {ITEM_RULES} from '../../shared/item-actions.js';
 import {createBody,advanceBody,objectProfile,supportHeight,resolveBody,finiteVec,PHYSICS_STEP,PHYSICS_MAX_SECONDS} from '../../shared/object-physics.js';
-import {boxContact,doorBox} from '../../shared/world-interact.js';
+import {boxContact,doorBox,interactionBoxes} from '../../shared/world-interact.js';
 import {contactAt,surfaceAt} from '../world/object-collision.js';
 import {emitWorldEvent} from './world-events.js';
 const items=new Map(loadContent('items.json',[]).map(i=>[i.id,i]));
@@ -21,7 +21,7 @@ const distance=(a,b)=>Math.hypot(...a.map((x,i)=>x-b[i]));
 
 export function contactWithDoors(zone,p,radius,from=p){
   p=contactAt(zone,p,radius,from);
-  for(const d of entities.allDefs())if(d.zone===zone&&d.toggleType==='door'&&entities.stateOf(d.id)?.visible!==false)p=boxContact(p,radius,doorBox(d,entities.stateOf(d.id)?.open));
+  for(const d of entities.allDefs())if(d.zone===zone&&(d.toggleType==='door'||d.toggleType==='lid')&&Math.hypot(p[0]-d.p[0],p[2]-d.p[2])<4+radius&&Math.abs(p[1]-d.p[1])<4+radius&&entities.stateOf(d.id)?.visible!==false)for(const box of interactionBoxes(d,entities.stateOf(d.id)?.open))p=boxContact(p,radius,box);
   return p;
 }
 function allowed(p,msg){
@@ -95,7 +95,14 @@ export function toggle(p,{id}){
   const open=!entities.stateOf(id)?.open;
   // Do not close a door through another player: only the authoritative server decides.
   if(!open&&d.toggleType==='door'&&players.connected().some(other=>other.zone===d.zone&&other.p&&distance(boxContact(other.p,.35,doorBox(d,false),1),other.p)>.01))return notice(p,'В дверях кто-то стоит.');
-  entities.setState(id,{open,changedAt:now});performAction(p,'toggle',null,{target:id});director.persistNow();syncAll();
+  entities.setState(id,{open,changedAt:now});
+  if(d.toggleType==='lid')for(const item of entities.allDefs()){
+    const st=entities.stateOf(item.id),old=st?.body;
+    if(item.zone!==d.zone||st?.holder||!old?.sleeping||Math.hypot(old.p[0]-d.p[0],old.p[2]-d.p[2])>1.5||Math.abs(old.p[1]-d.p[1])>2)continue;
+    const body={...structuredClone(old),startedAt:now,step:0,rest:0,sleeping:false,v:[0,0,0]};
+    entities.setState(item.id,{body});active.set(item.id,{body,zone:d.zone,safeP:[...d.p],last:now});
+  }
+  performAction(p,'toggle',null,{target:id});director.persistNow();syncAll();
 }
 
 function relevant(p,d){
@@ -143,7 +150,7 @@ export function tickObjects(now=Date.now()){
   for(const d of entities.allDefs()){
     const st=entities.stateOf(d.id);
     if(st?.holder||!st?.body||active.has(d.id))continue;
-    if(st.body.version!==2){
+    if(st.body.version!==3){
       const base=st.p??d.p,body=createBody({p:[base[0],base[1]+supportHeight(d.item)+.02,base[2]],item:d.item,r:st.r??d.r??0,startedAt:now,roll:d.zone==='ship'});
       entities.setState(d.id,{body});st.body=body;
     }

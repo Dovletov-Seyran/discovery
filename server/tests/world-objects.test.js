@@ -85,5 +85,16 @@ test('saved sphere-era pickups migrate to centred shapes without resetting inven
  reset();const d=objects.spawnWorldItem({id:'legacy:map',item:'map',zone:'ship',p:[1,0,-3.8],uses:3});
  entities.setState(d.id,{body:{p:[1,.5,-3.8],v:[0,0,0],radius:.5,item:'map',startedAt:0,step:960,sleeping:true,roll:false}});
  const inventory=[...p.inventory];objects.tickObjects(Date.now());const st=entities.stateOf(d.id);
- assert.equal(st.body.version,2);assert.equal(st.uses,3);assert.equal(st.body.item,'map');assert.ok(st.body.p[1]<.1);assert.deepEqual(p.inventory,inventory);
+ assert.equal(st.body.version,3);assert.equal(st.uses,3);assert.equal(st.body.item,'map');assert.ok(st.body.p[1]<.1);assert.deepEqual(p.inventory,inventory);
+});
+
+test('opening a lid wakes a settled item and it falls into the hollow chest',async()=>{
+ reset();const {createBody}=await import('../../shared/object-physics.js'),chest=entities.def('nav_chest');
+ const now=Date.now(),id='fixture:chest-astrolabe',p0=[chest.p[0],chest.p[1]+.76,chest.p[2]];
+ objects.spawnWorldItem({id,item:'astrolabe',zone:'ship',p:[p0[0],p0[1]-.025,p0[2]]});
+ entities.setState(id,{body:{...createBody({p:p0,item:'astrolabe',startedAt:now}),sleeping:true}});
+ p.p=[chest.p[0]+.8,chest.p[1],chest.p[2]];objects.toggle(p,{id:chest.id});
+ assert.equal(entities.stateOf(chest.id).open,true);assert.equal(entities.stateOf(id).body.sleeping,false);
+ for(let t=now;t<=now+8000;t+=100)objects.tickObjects(t);
+ const body=entities.stateOf(id).body;assert.ok(body.sleeping);assert.ok(Math.abs(body.p[1]-(chest.p[1]+.091))<.005,`still floating: ${body.p}`);
 });
