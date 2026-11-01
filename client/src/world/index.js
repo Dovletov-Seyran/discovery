@@ -17,9 +17,9 @@ import { Pipeline } from './pipeline.js';
 import { Players } from './players.js';
 import { Collider } from './collision.js';
 import { Chunks } from './chunks.js';
+import {paths as canaryPaths} from '../../../content/canary_layout.json';
 import { Cutscenes } from './cutscene.js';
 import { strum } from './people.js';
-import canaryLayout from '../../../content/canary_layout.json';
 import islandLod from 'virtual:island-lod';
 
 const SMOKE_PUFFS = 8;
@@ -64,8 +64,10 @@ export const world = {
     this.cutscene = new Cutscenes(this);
 
     this.island = new Island(this.scene, this.M);
-    this.island.setPaths(canaryLayout.paths); // static town plan; the terrain itself comes in chunks
+    this.island.setPaths(canaryPaths); // static town plan; the terrain itself comes in chunks
     this.island.setLod(islandLod);
+    this.chunks.setStaticData('island-lod',islandLod.byteLength);
+    this.chunks.setStaticData('paths',new TextEncoder().encode(JSON.stringify(canaryPaths)).length);
     this.chunks.setBuilder('ship', { add: (key, data) => this.loadLayout(data), remove: () => this.unloadLayout(), setVisible: () => {} });
     this.chunks.setBuilder('canary', this.island);
 

@@ -77,3 +77,7 @@ test('промпт: время и место, память, инструкция
   assert.equal(msgs.at(-1).content, 'One Piece?');
   assert.match(msgs.at(-2).content, /^WHAT TO DO NOW: .*never heard/);
 });
+test('NPC can explain a shared task left by a missing role',()=>{
+ const task=currentTask({scene:'ship_day',role:'piloto',quests:{q_latitude:{status:'done'},q_hourglass:{status:'active',step:0,shared:true}}},'columbus');
+ assert.match(task.step,/sand glass/i);
+});

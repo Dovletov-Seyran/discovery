@@ -29,11 +29,21 @@ for (const s of scenes.values()) {
   if (Array.isArray(shipLayout.seats) && shipLayout.seats.length && s.seats) s.seats = shipLayout.seats;
 }
 // На Канарах — из content/canary_layout.json (spawns, обычно рядом с пристанью), уже с высотой рельефа
-const canarySpawns = (() => {
+const canaryWorld = (() => {
   const layout = loadContent('canary_layout.json', null);
-  return layout?.spawns ? resolveLayout(layout).layout.spawns : null;
+  return layout?.spawns ? resolveLayout(layout) : null;
 })();
-for (const s of scenes.values()) if (s.zone === 'canary' && s.spawns && canarySpawns) s.spawns = canarySpawns;
+for (const s of scenes.values()) if (s.zone === 'canary' && s.spawns && canaryWorld) s.spawns = canaryWorld.layout.spawns;
+
+// Исправление старого сохранения делается и на сервере: иначе защита от телепорта
+// постоянно возвращает клиент, выбравшийся из-под земли, в его старую яму.
+export function restoreGround(p) {
+  if (p.zone !== 'canary' || !p.p || !canaryWorld) return false;
+  const floor = canaryWorld.heightAt(p.p[0],p.p[2]);
+  if (!Number.isFinite(floor) || floor < 0 || p.p[1] >= floor - 0.5) return false;
+  p.p = [p.p[0],floor + 0.05,p.p[2]];
+  return true;
+}
 
 const state = {
   id: FIRST,
@@ -41,6 +51,7 @@ const state = {
   zone: 'ship',
   tod: 0.4,
   transitioning: false,
+  departAt: null, progressKey: null,
   skip: new Set(),
 };
 
@@ -59,6 +70,7 @@ export const zone = () => state.zone;
 // Конкретный запуск сцены: та же сцена, запущенная заново, — уже другая
 const sceneKey = () => `${state.id}@${state.startAt}`;
 export const startAt = () => state.startAt;
+export const isTransitioning = () => state.transitioning;
 
 const sceneType = () => scene().type;
 export const acceptsMove = () => sceneType() === 'play';
@@ -93,6 +105,7 @@ export function sceneMessage(p, { withSpawn = false } = {}) {
   const msg = {
     t: S2C.SCENE, id: s.id, type: s.type, startAt: state.startAt,
     tod: currentTod(), zone: state.zone, duration: sceneDuration(s),
+    advance: s.advance, next: s.next, progress: progressMessage(),
   };
   if (withSpawn && p.p && s.spawns) msg.spawn = p.p;
   if (p.seat) msg.seat = p.seat;
@@ -132,8 +145,9 @@ export function setScene(id) {
   const s = scenes.get(id);
   if (!s) return false;
   state.id = id;
-  state.startAt = Date.now() + CONFIG.SCENE_START_DELAY_MS;
+  state.startAt = Math.max(Date.now() + CONFIG.SCENE_START_DELAY_MS,state.startAt+1);
   state.transitioning = false;
+  state.departAt = null;state.progressKey=null;
   state.skip.clear();
   if (s.zone) state.zone = s.zone;
   if (s.tod != null) state.tod = s.tod;
@@ -141,6 +155,8 @@ export function setScene(id) {
   // Места у фонаря — по порядку ролей, чтобы не зависеть от порядка входа
   const party = players.party().sort((a, b) => ROLES.indexOf(a.role) - ROLES.indexOf(b.role));
   party.forEach((p, i) => {
+    p.dialogue = null;
+    p.npcRequest = null;
     p.ready = false;
     p.scene = sceneKey();
     if (p.zone !== state.zone) p.chunks?.clear();
@@ -169,6 +185,9 @@ export function setScene(id) {
 async function complete(s, { forced }) {
   state.transitioning = true;
   const key = sceneKey();
+  const countdown=s.type==='play'?CONFIG.TRANSITION_COUNTDOWN_MS:0;
+  state.departAt=Date.now()+countdown+(s.onComplete??[]).reduce((sum,a)=>sum+(a.wait??0),0);
+  broadcastProgress(Date.now(),true);
   if (forced) hooks.forceComplete(s, players.party());
   for (const action of s.onComplete ?? []) {
     if (sceneKey() !== key) return; // сцену сменили вручную (/scene)
@@ -176,6 +195,7 @@ async function complete(s, { forced }) {
     if (action.notice) players.broadcast({ t: S2C.NOTICE, text: action.notice });
     if (action.wait) await new Promise((r) => setTimeout(r, action.wait));
   }
+  if(countdown)await new Promise(resolve=>setTimeout(resolve,countdown));
   if (sceneKey() !== key) return;
   if (!setScene(s.next)) state.transitioning = false;
 }
@@ -188,6 +208,7 @@ function allReady(party, s) {
 export function tick(now = Date.now()) {
   if (entities.takeDirty()) persist();
   const s = scene();
+  broadcastProgress(now);
   if (state.transitioning || !s.next || now < state.startAt) return;
   const party = players.party();
   if (!party.some((p) => p.connected)) return; // никого нет — сцена ждёт
@@ -198,11 +219,37 @@ export function tick(now = Date.now()) {
   switch (s.advance ?? 'timer') {
     case 'all_ready': done = allReady(party, s); break;
     case 'quests': done = hooks.isSceneComplete(s, party); break;
-    case 'quests_and_ready': done = hooks.isSceneComplete(s, party) && allReady(party, s); break;
+    case 'quests_and_ready': done = hooks.isSceneComplete(s, party); break;
     case 'timer': done = timeUp; break;
     case 'timer_or_skip': done = timeUp || party.every((p) => state.skip.has(p.id)); break;
   }
-  if (done || timeUp) complete(s, { forced: !done }).catch((e) => console.error('[director]', e));
+  // В игровых сценах таймер меняет освещение, но не засчитывает задания.
+  // Шлюпка остаётся контрольной точкой; катсцены сохраняют собственный таймлайн.
+  const talking = s.type === 'play' && party.some((p) => p.connected && p.dialogue?.until > now);
+  if (done && !talking) complete(s, { forced: false }).catch((e) => console.error('[director]', e));
+}
+
+// Fixed server timestamps keep the visible countdown correct after reconnect and local clock drift.
+export function progressMessage(now=Date.now()) {
+  const s=scene(),party=players.party(),advance=s.advance??'timer';
+  const talking=party.filter(p=>p.connected&&p.dialogue?.until>now).length;
+  const done=party.filter(p=>hooks.playerDone(p,s.id)).length;
+  const base={t:S2C.SCENE_PROGRESS,scene:s.id,next:s.next,serverNow:now,done,total:party.length,
+    ready:party.filter(p=>p.ready).length,talking,endsAt:null};
+  if(!s.next||s.type==='lobby')return {...base,phase:'none'};
+  if(state.transitioning)return {...base,phase:'departing',endsAt:state.departAt};
+  if(advance==='timer'||advance==='timer_or_skip'){
+    const duration=sceneDuration(s);
+    return {...base,phase:'timed',endsAt:duration==null?null:state.startAt+duration*1000};
+  }
+  const complete=advance==='all_ready'?allReady(party,s):hooks.isSceneComplete(s,party);
+  if(complete&&talking)return {...base,phase:'dialogue'};
+  return {...base,phase:advance==='all_ready'?'checkpoint':'objectives'};
+}
+function broadcastProgress(now,force=false){
+  const message=progressMessage(now),{serverNow,...stable}=message,key=JSON.stringify(stable);
+  if(!force&&key===state.progressKey)return;
+  state.progressKey=key;players.broadcast(message);
 }
 
 export function broadcastTod() {
@@ -214,6 +261,7 @@ export function broadcastTod() {
 // --- Партия, готовность, лобби ---
 
 export function partyMessage() {
+  const s=scene();
   const party = players.party();
   const ready = {};
   const done = {}; // свои обязательные задания сцены выполнены
@@ -226,7 +274,7 @@ export function partyMessage() {
     scene: state.id,
     ready,
     done,
-    waitingFor: party.filter((p) => !p.ready).map((p) => ({ ...players.publicInfo(p), connected: p.connected })),
+    waitingFor: party.filter((p) => s.advance === 'all_ready' && !p.ready).map((p) => ({ ...players.publicInfo(p), connected: p.connected })),
     skip: { votes: party.filter((p) => state.skip.has(p.id)).length, total: party.length },
   };
 }
@@ -298,6 +346,7 @@ export function pickRole(p, role) {
 
 // Позиция при входе: сцена сменилась, пока игрока не было, — ставим в spawn текущей сцены
 export function placeOnJoin(p) {
+  restoreGround(p);
   if (p.scene === sceneKey() && p.zone === state.zone && p.p) return;
   const spawn = spawnFor(scene(), p.role);
   p.r = spawn?.r ?? 0;

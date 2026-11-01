@@ -12,8 +12,9 @@ export const C2S = {
   USE: 'use',               // { item, target? }
   MINIGAME: 'minigame',     // { game, result }
   CHAT: 'chat',             // { text }
-  NPC_TALK: 'npc_talk',     // { npc, text }
-  NPC_HINT: 'npc_hint',     // { npc, hint }
+  DIALOGUE: 'dialogue',       // { npc, dialogueId, active } — открытие/heartbeat/закрытие, lease 30 с
+  NPC_TALK: 'npc_talk',     // { npc, text, dialogueId?, requestId? }
+  NPC_HINT: 'npc_hint',     // { npc, hint, dialogueId?, requestId? }
   TRADE: 'trade',           // { npc, item, offer }
   READY: 'ready',           // { value: true/false }
   SKIP_VOTE: 'skip_vote',   // —
@@ -28,11 +29,14 @@ export const S2C = {
   SNAPSHOT: 'snapshot',         // { tick, players: [{id, p, r, a}] }
   PLAYER_JOIN: 'player_join',   // { id, name, role }
   PLAYER_LEAVE: 'player_leave', // { id, name, role }
+  SCENE_PROGRESS: 'scene_progress', // {scene, phase, next, endsAt?, serverNow, done, total, ready, talking}
   SCENE: 'scene',               // { id, type, startAt, tod, zone, duration, spawn?, seat? }
   TOD: 'tod',                   // { value }
   CHUNK: 'chunk',               // { zone, key, data }
   CHUNK_DENIED: 'chunk_denied', // { zone, key, reason }
   ENTITY: 'entity',             // { id, state }
+  VITALS: 'vitals',            // {stamina, drunkUntil, drunkStrength, serverNow}
+  ITEM_USED: 'item_used',       // {item,effect,cooldownUntil,serverNow,vitals,uses?,money}
   INVENTORY: 'inventory',       // { items: [...] }
   QUEST: 'quest',               // { id, status, progress, total }
   PARTY: 'party',               // { ready: {id: bool}, waitingFor: [{id, name, role}], skip: {votes, total} }

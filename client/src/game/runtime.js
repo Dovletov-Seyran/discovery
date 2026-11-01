@@ -16,7 +16,14 @@ export class GameplayRuntime {
     this.lastSent=-Infinity;
     this.lastMove='';
   }
-  setMode(mode){this.mode=mode;this.controller.setMode(mode);}
+  setMode(mode){
+    if(this.mode==='play'&&mode==='blocked'){
+      // Opening a menu/dialogue must stop the remote walk animation and server stamina drain.
+      this.send?.('move',{p:this.controller.position.toArray(),r:this.controller.yaw,a:'idle'});
+      this.lastMove='';
+    }
+    this.mode=mode;this.controller.setMode(mode);
+  }
   teleport(p,r){this.controller.teleport(p,r);this.lastMove='';}
   update(delta,time){
     this.controller.update(delta,time);

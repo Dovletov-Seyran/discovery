@@ -2,6 +2,7 @@
 // Типы шагов: pickup, interact (+count), deliver, minigame, talk, topics, trade_complete, any_of (need), all_of.
 import { S2C } from '../../shared/protocol.js';
 import { loadContent } from '../content.js';
+import {loadScenePlayers} from '../db.js';
 import { players } from './players.js';
 import * as entities from './entities.js';
 
@@ -27,6 +28,7 @@ function ref(q, p) {
 function matches(step, ev) {
   switch (step.type) {
     case 'pickup':
+    case 'use':
     case 'trade_complete': return ev.type === step.type && ev.item === step.item;
     case 'interact': return ev.type === 'interact' && ev.target === step.target;
     case 'deliver': return ev.type === 'deliver' && ev.item === step.item && ev.target === step.target;
@@ -151,15 +153,58 @@ export function wantsDelivery(p, sceneId, item, target) {
 }
 
 // Начало сцены: задания отсутствующих ролей становятся общими; всем — их задания
-export function onSceneStart(scene, party) {
-  const roles = new Set(party.map((p) => p.role).filter(Boolean));
-  const shared = entities.shared();
-  for (const q of sceneQuests(scene.id)) {
-    if (q.role !== 'all' && !roles.has(q.role) && !shared[q.id]) {
-      shared[q.id] = fresh();
-      entities.markDirty();
-    }
+function shareMissingRoles(scene,party,departed=[]) {
+  const roles=new Set(party.map(p=>p.role).filter(Boolean)),shared=entities.shared();
+  let changed=false;
+  for(const q of sceneQuests(scene.id)){
+    if(q.role==='all'||roles.has(q.role)||shared[q.id])continue;
+    const previous=departed.filter(p=>p.role===q.role).map(p=>p.quests?.[q.id]).filter(Boolean).sort((a,b)=>(b.status==='done'?1000:b.step)-(a.status==='done'?1000:a.step))[0];
+    shared[q.id]=previous?structuredClone(previous):fresh();
+    changed=true;entities.markDirty();
   }
+  return changed;
+}
+
+// After a reconnect/server restart, or expiry of a disconnected role, its tasks become shared.
+// In-progress tasks survive the handover instead of leaving an ownerless required objective.
+export function refreshParty(scene,party,departed=[]) {
+  const ids=new Set(party.map(p=>p.id)),sources=new Map();
+  // Persisted actors are not re-added to the party; only their abandoned quest resources are recovered.
+  for(const p of party[0]?.scene?loadScenePlayers(party[0].scene):[])if(!ids.has(p.id))sources.set(p.id,p);
+  for(const p of departed)sources.set(p.id??p.role,p);
+  const absent=[...sources.values()],changed=shareMissingRoles(scene,party,absent),recipients=new Set();
+  for(const gone of absent){
+    const recipient=party.find(p=>p.connected&&p.role===gone.role)??party.find(p=>p.connected);
+    if(!recipient)continue;
+    const tasks=sceneQuests(scene.id).filter(q=>!q.optional&&q.role===gone.role&&(entities.shared()[q.id]?.status??recipient.quests[q.id]?.status)!=='done');
+    const steps=tasks.flatMap(q=>q.steps.flatMap(step=>step.of??[step]));
+    const needed=new Set(steps.map(step=>step.item).filter(Boolean));
+    const items=(gone.inventory??[]).filter(item=>needed.has(item));
+    const money=steps.some(step=>step.type==='trade_complete')?(gone.money??0):0;
+    if(!items.length&&!money)continue;
+    for(const item of items){
+      gone.inventory.splice(gone.inventory.indexOf(item),1);recipient.inventory.push(item);
+      if(gone.itemUses?.[item]!=null){recipient.itemUses??={};recipient.itemUses[item]=gone.itemUses[item];delete gone.itemUses[item];}
+    }
+    gone.money=(gone.money??0)-money;recipient.money+=money;
+    for(const id of entities.ownedItemIds(gone.id,items)){
+      entities.setState(id,{holder:recipient.id});players.broadcast({t:S2C.ENTITY,id,state:entities.stateOf(id)});
+    }
+    players.save(gone,{now:true});players.save(recipient,{now:true});recipients.add(recipient);
+  }
+  if(!changed&&!recipients.size)return;
+  for(const recipient of recipients){players.sendInventory(recipient);players.send(recipient,{t:S2C.NOTICE,text:'Припасы для общего задания переданы тебе.'});}
+  for(const p of party){
+    for(const q of sceneQuests(scene.id)){
+      const r=ref(q,p);if(r){settle(q,r.st,p);if(r.shared)entities.markDirty();}
+    }
+    if(!playerDone(p,scene.id))p.ready=false;
+    sendAll(p,scene.id);players.save(p,{now:true});
+  }
+}
+
+export function onSceneStart(scene, party) {
+  shareMissingRoles(scene,party);
   for (const p of party) {
     for (const q of sceneQuests(scene.id)) {
       const r = ref(q, p);

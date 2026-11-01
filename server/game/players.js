@@ -22,9 +22,11 @@ function create(userId, name) {
     a: 'idle',
     inventory: saved?.inventory ?? [],
     money: saved?.money ?? 0,
+    itemUses:saved?.itemUses??{},vitals:saved?.vitals??{stamina:100,drunkUntil:0,drunkStrength:0},
+    lastItemUse:{},lastVitalsAt:Date.now(),
     quests: saved?.quests ?? {},
     log: saved?.log ?? [],
-    trade: {},           // торговля: item → { price, low } (только в памяти)
+    trade: saved?.trade??{}, // переговоры и покупки сохраняются между входами
     ready: false,
     seat: null,
     lastMoveAt: 0,
@@ -38,7 +40,7 @@ function create(userId, name) {
 }
 
 const serialize = (p) => ({
-  role: p.role, scene: p.scene, zone: p.zone, p: p.p, r: p.r, inventory: p.inventory, money: p.money, quests: p.quests, log: p.log,
+  role: p.role, scene: p.scene, zone: p.zone, p: p.p, r: p.r, inventory: p.inventory, money: p.money,trade:p.trade,itemUses:p.itemUses,vitals:p.vitals, quests: p.quests, log: p.log,
 });
 
 export const players = {
@@ -58,7 +60,7 @@ export const players = {
 
   publicInfo: (p) => ({ id: p.id, name: p.name, role: p.role }),
 
-  sendInventory(p) { players.send(p, { t: S2C.INVENTORY, items: p.inventory, money: p.money }); },
+  sendInventory(p) { players.send(p, { t: S2C.INVENTORY, items: p.inventory, money: p.money,itemUses:p.itemUses,vitals:p.vitals }); },
 
   addLog(p, code) {
     if (code && !p.log.includes(code)) p.log.push(code);

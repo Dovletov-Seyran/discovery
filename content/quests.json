@@ -234,5 +234,27 @@
       }
     ],
     "log": "feast"
+  },
+  {
+    "id": "q_navigation",
+    "scene": "ship_day",
+    "role": "all",
+    "optional": true,
+    "title": "Проверить курс",
+    "steps": [
+      {
+        "type": "use",
+        "item": "compass",
+        "text": "Возьми компас в руку и проверь курс (ЛКМ)",
+        "en": "Hold the compass and check the heading"
+      },
+      {
+        "type": "use",
+        "item": "map",
+        "text": "Сверь направление с морской картой (ЛКМ)",
+        "en": "Compare the heading with the sea chart"
+      }
+    ],
+    "log": "navigation_checked"
   }
 ]

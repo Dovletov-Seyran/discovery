@@ -99,6 +99,7 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   let audio = null;
   let ttsMs = 0;
   let topicsTold = [];
+  let topicsDiscussed = [];
 
   if (en) {
     // Перевод (LLM) и озвучка (отдельный поток) идут параллельно
@@ -112,6 +113,7 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
     ttsMs = voice.ms;
     // Новая тема засчитывается рассказанной; extraCard при повторе — нет (модель не всегда её вставляет)
     topicsTold = intent.kind === 'topic' && !repeat ? [intent.card.id] : [];
+    topicsDiscussed=intent.kind==='topic'?[intent.card.id]:[];
     mem.told.push(...topicsTold);
     remember(mem, { now, context, user: userText || OPENER, en, newVisit: !!returning });
     saveMemory(userId, npc, mem);
@@ -127,6 +129,7 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
     audio,
     hints: hintsFor(agent, mem.told),
     topicsTold,
+    topicsDiscussed, // credit a delivered repeat if the original answer was missed/closed
     timings: {
       understand: intent.ms ?? 0, llm: llmMs, translate: translateMs, tts: ttsMs, total: ms(t0),
       kind: intent.kind, via: intent.via, cards: intent.card ? [intent.card.id] : [], person: intent.person?.id, returning,
