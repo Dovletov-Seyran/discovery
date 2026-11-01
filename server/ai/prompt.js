@@ -74,7 +74,7 @@ export function buildMessages({ agent, context = {}, intent, mem, repeat = false
   );
 
   // Инструкцию — последней, прямо перед репликой игрока: маленькая модель лучше всего слушает то, что ближе к концу
-  const todo = directive({ agent, intent, repeat, extraCard, steerCard, task, taskTold, tradeResult, returning, mem, text, facts: worldFacts(context,agent.id) });
+  const todo = directive({ agent, intent, repeat, extraCard, steerCard, task, taskTold, tradeResult, returning, mem, text, facts: worldFacts(context,agent.id), context });
   return [
     { role: 'system', content: lines.join('\n') },
     ...mem.turns.slice(-AI.HISTORY).map(({ role: r, content }) => ({ role: r, content })),
@@ -83,7 +83,10 @@ export function buildMessages({ agent, context = {}, intent, mem, repeat = false
   ];
 }
 
-function directive({ intent, repeat, extraCard, steerCard, task, taskTold, tradeResult, returning, mem, text, facts = [] }) {
+// К кому отправить, если не знаешь: на корабле — боцман, на Канарах — горожане, в деревне таино — касик и старейшина
+const helperFor = (context = {}) => part2(context) ? 'the cacique or the elder' : String(context.scene ?? '').startsWith('canary') ? 'the townspeople' : 'the boatswain';
+
+function directive({ intent, repeat, extraCard, steerCard, task, taskTold, tradeResult, returning, mem, text, facts = [], context = {} }) {
   if (tradeResult) return describeTrade(tradeResult);
   if (!text) {
     if (!mem.turns.length && !mem.summary) return 'The player comes up to you for the first time. Greet them in character in one or two sentences.';
@@ -126,7 +129,7 @@ function directive({ intent, repeat, extraCard, steerCard, task, taskTold, trade
         ? `They ask what they should do. Give them EXACTLY this advice in your own words, in one or two sentences, and add nothing else (no other tasks, no other people): "${task.step}".${task.aboutYou ? ' This task is about YOU, so say it in the first person ("ask me...").' : ''}`
         : 'They ask what to do, but they have no task left here. Tell them their work is done for now: rest, help the others or wait for orders.';
     case 'need':
-      return `They have an everyday need or ask where something is. Answer ONLY from these facts about this place, choosing the one that fits: ${facts.map((f) => `• ${f}`).join(' ')} Tell them plainly where to get it or whom to ask, in one or two sentences, in character. If the facts do not cover it, say you do not know and send them to the boatswain. Do not talk about their task.`;
+      return `They have an everyday need or ask where something is. Answer ONLY from these facts about this place, choosing the one that fits: ${facts.map((f) => `• ${f}`).join(' ')} Tell them plainly where to get it or whom to ask, in one or two sentences, in character. If the facts do not cover it, say you do not know and send them to ${helperFor(context)}. Do not talk about their task.`;
     case 'unknown':
       return `They mention something you have never heard of: it does not exist in your time and place. You have no idea what it is or what it is about, so never describe it or guess its contents. Repeat the strange word as a question, say plainly you have never heard of such a thing, and turn the talk back to ${steer}.`;
     case 'farewell':
