@@ -2,11 +2,13 @@ import { chat } from './llm.js';
 
 // Словарь терминов эпохи: маленькая модель иначе пишет «Ципангу», «пилот», «Боже знает»
 const GLOSSARY = [
-  'boy → юнга (when addressing a person)',
+  '"boy" as a way to address the ship boy → юнга; "son" → сын (never юнга)',
+  'Santa Maria → «Санта-Мария»; Pinta → «Пинта»; Nina → «Нинья»',
+  'Silence! → Тише!; God speed → С Богом',
   'lad → парень',
   'pilot → штурман',
   'interpreter → переводчик',
-  'Admiral → адмирал',
+  'Admiral → адмирал; Columbus → Колумб; the Genoese → генуэзец',
   'Admiral of the Ocean Sea → адмирал Моря-Океана',
   'Cipangu → Сипанго',
   'Cathay → Катай',
@@ -25,22 +27,41 @@ const GLOSSARY = [
   "I'll tell you what → Вот что я тебе скажу",
   'Listen here → Слушай-ка',
   'the Sea of Darkness → Море Мрака',
+  'San Borondon → Сан-Борондон; El Hierro → Иерро; La Gomera → Ла-Гомера',
   'Moors → мавры',
+  'the monarchs → король и королева',
+  'plank → доска',
+  'chest (a box) → сундук; astrolabe → астролябия; stern → корма',
 ];
 
 const SYSTEM = [
   "Translate the user's text from English into natural, fluent Russian.",
   'It is the speech of a character in 1492; use a slightly old-fashioned, lively tone.',
   'Keep the exact meaning, use only real Russian words and correct grammar. Translate idioms by meaning, not word by word.',
+  'Foreign words and names you do not recognise (book titles, odd words) — leave exactly as written, do not translate them.',
   'Use these terms:',
   ...GLOSSARY.map((g) => `- ${g}`),
-  'Output only the translation, nothing else.',
 ].join('\n');
 
-export async function toRussian(en) {
+// names — [{ en, ru }]: люди экипажа и имена игроков (латиница в ответе → как их пишут по-русски)
+const plain = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+export async function toRussian(en, { names = [] } = {}) {
+  // Чужие слова (One Piece) прячем под метку, чтобы модель их не «перевела», и возвращаем после
+  const keep = names.filter((n) => n.en === n.ru && n.en.length > 1 && en.includes(n.en));
+  keep.forEach((n, i) => { en = en.split(n.en).join(`QX${i}`); });
+  const src = plain(en);
+  const used = names.filter((n) => n.en !== n.ru && n.en && src.includes(plain(n.en.split(' ')[0])));
+  const system = [
+    SYSTEM,
+    ...(used.length ? ['Names (write them exactly like this):', ...used.map((n) => `- ${n.en} → ${n.ru}`)] : []),
+    'Output only the translation, nothing else.',
+  ].join('\n');
   const res = await chat(
-    [{ role: 'system', content: SYSTEM }, { role: 'user', content: en }],
+    [{ role: 'system', content: keep.length ? `${system}\nTokens like QX0, QX1 are names: copy them unchanged.` : system }, { role: 'user', content: en }],
     { priority: 0, temperature: 0.2, maxTokens: 320 },
   );
-  return { text: res.text.replace(/^["«]+|["»]+$/g, '').trim(), ms: res.ms };
+  let text = res.text.replace(/^["«]+|["»]+$/g, '').trim();
+  keep.forEach((n, i) => { text = text.split(`QX${i}`).join(n.en); });
+  return { text, ms: res.ms };
 }

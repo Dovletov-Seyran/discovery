@@ -1,8 +1,13 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { AI } from './config.js';
+import { tokenize, wordsMatch } from './retrieval.js';
 
 const agents = new Map();
+// агент → его запись в crew.json (Старый Хуан там old_juan, торговец — gonzalo)
+const AGENT_PERSON = { columbus: 'columbus', storyteller: 'old_juan', trader: 'gonzalo' };
+let crew = null;
+let quests = null;
 
 export function loadAgents() {
   agents.clear();
@@ -10,6 +15,8 @@ export function loadAgents() {
     const agent = JSON.parse(readFileSync(join(AI.AGENTS_DIR, file), 'utf8'));
     agents.set(agent.id, agent);
   }
+  crew = JSON.parse(readFileSync(AI.CREW_FILE, 'utf8')).people;
+  quests = JSON.parse(readFileSync(AI.QUESTS_FILE, 'utf8'));
   return agents;
 }
 
@@ -18,4 +25,62 @@ export function getAgent(id) {
   const agent = agents.get(id);
   if (!agent) throw new Error(`unknown agent: ${id}`);
   return agent;
+}
+
+// Люди, которых знает агент: у кого есть его мнение (себя самого агент не «знает» как постороннего)
+export function knownPeople(agentId) {
+  if (!crew) loadAgents();
+  return crew.filter((p) => p.opinions?.[agentId] && p.id !== agentId);
+}
+
+// Человек из экипажа по имени в реплике игрока: самое точное совпадение («Хуан де ла Коса» важнее «Хуан»).
+// Ищем среди всех людей мира: агент может и не знать человека лично — тогда он так и скажет.
+export function findPerson(agentId, text) {
+  if (!crew) loadAgents();
+  const words = tokenize(text || '');
+  if (!words.length) return null;
+  let best = null;
+  let bestScore = 0;
+  for (const p of crew) {
+    if (p.id === AGENT_PERSON[agentId]) continue;
+    for (const alias of p.aliases) {
+      const parts = tokenize(alias);
+      if (parts.length && parts.length > bestScore && parts.every((part) => words.some((w) => wordsMatch(w, part)))) {
+        best = p;
+        bestScore = parts.length;
+      }
+    }
+  }
+  return best;
+}
+
+export const knowsPerson = (agentId, person) => !!person?.opinions?.[agentId];
+
+// Текущее задание игрока в этой сцене: { title, step, aboutYou } (шаг — по-английски, из content/quests.json)
+export function currentTask(context = {}, agentId = null) {
+  if (!quests) loadAgents();
+  const state = context.quests ?? {};
+  const mine = quests.filter((q) => q.scene === context.scene && (!q.role || q.role === 'all' || q.role === context.role) && !q.optional);
+  for (const q of mine) {
+    const st = state[q.id];
+    if (st?.status === 'done') continue;
+    const current = q.steps[Math.min(st?.step ?? 0, q.steps.length - 1)];
+    const text = current?.en ?? current?.text ?? '';
+    // Задание про самого собеседника («спроси Адмирала» у Колумба) — маленькая модель иначе не узнаёт себя:
+    // «Ask the Admiral … promised him» → «Ask me … promised me»
+    const me = agentId && crew.find((p) => p.id === AGENT_PERSON[agentId]);
+    const alias = me?.aliases.find((a) => /^[a-z]/i.test(a) && new RegExp(`\\b${a}\\b`, 'i').test(text));
+    const step = alias ? text.replace(new RegExp(`(the )?\\b${alias}\\b`, 'i'), 'me').replace(/\bhim\b/g, 'me') : text;
+    return { title: q.title, step, aboutYou: !!alias };
+  }
+  return null;
+}
+
+// Имена людей экипажа по-русски — словарь для перевода субтитров
+export function crewNames() {
+  if (!crew) loadAgents();
+  const full = crew.filter((p) => p.ru && /^[A-Z]/.test(p.name.replace(/^(Admiral|Dona|Old) /, ''))).map((p) => ({ en: p.name, ru: p.ru }));
+  // и отдельно фамилии: модель часто пишет «Pinzon» без имени
+  const last = full.filter((n) => n.en.includes(' ') && n.ru.includes(' ')).map((n) => ({ en: n.en.split(' ').at(-1), ru: n.ru.split(' ').at(-1) }));
+  return [...full, ...last];
 }

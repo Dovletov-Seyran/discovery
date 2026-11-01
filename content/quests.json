@@ -1,57 +1,238 @@
 [
-  { "id": "q_hourglass", "scene": "ship_day", "role": "grumete", "title": "Песочные часы",
+  {
+    "id": "q_hourglass",
+    "scene": "ship_day",
+    "role": "grumete",
+    "title": "Песочные часы",
     "steps": [
-      { "type": "interact", "target": "hourglass", "count": 2, "text": "Переворачивай песочные часы на корме, когда песок кончится" }
-    ], "log": "hourglass_turned" },
-
-  { "id": "q_latitude", "scene": "ship_day", "role": "piloto", "title": "Где мы?",
+      {
+        "type": "interact",
+        "target": "hourglass",
+        "count": 2,
+        "text": "Переворачивай песочные часы на корме, когда песок кончится",
+        "en": "Turn the sand glass at the stern each time the sand runs out, and sing the prayer"
+      }
+    ],
+    "log": "hourglass_turned"
+  },
+  {
+    "id": "q_latitude",
+    "scene": "ship_day",
+    "role": "piloto",
+    "title": "Где мы?",
     "steps": [
-      { "type": "pickup", "item": "astrolabe", "text": "Найди астролябию в сундуке штурмана", "log": "found_astrolabe" },
-      { "type": "minigame", "game": "astrolabe", "text": "Измерь высоту Солнца и вычисли широту" }
-    ], "log": "latitude_correct" },
-
-  { "id": "q_ask_columbus", "scene": "ship_day", "role": "lengua", "title": "Слово адмирала",
+      {
+        "type": "pickup",
+        "item": "astrolabe",
+        "text": "Найди астролябию в сундуке штурмана",
+        "log": "found_astrolabe",
+        "en": "Find the astrolabe in the pilot's chest at the stern"
+      },
+      {
+        "type": "minigame",
+        "game": "astrolabe",
+        "text": "Измерь высоту Солнца и вычисли широту",
+        "en": "Measure the height of the noon sun with the astrolabe and work out our latitude"
+      }
+    ],
+    "log": "latitude_correct"
+  },
+  {
+    "id": "q_ask_columbus",
+    "scene": "ship_day",
+    "role": "lengua",
+    "title": "Слово адмирала",
     "steps": [
-      { "type": "topics", "npc": "columbus", "need": 2, "of": ["why_west", "reward", "distance"], "text": "Узнай у Колумба две вещи: зачем плывём, что ему обещано, сколько плыть" }
-    ], "log": "asked_columbus" },
-
-  { "id": "q_items", "scene": "ship_day", "role": "all", "optional": true, "title": "Осмотреться",
+      {
+        "type": "topics",
+        "npc": "columbus",
+        "need": 2,
+        "of": [
+          "why_west",
+          "reward",
+          "distance"
+        ],
+        "text": "Узнай у Колумба две вещи: зачем плывём, что ему обещано, сколько плыть",
+        "en": "Ask the Admiral about two things: why we sail west, what the monarchs promised him, and how far it is to the Indies"
+      }
+    ],
+    "log": "asked_columbus"
+  },
+  {
+    "id": "q_items",
+    "scene": "ship_day",
+    "role": "all",
+    "optional": true,
+    "title": "Осмотреться",
     "steps": [
-      { "type": "any_of", "need": 3, "text": "Найди на корабле три предмета", "of": [
-        { "type": "pickup", "item": "compass" }, { "type": "pickup", "item": "map" },
-        { "type": "pickup", "item": "espingarda" }, { "type": "pickup", "item": "sword" },
-        { "type": "pickup", "item": "wine" } ] }
-    ] },
-
-  { "id": "q_water", "scene": "canary", "role": "grumete", "title": "Вода для Америки",
+      {
+        "type": "any_of",
+        "need": 3,
+        "text": "Найди на корабле три предмета",
+        "of": [
+          {
+            "type": "pickup",
+            "item": "compass"
+          },
+          {
+            "type": "pickup",
+            "item": "map"
+          },
+          {
+            "type": "pickup",
+            "item": "espingarda"
+          },
+          {
+            "type": "pickup",
+            "item": "sword"
+          },
+          {
+            "type": "pickup",
+            "item": "wine"
+          }
+        ],
+        "en": "Find three things on the ship: compass, chart, astrolabe, wine, espingarda or sword"
+      }
+    ]
+  },
+  {
+    "id": "q_water",
+    "scene": "canary",
+    "role": "grumete",
+    "title": "Вода для Америки",
     "steps": [
-      { "type": "pickup", "item": "barrel", "text": "Возьми бочонок у шлюпки" },
-      { "type": "interact", "target": "well", "text": "Наполни его у колодца" },
-      { "type": "deliver", "item": "barrel_full", "target": "boat", "text": "Отнеси в шлюпку" }
-    ], "log": "water_delivered" },
-
-  { "id": "q_rudder", "scene": "canary", "role": "piloto", "title": "Руль «Пинты»",
+      {
+        "type": "pickup",
+        "item": "barrel",
+        "text": "Возьми бочонок у шлюпки",
+        "en": "Take an empty barrel from the boat"
+      },
+      {
+        "type": "interact",
+        "target": "well",
+        "text": "Наполни его у колодца",
+        "en": "Fill it at the well"
+      },
+      {
+        "type": "deliver",
+        "item": "barrel_full",
+        "target": "boat",
+        "text": "Отнеси в шлюпку",
+        "en": "Carry it back to the boat"
+      }
+    ],
+    "log": "water_delivered"
+  },
+  {
+    "id": "q_rudder",
+    "scene": "canary",
+    "role": "piloto",
+    "title": "Руль «Пинты»",
     "steps": [
-      { "type": "interact", "target": "carpenter", "text": "Поговори с плотником на верфи" },
-      { "type": "all_of", "text": "Найди на верфи доски и смолу", "of": [
-        { "type": "pickup", "item": "planks" }, { "type": "pickup", "item": "tar" } ] },
-      { "type": "all_of", "text": "Отдай доски и смолу плотнику", "of": [
-        { "type": "deliver", "item": "planks", "target": "carpenter" }, { "type": "deliver", "item": "tar", "target": "carpenter" } ] }
-    ], "log": "rudder_fixed" },
-
-  { "id": "q_trade", "scene": "canary", "role": "lengua", "title": "Провизия",
+      {
+        "type": "interact",
+        "target": "carpenter",
+        "text": "Поговори с плотником на верфи",
+        "en": "Talk to the carpenter at the shipyard"
+      },
+      {
+        "type": "all_of",
+        "text": "Найди на верфи доски и смолу",
+        "of": [
+          {
+            "type": "pickup",
+            "item": "planks"
+          },
+          {
+            "type": "pickup",
+            "item": "tar"
+          }
+        ],
+        "en": "Find planks and tar at the shipyard"
+      },
+      {
+        "type": "all_of",
+        "text": "Отдай доски и смолу плотнику",
+        "of": [
+          {
+            "type": "deliver",
+            "item": "planks",
+            "target": "carpenter"
+          },
+          {
+            "type": "deliver",
+            "item": "tar",
+            "target": "carpenter"
+          }
+        ],
+        "en": "Give the planks and tar to the carpenter"
+      }
+    ],
+    "log": "rudder_fixed"
+  },
+  {
+    "id": "q_trade",
+    "scene": "canary",
+    "role": "lengua",
+    "title": "Провизия",
     "steps": [
-      { "type": "all_of", "text": "Купи у торговца сыр, солонину и сухари (в кошеле 100 мараведи)", "of": [
-        { "type": "trade_complete", "item": "cheese" }, { "type": "trade_complete", "item": "meat" },
-        { "type": "trade_complete", "item": "biscuit" } ] }
-    ], "log": "provisions_bought" },
-
-  { "id": "q_feast", "scene": "ship_evening", "role": "all", "title": "Праздник",
+      {
+        "type": "all_of",
+        "text": "Купи у торговца сыр, солонину и сухари (в кошеле 100 мараведи)",
+        "of": [
+          {
+            "type": "trade_complete",
+            "item": "cheese"
+          },
+          {
+            "type": "trade_complete",
+            "item": "meat"
+          },
+          {
+            "type": "trade_complete",
+            "item": "biscuit"
+          }
+        ],
+        "en": "Buy cheese, salted meat and biscuit from the merchant with the purse of 100 maravedis"
+      }
+    ],
+    "log": "provisions_bought"
+  },
+  {
+    "id": "q_feast",
+    "scene": "ship_evening",
+    "role": "all",
+    "title": "Праздник",
     "steps": [
-      { "type": "any_of", "need": 3, "text": "Повеселись с командой: 3 из 4", "of": [
-        { "type": "interact", "target": "wine_barrel", "text": "Выпить с командой" },
-        { "type": "talk", "npc": "storyteller", "text": "Поговорить со Старым Хуаном" },
-        { "type": "minigame", "game": "cards", "text": "Сыграть в карты" },
-        { "type": "interact", "target": "dance", "text": "Потанцевать" } ] }
-    ], "log": "feast" }
+      {
+        "type": "any_of",
+        "need": 3,
+        "text": "Повеселись с командой: 3 из 4",
+        "of": [
+          {
+            "type": "interact",
+            "target": "wine_barrel",
+            "text": "Выпить с командой"
+          },
+          {
+            "type": "talk",
+            "npc": "storyteller",
+            "text": "Поговорить со Старым Хуаном"
+          },
+          {
+            "type": "minigame",
+            "game": "cards",
+            "text": "Сыграть в карты"
+          },
+          {
+            "type": "interact",
+            "target": "dance",
+            "text": "Потанцевать"
+          }
+        ],
+        "en": "Join the feast: drink with the crew, talk to Old Juan, play cards or dance"
+      }
+    ],
+    "log": "feast"
+  }
 ]
