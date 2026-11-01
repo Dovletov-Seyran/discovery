@@ -359,7 +359,7 @@ function receiveItemUse(message){
   const left=Math.max(0,message.cooldownUntil-message.serverNow);itemCooldowns.set(message.item,Date.now()+left);
   if(message.vitals)applyVitals(message.vitals,message.serverNow);
   if(equipped===message.item)equipment?.use();
-  if(message.effect==='drink')notify(message.item==='rum'?'Глоток рома.':'Глоток вина.');
+  if(message.effect==='drink')notify('Глоток вина.');
   if(message.effect==='food')notify(`Запас сил: ${Math.round(vitals.stamina)} / 100`);
   if(message.effect==='water')notify('Глоток воды.');
   if(message.effect==='shot'){equipment?.fire();playShot();notify('Выстрел · перезарядка 2,5 с');}

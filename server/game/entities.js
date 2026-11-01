@@ -1,5 +1,6 @@
 // Объекты мира: описания из content/*_layout.json и изменяемое состояние (сохраняется в game_state).
 import { npcActivity } from '../../shared/npc-activity.js';
+import {ITEM_RULES} from '../../shared/item-actions.js';
 import { CONFIG } from '../../shared/config.js';
 import { loadContent } from '../content.js';
 import { layoutToggles } from '../../shared/world-interact.js';
@@ -44,6 +45,7 @@ function dynamicDef(id) {
 export const allDefs = () => [...defs.values()];
 export const positionOf = id => objects[id]?.p ?? defs.get(id)?.p;
 export function register(data) {
+  if(data?.item&&!Object.hasOwn(ITEM_RULES,data.item))return null;
   if(!data||typeof data.id!=='string'||data.id.length>100||staticIds.has(data.id)||!finiteVec(data.p)||!['ship','canary'].includes(data.zone))return null;
   if(!defs.has(data.id)&&[...defs.keys()].filter(id=>!staticIds.has(id)).length>=OBJECT_LIMIT)return null;
   const d={...data,kind:data.kind??'item',x:data.p[0],z:data.p[2],dynamic:true};
@@ -77,6 +79,7 @@ export function load(saved) {
   dirty=false;
   sharedQuests = saved?.sharedQuests ?? {};
   world.load(saved?.world);
+  objects=Object.fromEntries(Object.entries(objects).filter(([id])=>defs.has(id)||world.get(id)));
 }
 
 export const snapshot = () => ({ objects, sharedQuests, dynamic:[...defs.values()].filter(d=>d.dynamic), world: world.snapshot() });

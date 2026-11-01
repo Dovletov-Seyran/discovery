@@ -7,7 +7,7 @@ export const OBJECT_LIMIT = 96;
 export const OBJECT_PROFILES = {
  compass:{radius:.18,half:[.15,.025,.15]},map:{radius:.5,half:[.48,.025,.32],bounce:0,friction:15},
  astrolabe:{radius:.12,half:[.12,.025,.12]},sword:{radius:.6,half:[.13,.018,.60],bounce:.02},
- espingarda:{radius:.65,half:[.09,.06,.65],bounce:.03},wine:{radius:.17,half:[.10,.17,.10],bounce:.07},rum:{radius:.13,half:[.09,.20,.09],bounce:.07},
+ espingarda:{radius:.65,half:[.09,.06,.65],bounce:.03},wine:{radius:.17,half:[.10,.17,.10],bounce:.07},
  barrel:{radius:.27,half:[.20,.28,.20],roll:true,bounce:.08},barrel_full:{radius:.27,half:[.20,.28,.20],bounce:.04},
  cup:{radius:.1,half:[.075,.09,.075],bounce:.03},tar:{radius:.2,half:[.16,.18,.16]},planks:{radius:.45,half:[.15,.055,.45],bounce:.01},
  purse:{radius:.14,half:[.13,.12,.10],bounce:0},cheese:{radius:.15,half:[.15,.09,.12],bounce:0},meat:{radius:.18,half:[.18,.07,.12],bounce:0},biscuit:{radius:.1,half:[.1,.025,.08],bounce:0},

@@ -108,7 +108,7 @@ export function use(p, msg) {
   equipForUse(p,item);players.sendInventory(p);
   performAction(p,actionForEffect(result.effect),item);players.save(p,{now:true});
   worldEvent(p,ITEM_EVENT[result.effect],{item});
-  if(item==='wine'||item==='rum')event(p,{type:'interact',target:'wine_barrel'});
+  if(item==='wine')event(p,{type:'interact',target:'wine_barrel'});
   event(p,{type:'use',item});
 }
 export function tickVitals(now=Date.now()){

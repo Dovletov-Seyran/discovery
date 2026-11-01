@@ -32,7 +32,7 @@ test('last food serving remains in the eating animation, then disappears; a newe
  const {rig,eq}=actor();eq.setEquipment(null,2);eq.setAction(action('eat','cheese',1,2));update(rig,eq,1400);
  assert.equal(eq.item,'cheese');assert.ok(rig.arms[1].ua.rotation.x<-1);
  update(rig,eq,2200);assert.equal(eq.item,null);
- eq.setAction(action('drink','rum',2,2));eq.setEquipment('sword',3);update(rig,eq,1400);assert.equal(eq.item,'sword');assert.equal(eq.action,null);
+ eq.setAction(action('drink','cup',2,2));eq.setEquipment('sword',3);update(rig,eq,1400);assert.equal(eq.item,'sword');assert.equal(eq.action,null);
  eq.dispose();
 });
 test('duplicate/stale actions do not replay after completion and stale equipment does not overwrite a newer choice',()=>{
@@ -51,8 +51,8 @@ test('late join/snapshot restores held item and ongoing action, while other zone
  peers.upsert(7,{name:'Crew',role:'piloto',zone:'ship',p:[1,0,2],r:0,equipped:'sword',equipmentRev:1,action:action('swing','sword')});
  peers.update(.016);assert.equal(peers.map.get(7).equipment.item,'sword');
  peers.setZone('canary');peers.update(.016);assert.equal(peers.map.get(7).rig.root.visible,false);
- peers.snapshot([{id:7,name:'Crew',role:'piloto',zone:'canary',p:[200,3,300],r:1,a:'idle',equipped:'rum',equipmentRev:2,action:null}],1,Date.now());
- peers.update(.016);assert.equal(peers.map.get(7).rig.root.visible,true);assert.equal(peers.map.get(7).equipment.item,'rum');
+ peers.snapshot([{id:7,name:'Crew',role:'piloto',zone:'canary',p:[200,3,300],r:1,a:'idle',equipped:'cup',equipmentRev:2,action:null}],1,Date.now());
+ peers.update(.016);assert.equal(peers.map.get(7).rig.root.visible,true);assert.equal(peers.map.get(7).equipment.item,'cup');
  peers.remove(7);assert.equal(peers.map.size,0);
 });
 test('replacing a remote item releases owned materials without disposing shared world materials',()=>{

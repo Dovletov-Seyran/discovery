@@ -6,16 +6,16 @@ import {readFileSync} from 'node:fs';
 process.env.DB_FILE=':memory:';
 const db=await import('../db.js');after(()=>db.closeDb());
 const player=items=>({inventory:[...items],money:50,vitals:freshVitals(),itemUses:{},lastItemUse:{}});
-test('every inventory item has a declared action, including rum',()=>{
+test('every inventory item has a declared action, including wine',()=>{
  const items=JSON.parse(readFileSync(new URL('../../content/items.json',import.meta.url)));
  for(const item of items)assert.ok(ITEM_RULES[item.id],item.id);
 });
-test('rum stacks a real timed effect, is rate limited, and the bottle has two servings',()=>{
- const p=player(['rum']);const first=applyItemUse(p,'rum',1000);
- assert.equal(first.effect,'drink');assert.equal(p.vitals.drunkUntil,21000);assert.equal(p.vitals.drunkStrength,.65);assert.equal(p.itemUses.rum,1);
- assert.ok(applyItemUse(p,'rum',1200).error);assert.equal(p.itemUses.rum,1);
- applyItemUse(p,'rum',3000);assert.equal(p.vitals.drunkUntil,41000);assert.equal(p.vitals.drunkStrength,1);assert.deepEqual(p.inventory,[]);
- assert.ok(applyItemUse(p,'rum',5000).error);
+test('wine stacks a real timed effect, is rate limited, and the bottle has three servings',()=>{
+ const p=player(['wine']);const first=applyItemUse(p,'wine',1000);
+ assert.equal(first.effect,'drink');assert.equal(p.vitals.drunkUntil,11000);assert.equal(p.vitals.drunkStrength,.35);assert.equal(p.itemUses.wine,2);
+ assert.ok(applyItemUse(p,'wine',1200).error);assert.equal(p.itemUses.wine,2);
+ applyItemUse(p,'wine',3000);assert.equal(p.vitals.drunkUntil,21000);assert.equal(p.vitals.drunkStrength,.7);applyItemUse(p,'wine',5000);assert.deepEqual(p.inventory,[]);
+ assert.ok(applyItemUse(p,'wine',7000).error);
 });
 test('food restores actual stamina, consumes the food, and water eventually leaves an empty barrel',()=>{
  const p=player(['cheese','meat','biscuit','barrel_full']);p.vitals.stamina=10;

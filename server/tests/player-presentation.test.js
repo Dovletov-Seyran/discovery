@@ -21,7 +21,7 @@ test('equipment is inventory validated, visible to peers in the same zone and ac
  assert.equal(equip(p,{item:null}),true);assert.equal(p.equipped,null);
 });
 test('successful sword use emits one authoritative action; cooldown/absent item cannot animate fake attacks',()=>{
- reset();equip(p,{item:'sword'});rules.use(p,{item:'sword'});rules.use(p,{item:'sword'});rules.use(p,{item:'rum'});
+ reset();equip(p,{item:'sword'});rules.use(p,{item:'sword'});rules.use(p,{item:'sword'});rules.use(p,{item:'cup'});
  const actions=peer.filter(m=>m.t==='player_action');assert.equal(actions.length,1);assert.equal(actions[0].action.kind,'swing');assert.equal(actions[0].action.item,'sword');
  assert.equal(actions[0].action.equipmentRev,p.equipmentRev);assert.equal(actions[0].action.duration,580);
  assert.equal(elsewhere.some(m=>m.t==='player_action'),false);
@@ -47,4 +47,10 @@ test('a fresh server-side player restores a saved held item only when its invent
  assert.equal(players.getOrCreate(id,'cold-presenter').equipped,'sword');players.remove(id);
  db.savePlayer(id,{role:'piloto',zone:'ship',p:[0,0,0],inventory:[],equipped:'sword',quests:{},log:[]},{now:true});
  assert.equal(players.getOrCreate(id,'cold-presenter').equipped,null);players.remove(id);
+});
+
+test('retired inventory items, serving counters and held choice are removed on save reload',()=>{
+ reset();const legacy='retired-fixture-item';p.inventory=['sword',legacy];p.equipped=legacy;p.itemUses={[legacy]:2,sword:1};
+ players.save(p,{now:true});const stored=db.loadPlayer(p.id);
+ assert.deepEqual(stored.inventory,['sword']);assert.equal(stored.equipped,null);assert.deepEqual(stored.itemUses,{sword:1});
 });

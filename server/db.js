@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import {ITEM_RULES} from '../shared/item-actions.js';
 import { CONFIG } from '../shared/config.js';
 
 export const DATA_DIR = fileURLToPath(new URL('../data/', import.meta.url));
@@ -91,10 +92,10 @@ export function loadPlayer(userId) {
     zone: row.zone ?? null,
     p: row.x == null ? null : [row.x, row.y, row.z],
     r: row.ry ?? 0,
-    inventory: Array.isArray(inv) ? inv : inv.items ?? [],
-    equipped:typeof inv.equipped==='string'?inv.equipped:null,
+    inventory: (Array.isArray(inv) ? inv : inv.items ?? []).filter(id=>Object.hasOwn(ITEM_RULES,id)),
+    equipped:Object.hasOwn(ITEM_RULES,inv.equipped)?inv.equipped:null,
     money: inv.money ?? 0,
-    trade:inv.trade??{},itemUses: inv.itemUses ?? {},vitals: inv.vitals ?? {stamina:100,drunkUntil:0,drunkStrength:0},
+    trade:inv.trade??{},itemUses: Object.fromEntries(Object.entries(inv.itemUses??{}).filter(([id])=>Object.hasOwn(ITEM_RULES,id))),vitals: inv.vitals ?? {stamina:100,drunkUntil:0,drunkStrength:0},
     quests: parse(row.quests, {}),
     log: parse(row.log, []),
   };
