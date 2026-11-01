@@ -83,6 +83,7 @@ let hooks = {
   onSceneStart: () => {},                // (scene, party)
   isSceneComplete: () => false,          // (scene, party)
   forceComplete: () => {},               // (scene, party)
+  hasActivities: () => false,
   playerDone: () => false,               // (player, sceneId)
 };
 export const setHooks = (h) => { hooks = { ...hooks, ...h }; };
@@ -251,7 +252,7 @@ export function tick(now = Date.now()) {
   // В игровых сценах таймер меняет освещение, но не засчитывает задания.
   // Шлюпка остаётся контрольной точкой; катсцены сохраняют собственный таймлайн.
   const talking = s.type === 'play' && party.some((p) => p.connected && p.dialogue?.until > now);
-  if (done && !talking) complete(s, { forced: false }).catch((e) => console.error('[director]', e));
+  if (done && !talking && !hooks.hasActivities()) complete(s, { forced: false }).catch((e) => console.error('[director]', e));
 }
 
 // Fixed server timestamps keep the visible countdown correct after reconnect and local clock drift.
@@ -268,6 +269,7 @@ export function progressMessage(now=Date.now()) {
     return {...base,phase:'timed',endsAt:duration==null?null:state.startAt+duration*1000};
   }
   const complete=advance==='all_ready'?allReady(party,s):hooks.isSceneComplete(s,party);
+  if(complete&&hooks.hasActivities())return {...base,phase:'activities'};
   if(complete&&talking)return {...base,phase:'dialogue'};
   return {...base,phase:advance==='all_ready'?'checkpoint':'objectives'};
 }

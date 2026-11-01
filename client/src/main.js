@@ -1,4 +1,5 @@
 import './ui/style.css';
+import {FeastUI} from './ui/feast-games.js';
 import {placement,launch} from './game/object-actions.js';
 import {drawLocalMap,unlockItemAudio,playShot} from './ui/item-feedback.js';
 import {ITEM_RULES,freshVitals} from '../../shared/item-actions.js';
@@ -24,6 +25,7 @@ const uniqueId=()=>globalThis.crypto?.randomUUID?.()||`${Date.now().toString(36)
 const $ = selector => document.querySelector(selector);
 const root = $('#ui');
 const canvas = $('#game');
+let feastUI;
 const preview = new URLSearchParams(location.search).get('offline') === '1';
 const PLAY_SCENES = new Set(['ship_day','canary','ship_evening']);
 // часть 2 (Гуанахани): игровые сцены узнаём по типу, а не по списку
@@ -171,6 +173,8 @@ function connect(credential){
 }
 function bindNetwork(client){
   client.on('connection',({status})=>connectionStatus(status));
+  client.on('cards_state',state=>feastUI?.receiveCards(state));
+  client.on('dance_state',state=>feastUI?.receiveDance(state));
   client.on('auth_fail',()=>{client.disconnect();localStorage.removeItem('discovery.token');connected=false;closeModal();login();$('#login-error').textContent='Войдите снова.';});
   client.on('auth_ok',message=>{
     // Сервер перезапустили с новой сборкой, а эта вкладка ещё на старом коде — перезагрузиться
@@ -308,12 +312,13 @@ function renderQuest(){
   $('#quest').innerHTML=`<h3>${escape(quest.title)}</h3>${quest.text?`<p>${escape(quest.text)}</p>`:''}${options}<small>${escape(counter)}</small>`;
 }
 function showModal(type,html){
+  if(modal!==type)feastUI?.closing(modal);
   if(modal==='dialogue')endDialogue();
   stopNpcAudio();modal=type;$('#modal').hidden=false;$('#modal').innerHTML=html;
   $('#modal').querySelectorAll('[data-close]').forEach(button=>button.onclick=closeModal);syncInput();
   $('#modal').querySelector('input,button,select')?.focus();
 }
-function closeModal(){endDialogue();clearTimeout(dialogueTimer);voices.stop();stopNpcAudio();modal='';activeNpc=null;waitingForReply=false;$('#modal').hidden=true;$('#modal').innerHTML='';syncInput();
+function closeModal(){feastUI?.closing(modal);endDialogue();clearTimeout(dialogueTimer);voices.stop();stopNpcAudio();modal='';activeNpc=null;waitingForReply=false;$('#modal').hidden=true;$('#modal').innerHTML='';syncInput();
   // окно закрыли кликом — сразу вернуть мышь в игру, без лишнего клика по экрану
   if(screen==='game'&&isPlay(scene))runtime?.controller?.lock?.();}
 function closeButton(){return '<button class="close-button" data-close aria-label="Закрыть">×</button>';}
@@ -504,6 +509,7 @@ function interact(){
 }
 
 root.innerHTML=shellView();
+feastUI=new FeastUI({root:$('#modal'),send:(type,data)=>net?.send(type,data),show:showModal,close:closeModal,getModal:()=>modal,getYou:()=>you?.id});
 setInterval(renderSceneProgress,250);
 // Layout follows actual wrapped text height instead of guessed fixed offsets.
 if(typeof ResizeObserver!=='undefined'){
@@ -535,6 +541,7 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
 canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
+  if(feastUI?.handleKey(event))return;
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
   if(event.code==='Escape'){event.preventDefault();if(modal&&modal!=='ended')closeModal();else if(chatOpen)closeChat();else if(!modal)openMenu();return;}
   if(typing)return;

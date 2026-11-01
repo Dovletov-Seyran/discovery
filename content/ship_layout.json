@@ -52,8 +52,8 @@
     { "id": "espingarda", "m": "espingarda", "p": [-3.35, 0, -1.4], "r": 1.5708, "kind": "item", "item": "espingarda", "label": "Эспингарда" },
     { "id": "lantern", "m": "lantern", "p": [0, 0, -4.6], "kind": "lantern", "label": "Фонарь" },
     { "id": "wine_barrel", "m": "barrel", "p": [-2.2, 0, -6.25], "kind": "wine_barrel", "label": "Бочка с вином" },
-    { "id": "cards", "m": "cards", "p": [2.6, 0.66, 3.0], "r": 0.3, "kind": "cards", "label": "Карты" },
-    { "id": "dance", "m": "dance_circle", "p": [0.4, 0, -1.9], "kind": "dance", "label": "Круг танцующих", "scenes": ["ship_evening"] }
+    { "id": "cards", "m": "cards", "p": [2.6, 0.66, 3.0], "r": 0.3, "kind": "cards", "label": "21 по-морскому · Хуан", "scenes": ["ship_evening"] },
+    { "id": "dance", "m": "dance_circle", "p": [0.4, 0, -1.9], "kind": "dance", "label": "Морской танец · 20 секунд", "scenes": ["ship_evening"] }
   ],
   "npcs": [
     {"id": "columbus", "label": "Колумб", "pose": "admiral", "p": [2.55, 1.95, 5.75], "r": 0.25,

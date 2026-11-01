@@ -101,6 +101,9 @@ export function isNear(p, id, extra = 1) {
 }
 
 
+let npcReservation=()=>null;
+export const setNpcReservation=fn=>{npcReservation=fn;};
+
 // Серверная пауза маршрутов: первый активный собеседник задаёт направление взгляда.
 // Изменения идут обычным entity и попадают в snapshot/chunk при переподключении.
 export function syncNpcDialogues(party, scene, now = Date.now()) {
@@ -113,17 +116,19 @@ export function syncNpcDialogues(party, scene, now = Date.now()) {
       && p.dialogue?.npc === d.id && (p.dialogue.until > now || !!p.npcRequest));
     const performance=objects[d.id]?.performance;
     const performing=performance?.scene===key&&performance.until>now;
+    const reserved=npcReservation(d.id,now);
     let paused = previous;
     const sampleAt=(previous?.at??now)/1000;
     const moving=npcActivity(d,sampleAt,scene,previous?{...previous,at:null}:null,objects[d.id]?.behavior);
     const ahead=npcActivity(d,sampleAt+1.2,scene,previous?{...previous,at:null}:null,objects[d.id]?.behavior);
-    const obstructed=!speaker&&!performing&&moving.walking&&party.some(p=>p.connected&&p.zone===d.zone&&p.p
+    const obstructed=!speaker&&!performing&&!reserved&&moving.walking&&party.some(p=>p.connected&&p.zone===d.zone&&p.p
       &&Math.abs(p.p[1]-ahead.p[1])<1.2&&Math.hypot(p.p[0]-ahead.p[0],p.p[2]-ahead.p[2])<.85);
     if(obstructed) paused={scene:key,at:previous?.at??now,offset:previous?.offset??0,lookAt:null,kind:'obstacle'};
     if(performing)paused={scene:key,at:previous?.at??now,offset:previous?.offset??0,lookAt:null,kind:'performance'};
+    if(reserved)paused={scene:key,at:previous?.at??now,offset:previous?.offset??0,lookAt:reserved.lookAt,kind:'activity'};
     if (speaker) paused = { scene: key, at: previous?.at ?? now, offset: previous?.offset ?? 0, lookAt: [...speaker.p],kind:'dialogue' };
-    else if (!obstructed && !performing && previous?.at != null) paused = { scene: key, at: null, offset: previous.offset + now - previous.at, lookAt: null };
-    const speakerState = speaker ? { id: speaker.id, name: speaker.name } : null;
+    else if (!obstructed && !performing && !reserved && previous?.at != null) paused = { scene: key, at: null, offset: previous.offset + now - previous.at, lookAt: null };
+    const speakerState = speaker ? { id: speaker.id, name: speaker.name } : reserved ? {id:reserved.id,name:reserved.name}:null;
     if (JSON.stringify(saved ?? null) === JSON.stringify(paused) && JSON.stringify(objects[d.id]?.speaker ?? null) === JSON.stringify(speakerState)) continue;
     patches.push({ id: d.id, state: setState(d.id, { paused, speaker: speakerState }) });
   }

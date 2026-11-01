@@ -199,7 +199,8 @@ export class WorldAudio {
       gain.gain.setValueAtTime(0, ctx.currentTime);
       gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + FADE);
       src.connect(gain).connect(this.ambBus);
-      const offset = src.loopEnd > src.loopStart ? src.loopStart + Math.random() * (src.loopEnd - src.loopStart) : 0;
+      const span=src.loopEnd-src.loopStart,elapsed=(Date.now()+(this.clockOffset??0)-(this.scene?.startAt??Date.now()))/1000;
+      const offset = span>0 ? src.loopStart+(id==='amb_feast_folia'?Math.max(0,elapsed)%span:Math.random()*span) : 0;
       src.start(ctx.currentTime, offset);
       placeholder.src = src;
     }
