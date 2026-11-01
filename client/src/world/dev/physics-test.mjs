@@ -1,7 +1,7 @@
 // Physics test without a browser: the real colliders of the ship and the whole island, and a player moved
 // exactly like client/src/game/controller.js (gravity 20, jump 5.5, 4 substeps per frame).
 //   node client/src/world/dev/physics-test.mjs            — everything
-//   node client/src/world/dev/physics-test.mjs ship|island
+//   node client/src/world/dev/physics-test.mjs ship|island|guanahani
 // Reports: overboard escapes from the ship, falls under the terrain, spots where a player gets stuck,
 // and walks that must succeed (beach → pier → its end, plaza → every building's door).
 import * as THREE from 'three';
@@ -307,6 +307,137 @@ if (!only || only === 'island') {
   }
   report(inside.length === 0, `город: сквозь стены построек не пройти${inside.length ? ` — прошёл: ${inside.slice(0, 8).join(', ')}` : ''}`);
   report(blocked.length === 0, `город: от площади до дверей ${doors.length} построек${blocked.length ? ` — не дойти: ${blocked.join(', ')}` : ''}`);
+  console.log(`  (${((Date.now() - t0) / 1000).toFixed(1)} с)`);
+}
+
+// --- Guanahani (part 2) ------------------------------------------------------------------------
+if (!only || only === 'guanahani') {
+  const t0 = Date.now();
+  const { chunks, heightAt, layout } = generateCanary(json('content/guanahani_layout.json'), { warn: () => {} });
+  const island = new Island(new THREE.Scene(), M, { palette: 'guanahani', veg: ['palm_fan', 'gumbo_limbo', 'sea_grape', 'mangrove', 'rock_lime', 'bush'] });
+  for (const [key, data] of chunks) island.add(key, data);
+  island.refresh();
+  const collide = (c) => island.collide(c);
+  console.log(`  Гуанахани собран: ${chunks.size} чанков за ${((Date.now() - t0) / 1000).toFixed(1)} с`);
+
+  // 0. nothing hangs in the air or sinks: under every building and prop (its whole footprint, from the model's
+  // bounding box) the ground stays within a few centimetres of the height it was placed at
+  const floating = [];
+  for (const o of [...layout.objects, ...layout.interact]) {
+    const make = ISLAND_MODELS[o.m];
+    if (!make || o.float) continue; // float: on the water (a shoal, the Spaniards' boats), not on the ground
+    // what stands on the ground: the collider (walls, stones, hull), not the roof's eaves; else the whole model.
+    // Sampled inside the footprint in the model's own axes, then turned like the object (a long canoe at an
+    // angle covers a thin strip, not its whole bounding square).
+    const { obj, col } = make(M), box = new THREE.Box3();
+    if (col?.length) for (const g of col) { g.computeBoundingBox(); box.union(g.boundingBox); } else box.setFromObject(obj);
+    const r = o.r ?? 0, cr = Math.cos(r), sr = Math.sin(r);
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i <= 8; i++) for (let j = 0; j <= 8; j++) {
+      const lx = box.min.x + (box.max.x - box.min.x) * i / 8, lz = box.min.z + (box.max.z - box.min.z) * j / 8;
+      const h = heightAt(o.p[0] + lx * cr + lz * sr, o.p[2] - lx * sr + lz * cr);
+      lo = Math.min(lo, h); hi = Math.max(hi, h);
+    }
+    const up = o.p[1] - lo, down = hi - o.p[1];
+    if (up > 0.15 || down > 0.25) floating.push(`${o.id} (${up > 0.15 ? `висит до ${up.toFixed(2)} м` : `утоплен до ${down.toFixed(2)} м`})`);
+  }
+  report(floating.length === 0, `Гуанахани: постройки и предметы стоят на земле${floating.length ? ` — нет: ${floating.join(', ')}` : ''}`);
+
+  // 0b. hulls rest on their keels (no sand inside a canoe); whoever sits has something under him
+  const sunk = [];
+  for (const o of layout.interact.filter((i) => i.m === 'canoe')) {
+    const box = new THREE.Box3().setFromObject(ISLAND_MODELS.canoe(M).obj);
+    if (box.min.y < -0.05) sunk.push(`${o.id} (киль на ${box.min.y.toFixed(2)} м)`);
+  }
+  for (const n of layout.npcs.filter((m) => m.pose === 'sit')) {
+    const seat = island.groundHeight(n.p[0], n.p[2], n.p[1] + 1.2) - heightAt(n.p[0], n.p[2]);
+    if (!(seat > 0.35)) sunk.push(`${n.id} сидит в воздухе`);
+  }
+  report(sunk.length === 0, `Гуанахани: каноэ на киле, сидящим есть на чём сидеть${sunk.length ? ` — нет: ${sunk.join(', ')}` : ''}`);
+
+  // 0c. every stone round the batey stops a player walking into it from outside — also from the next chunk
+  // (the ring is one object; its collider lives in the chunk of the batey's centre)
+  const bt = layout.objects.find((o) => o.id === 'batey'), through = [];
+  for (let i = 0; i < 44; i++) {
+    const a = (i / 44) * Math.PI * 2, sx = bt.p[0] + Math.cos(a) * 15, sz = bt.p[2] + Math.sin(a) * 11;
+    const out = [sx + Math.cos(a) * 1.4, sz + Math.sin(a) * 1.4];
+    const pl = new Player(collide, [out[0], heightAt(out[0], out[1]) + 0.05, out[1]]).settle();
+    // the stones stand ~1.3 m apart and a player may slip between them; he must never be inside one
+    let closest = Infinity;
+    for (let f = 0; f < 90; f++) { pl.step([-Math.cos(a), -Math.sin(a)], { run: false }); closest = Math.min(closest, Math.hypot(pl.pos.x - sx, pl.pos.z - sz)); }
+    if (closest < 0.45) through.push(i);
+  }
+  report(through.length === 0, `Гуанахани: камни батея не пропускают (44)${through.length ? ` — сквозь камни ${through.join(', ')}` : ''}`);
+
+  // 1. runs with jumps across the land: never below the terrain
+  let falls = 0, runs = 0;
+  const fallAt = [];
+  for (let x = 100; x <= 470; x += 10) for (let z = 110; z <= 390; z += 10) {
+    if (heightAt(x, z) < 0.5) continue;
+    for (let d = 0; d < 16; d += 4) {
+      const pl = new Player(collide, [x, heightAt(x, z) + 0.05, z]);
+      for (let f = 0; f < 120; f++) {
+        pl.step(DIRS[d], { jump: f % 20 === 0 });
+        const g = heightAt(pl.pos.x, pl.pos.z);
+        if (g !== null && pl.pos.y < g - 0.35) { falls++; if (fallAt.length < 5) fallAt.push([+pl.pos.x.toFixed(1), +pl.pos.z.toFixed(1)]); break; }
+      }
+      runs++;
+    }
+  }
+  report(falls === 0, `Гуанахани: ${runs} забегов по суше — провалов под рельеф ${falls}${fallAt.length ? ` ${JSON.stringify(fallAt)}` : ''}`);
+
+  // 2. stuck spots round every building, prop and villager
+  const probes = [];
+  for (const o of [...layout.objects, ...layout.interact, ...layout.npcs]) {
+    const R = { caney: 8, bohio: 4.6, batey: 16.5, conuco: 8 }[o.m] ?? 2.2;
+    for (let a = 0; a < 16; a++) {
+      const x = o.p[0] + Math.sin(a * Math.PI / 8) * R, z = o.p[2] + Math.cos(a * Math.PI / 8) * R, h = heightAt(x, z);
+      // not inside a villager: nobody can get there, and the push out of a body is ambiguous
+      if (h > -0.5 && !layout.npcs.some((n) => Math.hypot(n.p[0] - x, n.p[2] - z) < 0.65)) probes.push([x, h + 0.05, z]);
+    }
+  }
+  const stuck = probes.filter((p) => stuckAt(collide, p));
+  report(stuck.length === 0, `Гуанахани: застреваний у построек и предметов ${stuck.length} из ${probes.length}${stuck.length ? ` ${JSON.stringify(stuck.slice(0, 6).map((p) => p.map((v) => +v.toFixed(1))))}` : ''}`);
+
+  // 3. walks: from the batey into every bohío (to the spot by the hammocks) and the cacique's house;
+  //    from each player's spawn out of the door
+  const walk = (from, to, secs = 14) => {
+    const pl = new Player(collide, [from[0], heightAt(from[0], from[1]) + 0.05, from[1]]).settle();
+    let last = pl.pos.clone(), detour = 0, side = 1, tries = 0;
+    for (let f = 0; f < secs * 60; f++) {
+      const dx = to[0] - pl.pos.x, dz = to[1] - pl.pos.z;
+      if (Math.hypot(dx, dz) < 0.6) return true;
+      pl.step(detour > 0 ? [-dz * side, dx * side] : [dx, dz], { run: false });
+      detour--;
+      if (f % 30 === 29) {
+        if (pl.pos.distanceTo(last) < 0.3 && detour <= 0) { tries++; side = tries % 2 ? 1 : -1; detour = 40 + 30 * tries; }
+        last.copy(pl.pos);
+      }
+    }
+    return false;
+  };
+  const batey = layout.objects.find((o) => o.id === 'batey').p, blocked = [];
+  const inside = (o, d) => [o.p[0] + Math.sin(o.r ?? 0) * d, o.p[2] + Math.cos(o.r ?? 0) * d]; // along the door axis
+  // the ring of houses round the batey and the gaps between them
+  const ring = layout.objects.filter((b) => b.m === 'bohio' && Math.hypot(b.p[0] - batey[0], b.p[2] - batey[2]) < 32)
+    .map((b) => Math.atan2(b.p[2] - batey[2], b.p[0] - batey[0])).sort((a, b) => a - b);
+  const gaps = ring.map((a, i) => { const b = ring[(i + 1) % ring.length] + (i === ring.length - 1 ? Math.PI * 2 : 0); return (a + b) / 2; });
+  for (const o of layout.objects.filter((b) => b.m === 'bohio' || b.m === 'caney')) {
+    // round the other houses like a player would: first to the yard in front of the door, then in
+    // houses beyond the ring: out through the gap between the ring houses nearest to the way there
+    const yard = inside(o, o.m === 'caney' ? 9 : 6.5), far = Math.hypot(yard[0] - batey[0], yard[1] - batey[2]) > 30;
+    const want = Math.atan2(yard[1] - batey[2], yard[0] - batey[0]);
+    const gap = gaps.reduce((g, a) => (Math.abs(Math.atan2(Math.sin(a - want), Math.cos(a - want))) < Math.abs(Math.atan2(Math.sin(g - want), Math.cos(g - want))) ? a : g), gaps[0]);
+    const via = [batey[0] + Math.cos(gap) * 30, batey[2] + Math.sin(gap) * 27];
+    const route = far ? [[batey[0], batey[2]], via, yard] : [[batey[0], batey[2]], yard];
+    route.push(inside(o, o.m === 'caney' ? 1.5 : 1.2));
+    if (!route.slice(1).every((to, i) => walk(route[i], to))) blocked.push(`${o.id} (с площади)`);
+  }
+  for (const [role, sp] of Object.entries(layout.spawns)) {
+    const home = layout.objects.filter((b) => b.m === 'bohio').sort((a, b) => Math.hypot(a.p[0] - sp.p[0], a.p[2] - sp.p[2]) - Math.hypot(b.p[0] - sp.p[0], b.p[2] - sp.p[2]))[0];
+    if (!walk([sp.p[0], sp.p[2]], inside(home, 5.5))) blocked.push(`${role} (из своего бохио)`);
+  }
+  report(blocked.length === 0, `Гуанахани: с площади в каждый дом и из гамака на улицу${blocked.length ? ` — не дойти: ${blocked.join(', ')}` : ''}`);
   console.log(`  (${((Date.now() - t0) / 1000).toFixed(1)} с)`);
 }
 

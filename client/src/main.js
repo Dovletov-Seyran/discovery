@@ -13,7 +13,7 @@ import {Telemetry} from './net/telemetry.js';
 import {FPS_PLAY,FPS_CALM} from './game/frame-limit.js';
 import {GameplayRuntime} from './game/runtime.js';
 import {WorldConnection} from './game/world-connection.js';
-import {ROLES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,escape,itemId} from './ui/content.js';
+import {ROLES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,EPILOGUE,escape,itemId} from './ui/content.js';
 import {shellView,loginView,lobbyView} from './ui/views.js';
 import {VoiceLibrary} from './ui/voice.js';
 import {narrativeContent,INTRO_TITLES} from './ui/narrative.js';
@@ -26,6 +26,8 @@ const root = $('#ui');
 const canvas = $('#game');
 const preview = new URLSearchParams(location.search).get('offline') === '1';
 const PLAY_SCENES = new Set(['ship_day','canary','ship_evening']);
+// часть 2 (Гуанахани): игровые сцены узнаём по типу, а не по списку
+const isPlay = s => PLAY_SCENES.has(s?.id) || s?.type==='play';
 
 // Consumers can subscribe before opening the connection. Chunk data is forwarded,
 // never retained here; ownership and cache limits belong to Front 1.
@@ -88,12 +90,12 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
     update(delta,time){
       if(runtime!==attachedRuntime)return;
       attachedRuntime.update(delta,time);
-      equipment?.update(delta,time,screen==='game'&&!modal&&!chatOpen&&PLAY_SCENES.has(scene.id));
+      equipment?.update(delta,time,screen==='game'&&!modal&&!chatOpen&&isPlay(scene));
       if(pendingUnequip&&equipment.action<=0){if(equipped===pendingUnequip)equipItem(null,{sync:false});pendingUnequip=null;}
       updateInstrument();renderVitals();
       const hint=$('#control-hint');
       if(hint){
-        hint.hidden=screen!=='game'||!!modal||chatOpen||!connected||!PLAY_SCENES.has(scene.id)||document.pointerLockElement===canvas;
+        hint.hidden=screen!=='game'||!!modal||chatOpen||!connected||!isPlay(scene)||document.pointerLockElement===canvas;
         const text=runtime.controller.hasControl?'WASD — ходить · тяните ЛКМ или ПКМ — обзор · клик ЛКМ — предмет · E — действие':'Щёлкните по игре, чтобы управлять';
         if(hint.textContent!==text)hint.textContent=text;
       }
@@ -113,9 +115,9 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
 
 function syncInput(){
   const blocked=screen!=='game'||modal||chatOpen||!connected;
-  runtime?.setMode(blocked?'blocked':scene.id==='night_story'?'seated':PLAY_SCENES.has(scene.id)?'play':'blocked');
+  runtime?.setMode(blocked?'blocked':scene.id==='night_story'?'seated':isPlay(scene)?'play':'blocked');
   if($('#control-hint'))$('#control-hint').hidden=!!blocked;
-  $('#crosshair').hidden=blocked||!runtime||!PLAY_SCENES.has(scene.id);
+  $('#crosshair').hidden=blocked||!runtime||!isPlay(scene);
   if(blocked&&throwMode){throwMode=false;renderEquipment();}
   if(blocked){$('#prompt').hidden=true;currentTarget=null;}
 }
@@ -250,7 +252,7 @@ function applyScene(message){
     screen='game';$('#hud').hidden=false;$('#screen').innerHTML='';
     $('#world-status').hidden=!!runtime;
     $('#preview-controls').hidden=!preview;
-    if(!PLAY_SCENES.has(message.id)&&message.id!=='night_story')renderSceneOverlay(message);
+    if(!isPlay(message)&&message.id!=='night_story')renderSceneOverlay(message);
     if(message.id==='night_story'&&narrativeContent.night){
       $('#screen').innerHTML='<p id="subtitles" class="subtitles" aria-live="off"></p>';
       narrative.start(narrativeContent.night,{startAt:message.startAt,duration:message.duration});
@@ -274,8 +276,13 @@ function renderSceneOverlay(message){
     narrative.start(narrativeContent.intro,{startAt:message.startAt,duration:message.duration});
     return;
   }
-  // Text-only fallback before the content branch merges.
-  const titles={intro:'1492',cut_canary:'Канарские острова',cut_evening:'Курс на запад',cut_night:'Атлантика',sleep:'12 октября 1492 года',end:'Продолжение следует'};
+  if(message.id==='p2_after'){
+    $('#screen').innerHTML=`<section class="epilogue-screen"><span class="overline">ГУАНАХАНИ · 1492</span><h2>${escape(EPILOGUE.title)}</h2><ul>${EPILOGUE.facts.map(fact=>`<li>${escape(fact)}</li>`).join('')}</ul><button class="quiet-button" id="skip">Дальше <span id="skip-votes"></span></button></section>`;
+    $('#skip').onclick=()=>net.send('skip_vote');
+    return;
+  }
+  // Text-only fallback before the content branch merges. Катсцены части 2 подписывает сам мир (cutscenes.json).
+  const titles={intro:'1492',cut_canary:'Канарские острова',cut_evening:'Курс на запад',cut_night:'Атлантика',sleep:'12 октября 1492 года',end:'Конец'};
   $('#screen').innerHTML=`<div class="scene-caption"><h2>${titles[message.id]||''}</h2>${message.id==='intro'?'<button class="quiet-button" id="skip">Пропустить <span id="skip-votes"></span></button>':''}</div>`;
   if($('#skip'))$('#skip').onclick=()=>net.send('skip_vote');
 }
@@ -307,7 +314,7 @@ function showModal(type,html){
 }
 function closeModal(){endDialogue();clearTimeout(dialogueTimer);voices.stop();stopNpcAudio();modal='';activeNpc=null;waitingForReply=false;$('#modal').hidden=true;$('#modal').innerHTML='';syncInput();
   // окно закрыли кликом — сразу вернуть мышь в игру, без лишнего клика по экрану
-  if(screen==='game'&&PLAY_SCENES.has(scene.id))runtime?.controller?.lock?.();}
+  if(screen==='game'&&isPlay(scene))runtime?.controller?.lock?.();}
 function closeButton(){return '<button class="close-button" data-close aria-label="Закрыть">×</button>';}
 function openKnowledge(id){
   const data=ITEMS[id]||{name:id,text:''};
@@ -317,7 +324,7 @@ function picture(id){return pictures[id]||itemIcon(id);}
 function equipItem(id,{sync=true}={}){throwMode=false;pendingUnequip=null;equipped=id;equipment?.equip(id);renderEquipment();if(sync&&connected&&screen==='game')net?.send('equip',{item:id});}
 function renderEquipment(){
   const hud=$('#equipment');if(!hud)return;
-  hud.hidden=!equipped||!PLAY_SCENES.has(scene.id);
+  hud.hidden=!equipped||!isPlay(scene);
   hud.innerHTML=equipped?`<img src="${picture(equipped)}" alt=""><span>${escape(ITEMS[equipped]?.name||equipped)}<small>${escape(throwMode?'Бросить · ЛКМ · F — отменить':`${itemAction(equipped,scene.zone)||'В руке'} · ЛКМ`)}${itemUses[equipped]!=null?` · ${itemUses[equipped]} ост.`:''}</small><small>G — положить · F — бросок</small></span><output id="instrument"></output>`:'';
 }
 function updateInstrument(){
@@ -379,7 +386,7 @@ function openMap(){
   drawLocalMap($('#local-map'),world,position,yaw,scene.zone);
 }
 function useEquipped(){
-  if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!PLAY_SCENES.has(scene.id)||sceneProgress?.phase==='departing')return;
+  if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!isPlay(scene)||sceneProgress?.phase==='departing')return;
   if((itemCooldowns.get(equipped)||0)>Date.now())return;
   if(throwMode){if(world&&net.send('throw',launch(world,equipped))){throwMode=false;renderEquipment();}return;}
   const target=ITEM_RULES[equipped]?.target&&ITEM_RULES[equipped].target===currentTarget?.id?currentTarget.id:undefined;
@@ -533,7 +540,7 @@ window.addEventListener('keydown',event=>{
   if(event.code==='Tab'){event.preventDefault();if(modal==='inventory')closeModal();else if(!modal)openInventory();return;}
   if(event.code==='KeyJ'&&!event.repeat){event.preventDefault();if(modal==='journal')closeModal();else if(!modal)openJournal();return;}
   if(/^Digit[1-9]$/.test(event.code)&&!modal&&!chatOpen){const id=inventory[Number(event.code.slice(5))-1];if(id)equipItem(itemId(id));return;}
-  if(!modal&&!chatOpen&&connected&&PLAY_SCENES.has(scene.id)&&equipped&&!event.repeat){
+  if(!modal&&!chatOpen&&connected&&isPlay(scene)&&equipped&&!event.repeat){
     if(event.code==='KeyF'){event.preventDefault();throwMode=!throwMode;renderEquipment();return;}
     if(event.code==='KeyG'){
       event.preventDefault();if(sceneProgress?.phase==='departing')return;

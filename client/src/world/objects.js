@@ -44,7 +44,7 @@ export class WorldObjects {
     this.budget();
   }
   applyEntity(id,state){const record=this.records.get(id);if(record){record.state={...record.state,...state};this.applyRecord(record);this.budget();}else{const obj=this.staticEntity(id);if(obj)applyState(obj,state);}}
-  staticEntity(id){return this.world.shipInteractables.find(o=>o.userData.id===id)??this.world.island.interactables.find(o=>o.userData.id===id);}
+  staticEntity(id){return this.world.shipInteractables.find(o=>o.userData.id===id)??this.world.island?.interactables.find(o=>o.userData.id===id);}
   applyRecord(record){
     const {data,state}=record;
     const original=this.staticEntity(data.id);
@@ -81,7 +81,7 @@ export class WorldObjects {
   get selectable(){return [...this.records.values()].filter(r=>r.obj?.visible).map(r=>r.obj);}
   collisionBoxes(point=null,radius=0,height=0){
     const records=[...this.records.values()].filter(r=>r.data.toggleType==='door'||r.data.toggleType==='lid');
-    for(const obj of [...this.world.island.interactables,...this.world.shipInteractables]){
+    for(const obj of [...(this.world.island?.interactables??[]),...this.world.shipInteractables]){
       const def=obj.userData.doorDef??obj.userData.lidDef;
       if(def&&!this.records.has(obj.userData.id))records.push({data:{...def,toggleType:def.toggleType??'door'},state:obj.userData.state??{}});
     }
@@ -109,7 +109,7 @@ export class WorldObjects {
       if(!record.body||record.state.holder)continue;
       const body=record.body;
       // If a terrain chunk has not arrived, hold the last authoritative pose until it does.
-      if(this.world.zone==='canary'&&!this.world.island.chunks.has(`${Math.floor(body.p[0]/32)},${Math.floor(body.p[2]/32)}`))continue;
+      if(this.world.island&&!this.world.island.chunks.has(`${Math.floor(body.p[0]/32)},${Math.floor(body.p[2]/32)}`))continue;
       advanceBody(body,Math.min(now,body.startedAt+(body.step+36)/120*1000),(p,r,from)=>sphereContact(this.world,p,r,from),{inertia:this.world.zone==='ship'&&body.roll});
       obj.position.fromArray(body.p);obj.quaternion.fromArray(bodyQuaternion(body));
     }

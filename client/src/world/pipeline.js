@@ -60,11 +60,12 @@ export class Pipeline {
       // half resolution: AO is soft anyway
       const setSize = this.gtao.setSize.bind(this.gtao);
       this.gtao.setSize = (w, h) => setSize(Math.ceil(w / 2), Math.ceil(h / 2));
-      // sprites and points would be drawn as opaque quads into the AO normal/depth pass
+      // sprites and points would be drawn as opaque quads into the AO normal/depth pass, and so would the
+      // invisible hit boxes of interactables (material.userData.hitbox)
       const render = this.gtao.render.bind(this.gtao);
       this.gtao.render = (...args) => {
         const hidden = [];
-        this.scene.traverseVisible((o) => { if (o.isSprite || o.isPoints) hidden.push(o); });
+        this.scene.traverseVisible((o) => { if (o.isSprite || o.isPoints || o.material?.userData?.hitbox) hidden.push(o); });
         hidden.forEach((o) => (o.visible = false));
         render(...args);
         hidden.forEach((o) => (o.visible = true));

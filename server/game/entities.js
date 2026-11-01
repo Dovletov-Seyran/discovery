@@ -15,10 +15,10 @@ let staticIds = new Set();
 export function loadDefs() {
   const dynamic = [...defs.values()].filter((d) => d.dynamic);
   defs.clear();
-  for (const zone of ['ship', 'canary']) {
+  for (const zone of ['ship', 'canary', 'guanahani']) {
     // остров — с координатами, как их считает генератор (rel/shore разворачиваются в точки)
     const raw = loadContent(`${zone}_layout.json`, {});
-    const layout = zone === 'canary' && raw.shape ? resolveLayout(raw).layout : raw;
+    const layout = zone !== 'ship' && raw.shape ? resolveLayout(raw).layout : raw;
     for (const o of layout.interact ?? []) defs.set(o.id, { ...o, zone, x: o.p[0], z: o.p.at(-1) });
     for (const o of layoutToggles(layout,zone)) defs.set(o.id,{...o,x:o.p[0],z:o.p[2]});
     for (const o of layout.npcs ?? []) defs.set(o.id, { ...o, kind: 'npc', zone, x: o.p[0], z: o.p.at(-1) });

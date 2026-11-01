@@ -98,7 +98,7 @@ test('each interactive character has a usable bounded profile and knows its curr
  const {readFileSync}=await import('node:fs');
  const npcs=JSON.parse(readFileSync(new URL('../../../content/npcs.json',import.meta.url)));
  const interactive=npcs.filter(n=>!['narrator','grumete_npc'].includes(n.id));
- assert.equal(interactive.length,14);
+ assert.equal(interactive.length,22); // 14 первой части + касик, старейшина, трое жителей и трое чужаков Гуанахани
  for(const n of interactive){
   assert.equal(n.type,'llm');const agent=getAgent(n.id);assert.ok(agent.cards.length&&agent.greeting.en&&agent.greeting.ru);
   const messages=buildMessages({agent,context:{activity:'Inspect the rigging',scene:'ship_day'},intent:{kind:'about_you',agentId:n.id},mem:{told:[],turns:[]},text:'What are you doing?'});

@@ -156,6 +156,37 @@ export function roofTiles(size = 512) {
   return { map: col, normalMap: normalFromHeight(N, N, hgt, 3.0) };
 }
 
+// Palm-leaf thatch (Taíno roofs): overlapping rows along V, each a fringe of leaf strands hanging down.
+export function thatch(size = 512) {
+  const N = size, col = img(N, N), hgt = new Float32Array(N * N), rows = 9;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const u = x / N, v = y / N, row = Math.floor(v * rows), fv = v * rows - row;
+    const strand = ihash(Math.floor(u * 160 + row * 37), row, 41), fringe = fv + (strand - 0.5) * 0.25;
+    const streak = fbm(u * 180, v * 6, 180, 6, 2, 42), blot = fbm(u * 4, v * 4, 4, 4, 3, 43);
+    const shade = 0.55 + 0.45 * smooth(0, 0.85, fringe) - 0.25 * smooth(0.9, 1, fv);
+    const lum = shade * (0.8 + 0.35 * streak) * (0.9 + 0.2 * blot);
+    const dry = 0.6 + 0.4 * strand, i = (y * N + x) * 4;
+    col.data[i] = (150 + 30 * dry) * lum; col.data[i + 1] = (120 + 22 * dry) * lum; col.data[i + 2] = (70 + 6 * dry) * lum; col.data[i + 3] = 255;
+    hgt[y * N + x] = shade * 0.7 + streak * 0.3;
+  }
+  return { map: col, normalMap: normalFromHeight(N, N, hgt, 2.4) };
+}
+
+// Cane walls: vertical canes across U with nodes every so often, lashed with a dark cord band.
+export function cane(size = 512) {
+  const N = size, col = img(N, N), hgt = new Float32Array(N * N), canes = 48;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const u = x / N, v = y / N, c = Math.floor(u * canes), fu = u * canes - c;
+    const t = ihash(c, 0, 51), round = Math.sin(Math.PI * fu), node = smooth(0.93, 1, (v * 5 + t) % 1);
+    const cord = 1 - smooth(0, 0.02, Math.abs(v - 0.5) - 0.012);
+    const lum = (0.5 + 0.5 * round) * (0.85 + 0.25 * t) * (1 - 0.3 * node) * (1 - 0.6 * cord) * (0.9 + 0.2 * fbm(u * 6, v * 30, 6, 30, 2, 52));
+    const i = (y * N + x) * 4;
+    col.data[i] = 170 * lum; col.data[i + 1] = 140 * lum; col.data[i + 2] = 88 * lum; col.data[i + 3] = 255;
+    hgt[y * N + x] = round * 0.8 - node * 0.3;
+  }
+  return { map: col, normalMap: normalFromHeight(N, N, hgt, 2.0) };
+}
+
 // Dark volcanic stone masonry (Worley cells with mortar between them).
 export function stone(size = 512) {
   const N = size, col = img(N, N), hgt = new Float32Array(N * N), G = 10;
@@ -219,6 +250,8 @@ export function recipes(quality) {
     plaster: () => plaster(),
     tiles: () => roofTiles(),
     stone: () => stone(),
+    thatch: () => thatch(),
+    cane: () => cane(),
     ground: () => groundDetail(),
   };
 }

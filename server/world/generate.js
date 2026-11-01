@@ -1,4 +1,4 @@
-// Генерация мира в таблицу chunks: остров canary (16×16 чанков) и корабль ship (1 чанк).
+// Генерация мира в таблицу chunks: острова canary и guanahani (по 16×16 чанков) и корабль ship (1 чанк).
 import { CONFIG } from '../../shared/config.js';
 import { loadContent } from '../content.js';
 import { createHash } from 'node:crypto';
@@ -7,13 +7,18 @@ import { generateCanary as generateCanaryChunks } from './terrain.js';
 
 const CS = CONFIG.CHUNK_SIZE;
 
-// Остров строит server/world/terrain.js (его же использует офлайн-страница мира клиента)
-export function generateCanary() {
-  const layout = loadContent('canary_layout.json', null);
-  if (!layout) throw new Error('нет content/canary_layout.json');
+// Острова строит server/world/terrain.js (его же использует офлайн-страница мира клиента).
+// Ла-Гомера — часть 1, Гуанахани — часть 2 (content/<zone>_layout.json, зона — layout.zone).
+export const ISLANDS = ['canary', 'guanahani'];
+
+export function generateIsland(zone) {
+  const layout = loadContent(`${zone}_layout.json`, null);
+  if (!layout) throw new Error(`нет content/${zone}_layout.json`);
   const { chunks, heightAt, layout: resolved } = generateCanaryChunks(layout);
   return { chunks: [...chunks.values()], heightAt, layout: resolved };
 }
+
+export const generateCanary = () => generateIsland('canary');
 
 // Корабль — один чанк: весь content/ship_layout.json (его ведёт Фронт 1) + служебные поля чанка
 export function generateShip() {
@@ -29,7 +34,7 @@ export function generateShip() {
 const GENERATOR_VERSION = 5;
 export function layoutHash() {
   const h = createHash('sha1').update(String(GENERATOR_VERSION));
-  for (const name of ['canary_layout.json', 'ship_layout.json']) h.update(JSON.stringify(loadContent(name, null)));
+  for (const name of [...ISLANDS.map((z) => `${z}_layout.json`), 'ship_layout.json']) h.update(JSON.stringify(loadContent(name, null)));
   return h.digest('hex');
 }
 
@@ -37,12 +42,12 @@ export const worldIsStale = () => !worldMeta().totalChunks || getWorldValue('lay
 
 export function seedWorld() {
   const t0 = Date.now();
-  const { chunks } = generateCanary();
+  const islands = ISLANDS.map(generateIsland);
   const ship = generateShip();
   withTransaction(() => {
-    clearZone('canary');
+    for (const zone of ISLANDS) clearZone(zone);
     clearZone('ship');
-    for (const c of chunks) putChunk(c.zone, c.cx, c.cz, c);
+    for (const { chunks } of islands) for (const c of chunks) putChunk(c.zone, c.cx, c.cz, c);
     putChunk('ship', 0, 0, ship);
     setWorldValue('layout_hash', layoutHash());
   });

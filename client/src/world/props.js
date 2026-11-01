@@ -287,7 +287,8 @@ export const MODELS = {
 // Entity state from the server: { holder } — somebody picked the item up; { emptyAt } — hourglass.
 export function applyState(obj, state = {}) {
   obj.userData.state={...obj.userData.state,...state};
-  if('holder' in state)obj.visible=!state.holder;
+  // offScene: объекта нет в этой сцене (island.setScene, часть 2)
+  if('holder' in state){obj.userData.held=!!state.holder;obj.visible=!state.holder&&!obj.userData.offScene;}
   if('visible' in state)obj.visible=state.visible;
   if(state.p)obj.position.fromArray(state.p);
   if(Number.isFinite(state.r))obj.rotation.y=state.r;

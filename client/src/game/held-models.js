@@ -73,7 +73,37 @@ function rumBottle(){
  for(let i=0;i<3;i++)part(g,new THREE.BoxGeometry(.06-i*.01,.006,.003),cork,[0,.16-i*.018,.072]);
  return {obj:g};
 }
-export const HELD_MODELS={sword,espingarda,rum:rumBottle,purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit')};
+// Часть 2 (Гуанахани): вещи деревни таино — простые формы из нескольких частей
+function taino(id){
+  const g=new THREE.Group(),wood=own(0x7a5530,.9),cotton=own(0xf1ece0,1),fiber=own(0xb89a62,1);
+  switch(id){
+    case 'spear':part(g,new THREE.CylinderGeometry(.016,.02,1.5,8),wood,[0,.75,0]);part(g,new THREE.ConeGeometry(.025,.16,8),own(0xe6dcc6,.6),[0,1.58,0]);break;
+    case 'fish':{const b=part(g,new THREE.SphereGeometry(.09,16,10),own(0x6f8fa0,.45,.2),[0,.09,0]);b.scale.set(2,.7,.45);
+      part(g,new THREE.ConeGeometry(.07,.1,4),own(0x5d7b8b,.5),[-.21,.09,0],[0,0,Math.PI/2]);break;}
+    case 'conch':{const c=part(g,new THREE.ConeGeometry(.09,.2,10),own(0xe9b9a2,.5),[0,.1,0]);c.rotation.z=.4;
+      part(g,new THREE.TorusGeometry(.07,.025,8,16),own(0xf3d2c1,.5),[0,.06,0],[Math.PI/2,0,0]);break;}
+    case 'cassava':for(let i=0;i<3;i++){const r=part(g,new THREE.CylinderGeometry(.03,.012,.26,8),own(0x6b4a2c,.95),[i*.05-.05,.1,0],[0,0,.5-i*.3]);r.castShadow=true;}break;
+    case 'cassava_grated':part(g,new THREE.CylinderGeometry(.12,.08,.06,16),wood,[0,.03,0]);part(g,new THREE.SphereGeometry(.1,14,8,0,Math.PI*2,0,Math.PI/2),own(0xf2ead2,1),[0,.05,0]);break;
+    case 'cassava_pulp':{const l=part(g,new THREE.SphereGeometry(.11,14,10),own(0xeee5cc,1),[0,.08,0]);l.scale.set(1.2,.7,1);break;}
+    case 'casabe':part(g,new THREE.CylinderGeometry(.16,.16,.02,24),own(0xe3cf9e,.95),[0,.02,0]);break;
+    case 'cotton':case 'gift_cotton':for(let i=0;i<4;i++)part(g,new THREE.SphereGeometry(.06,10,8),cotton,[Math.cos(i*1.6)*.06,.07+(i%2)*.04,Math.sin(i*1.6)*.06]);
+      if(id==='gift_cotton')part(g,new THREE.TorusGeometry(.08,.02,6,16),fiber,[0,.08,0],[Math.PI/2,0,0]);break;
+    case 'hammock_gift':part(g,new THREE.CylinderGeometry(.07,.07,.42,14),cotton,[0,.1,0],[0,0,Math.PI/2]);for(const x of [-.17,.17])part(g,new THREE.TorusGeometry(.072,.01,5,14),fiber,[x,.1,0],[0,Math.PI/2,0]);break;
+    case 'firewood':for(let i=0;i<4;i++)part(g,new THREE.CylinderGeometry(.025,.03,.45,7),wood,[(i%2)*.05-.025,.05+Math.floor(i/2)*.05,0],[0,0,Math.PI/2+i*.08]);break;
+    case 'torch':part(g,new THREE.CylinderGeometry(.022,.026,.6,8),wood,[0,.3,0]);part(g,new THREE.CylinderGeometry(.04,.03,.12,8),fiber,[0,.62,0]);
+      {const f=own(0xffa040,.6);f.emissive=new THREE.Color(0xff7a1a);f.emissiveIntensity=2;part(g,new THREE.ConeGeometry(.05,.16,8),f,[0,.74,0]);}break;
+    case 'parrot':{const body=part(g,new THREE.SphereGeometry(.07,12,10),own(0x2f9a3a,.6),[0,.12,0]);body.scale.set(.8,1.3,.8);
+      part(g,new THREE.SphereGeometry(.045,10,8),own(0xd23a2a,.6),[0,.23,.01]);part(g,new THREE.ConeGeometry(.015,.04,6),own(0xf0d050),[0,.22,.055],[Math.PI/2,0,0]);
+      part(g,new THREE.BoxGeometry(.03,.14,.02),own(0x2a63b8,.6),[0,.02,-.04],[.4,0,0]);break;}
+    case 'bell':{const b=own(0xc9a24a,.3,.8);part(g,new THREE.SphereGeometry(.06,14,10),b,[0,.08,0]);part(g,new THREE.TorusGeometry(.02,.006,6,12),b,[0,.15,0]);part(g,new THREE.CylinderGeometry(.002,.002,.12,4),fiber,[0,.22,0]);break;}
+    case 'beads':for(let i=0;i<12;i++){const a=i/12*Math.PI*2;part(g,new THREE.SphereGeometry(.018,8,6),own(i%2?0x3a7bd5:0xd8f0ff,.15,.1),[Math.cos(a)*.09,.05,Math.sin(a)*.09]);}break;
+    case 'red_cap':part(g,new THREE.SphereGeometry(.11,16,10,0,Math.PI*2,0,Math.PI/2),own(0xb3241e,.9),[0,.02,0]);part(g,new THREE.TorusGeometry(.105,.018,6,20),own(0x8e1b16,.9),[0,.02,0],[Math.PI/2,0,0]);break;
+  }
+  return {obj:g};
+}
+const TAINO_ITEMS=['spear','fish','conch','cassava','cassava_grated','cassava_pulp','casabe','cotton','hammock_gift','firewood','torch','parrot','gift_cotton','bell','beads','red_cap'];
+export const HELD_MODELS={sword,espingarda,rum:rumBottle,purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit'),
+  ...Object.fromEntries(TAINO_ITEMS.map(id=>[id,()=>taino(id)]))};
 
 export function releaseModel(obj){
   const geometries=new Set(),materials=new Set();

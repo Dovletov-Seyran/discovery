@@ -5,6 +5,8 @@
 //   world.entity(id) / world.setEntityState(id, { visible, fill, paused })
 //   world.applyEntity(id, state) — server `entity` state: { holder } hides an item, { emptyAt } drives the hourglass
 //   world.layout                 — spawn points and night seats from the current layout
+//   world.setScene(id)           — the server's scene: Guanahani shows some things only in some scenes
+//   world.setFleet(zone, present) — the three ships at anchor off Guanahani (part 2, from 12 October)
 //   world.stats()                — numbers for the F3 overlay
 // Chunk wiring for Фронт 2 is described at the top of chunks.js.
 import * as THREE from 'three';
@@ -18,12 +20,15 @@ import { Pipeline } from './pipeline.js';
 import { Players } from './players.js';
 import { Collider } from './collision.js';
 import { Chunks } from './chunks.js';
-import {paths as canaryPaths} from '../../../content/canary_layout.json';
 import { Cutscenes } from './cutscene.js';
 import { npcActivity } from '../../../shared/npc-activity.js';
 import { prepareNpc, animateNpc, collideNpcs, giveChart } from './npc-animation.js';
 import { WorldPatches } from './world-patches.js';
-import islandLod from 'virtual:island-lod';
+import { strum } from './people.js';
+import canaryLayout from '../../../content/canary_layout.json';
+import guanahaniLayout from '../../../content/guanahani_layout.json';
+import canaryLod from 'virtual:island-lod';
+import guanahaniLod from 'virtual:island-lod/guanahani';
 
 const SMOKE_PUFFS = 8;
 
@@ -68,13 +73,20 @@ export const world = {
     this.scene.add(this.smoke);
     this.cutscene = new Cutscenes(this);
 
-    this.island = new Island(this.scene, this.M);
-    this.island.setPaths(canaryPaths); // static town plan; the terrain itself comes in chunks
-    this.island.setLod(islandLod);
-    this.chunks.setStaticData('island-lod',islandLod.byteLength);
-    this.chunks.setStaticData('paths',new TextEncoder().encode(JSON.stringify(canaryPaths)).length);
+    // The islands, each its own chunk zone: La Gomera (part 1) and Guanahani (part 2). Paths are the static town
+    // plan; the terrain itself comes in chunks, the far view from the LOD summary (both count in the 10% budget).
+    this.islands = {
+      canary: new Island(this.scene, this.M),
+      guanahani: new Island(this.scene, this.M, { palette: 'guanahani', veg: ['palm_fan', 'gumbo_limbo', 'sea_grape', 'mangrove', 'rock_lime', 'bush'] }),
+    };
+    for (const [zone, isl, layout, lod] of [['canary', this.islands.canary, canaryLayout, canaryLod], ['guanahani', this.islands.guanahani, guanahaniLayout, guanahaniLod]]) {
+      isl.setPaths(layout.paths);
+      isl.setLod(lod);
+      this.chunks.setBuilder(zone, isl);
+      this.chunks.setStaticData(`island-lod:${zone}`, lod.byteLength ?? 0);
+      this.chunks.setStaticData(`paths:${zone}`, new TextEncoder().encode(JSON.stringify(layout.paths ?? [])).length);
+    }
     this.chunks.setBuilder('ship', { add: (key, data) => this.loadLayout(data), remove: () => this.unloadLayout(), setVisible: () => {} });
-    this.chunks.setBuilder('canary', this.island);
 
     this.objects = new WorldObjects(this);
     this.players = new Players(this.scene, this.M);
@@ -127,15 +139,18 @@ export const world = {
     this.collider = new Collider(this.shipCollider);
   },
 
+  // the island of the current zone (null on the ship)
+  get island() { return this.islands?.[this.zone] ?? null; },
+
   // what the player can use right now: the ship's or the island's visible chunks'
-  get interactables() { return [...(this.zone === 'ship' ? this.shipInteractables : this.island.interactables),...(this.objects?.selectable??[])]; },
+  get interactables() { return [...(this.island ? this.island.interactables : this.shipInteractables),...(this.objects?.selectable??[])]; },
 
   // world_patch: предметы и декор (сухари, товар, бочки, брошенное игроками) — WorldObjects Санджара;
   // изменения корабля и неба (паруса, флаг, фонари, туман) — WorldPatches
   applyPatch(message) { this.objects?.applyPatch(message); this.patches?.apply(message); },
 
   entity(id) {
-    return this.shipInteractables.find((o) => o.userData.id === id) ?? this.island.interactables.find((o) => o.userData.id === id) ?? this.objects?.records.get(id)?.obj ?? null;
+    return this.shipInteractables.find((o) => o.userData.id === id) ?? this.island?.interactables.find((o) => o.userData.id === id) ?? this.objects?.records.get(id)?.obj ?? null;
   },
 
   applyEntity(id, state) {
@@ -147,7 +162,7 @@ export const world = {
   setEntityState(id, state) {
     const o = this.entity(id);
     if (!o) return;
-    if ('visible' in state) o.visible = state.visible;
+    if ('visible' in state) { o.userData.held = !state.visible; o.visible = state.visible && !o.userData.offScene; }
     for (const field of ['paused','speaker','behavior','performance']) if (field in state) o.userData[field] = state[field];
     if ('fill' in state) o.userData.setFill?.(state.fill);
   },
@@ -159,12 +174,19 @@ export const world = {
     this.patches?.invalidate();
     const ship = zone === 'ship';
     this.ship.visible = ship; this.zoneRoot.visible = ship; this.smoke.visible = ship;
-    this.island.group.visible = zone === 'canary';
+    for (const [name, isl] of Object.entries(this.islands)) isl.group.visible = zone === name;
     this.env.setZone(zone);
+    this.env.setShore({ canary: canaryLod, guanahani: guanahaniLod }[zone] ?? null);
+    this.players.setLooks(zone === 'guanahani' ? 'taino' : 'crew'); // part 2: the players are villagers
     this.chunks.setZone(zone);
   },
 
+  // the server's scene: on Guanahani some things are there only in some scenes (layout `scenes`)
+  setScene(id) { for (const isl of Object.values(this.islands)) isl.setScene(id); },
+
   setTimeOfDay(t, immediate = false) { this.env.setTimeOfDay(t, immediate); },
+  // the three ships at anchor off an island (Guanahani: from the morning of 12 October)
+  setFleet(zone, present) { this.env.setFleet(zone, present); },
 
   setQuality(q) {
     if (q === this.quality) return;
@@ -176,7 +198,7 @@ export const world = {
   collide(capsule) {
     // другие игроки — как NPC: круг 0.3 м, сквозь друг друга не пройти
     const others = this.players ? [...this.players.map.values()].map((p) => p.rig.root) : [];
-    if (this.zone === 'canary') { const pushed=collideNpcs(others,capsule);const result=this.island.collide(capsule);result.delta.add(pushed);const delta=this.objects?.collide(capsule);if(delta)result.delta.add(delta);return result; }
+    if (this.island) { const pushed=collideNpcs(others,capsule);const result=this.island.collide(capsule);result.delta.add(pushed);const delta=this.objects?.collide(capsule);if(delta)result.delta.add(delta);return result; }
     const start = capsule.start.clone();
     collideNpcs(this.npcs, capsule);
     collideNpcs(others, capsule);
@@ -198,19 +220,19 @@ export const world = {
     if (this.zone === 'ship') {
       for (const npc of this.npcs) animateNpc(npc, dt, seconds, this.env.t >= 0.82, this.npcScene, chartTaken);
     } else {
-      for (const npc of this.island?.interactables ?? []) if(npc.userData.kind==='npc') {
+      for (const npc of this.island?.interactables ?? []) if(npc.userData.kind==='npc'&&npc.userData.definition) {
         const state=npcActivity(npc.userData.definition,seconds,this.npcScene,npc.userData.paused);
         npc.rotation.y=state.r+Math.PI;
       }
     }
   },
-  groundHeight(x, z, fromY) { return this.zone === 'canary' ? this.island.groundHeight(x, z, fromY) : this.collider.groundHeight(x, z, fromY); },
+  groundHeight(x, z, fromY) { return this.island ? this.island.groundHeight(x, z, fromY) : this.collider.groundHeight(x, z, fromY); },
 
   frame(dt) {
     dt = Math.min(dt, 0.1);
     this.cutscene.update?.(dt); // takes the camera while a cutscene runs
     this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
-    this.island.refresh();
+    this.island?.refresh();
     this.patches?.update();
     this.players.update(dt);
     this.updateNpcs(dt);

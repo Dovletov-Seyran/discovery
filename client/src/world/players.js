@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import {RemoteEquipment} from '../game/remote-equipment.js';
-import { person, pose, makeLabel, ROLE_LOOK, ROLE_NAME } from './people.js';
+import { person, pose, makeLabel, ROLE_LOOK, ROLE_NAME, TAINO_ROLE_LOOK, TAINO_ROLE_NAME } from './people.js';
+
+// part 1: the crew; part 2: villagers of Guanahani (world.setZone switches it)
+const LOOKS = { crew: [ROLE_LOOK, ROLE_NAME], taino: [TAINO_ROLE_LOOK, TAINO_ROLE_NAME] };
 
 const DELAY = 100; // ms: render remote players this far in the past and interpolate (F1.6)
 
@@ -12,6 +15,22 @@ export class Players {
     this.group = new THREE.Group();
     scene.add(this.group);
     this.map = new Map();
+    this.kind = 'crew';
+  }
+
+  // 'crew' | 'taino': rebuilds everybody's figure, keeping where they are
+  setLooks(kind) {
+    if (kind === this.kind || !LOOKS[kind]) return;
+    this.kind = kind;
+    for (const p of this.map.values()) {
+      const old = p.rig.root, rig = person(this.M.person, LOOKS[kind][0][p.role] ?? LOOKS[kind][0].grumete);
+      rig.root.position.copy(old.position); rig.root.rotation.copy(old.rotation); rig.root.userData = old.userData;
+      rig.root.add(p.label);
+      old.removeFromParent(); old.traverse((o) => { if (o !== p.label && !o.isSprite) o.geometry?.dispose(); });
+      this.group.add(rig.root);
+      p.rig = rig;
+      p.label.draw(p.name, LOOKS[kind][1][p.role] ?? '');
+    }
   }
 
   upsert(id, data) {
@@ -20,7 +39,7 @@ export class Players {
     const previous=p&&role!==undefined&&role!==p.role?p:null;
     if(previous){this.remove(id);p=null;}
     if (!p) {
-      const rig = person(this.M.person, ROLE_LOOK[role] ?? ROLE_LOOK.grumete);
+      const [looks] = LOOKS[this.kind], rig = person(this.M.person, looks[role] ?? looks.grumete);
       const label = this.labelFactory(); label.position.y = 2.3; rig.root.add(label);
       rig.root.userData = { id, kind: 'player' };
       this.group.add(rig.root);
@@ -38,7 +57,7 @@ export class Players {
     if('equipped' in data)p.equipment.setEquipment(data.equipped,data.equipmentRev);
     if('action' in data)p.equipment.setAction(data.action);
     p.rig.root.visible=p.zone===this.zone;
-    p.label.draw(p.name, ROLE_NAME[p.role] ?? '');
+    p.label.draw(p.name, LOOKS[this.kind][1][p.role] ?? '');
     return p.rig.root;
   }
 

@@ -19,5 +19,13 @@
   { "id": "beatriz",     "name": "Донья Беатрис",         "type": "llm", "voice": "bf_emma" },
   { "id": "town_1",      "name": "Пастух",                "type": "llm", "voice": "am_echo" },
   { "id": "town_2",      "name": "Рыбачка",               "type": "llm", "voice": "bf_isabella" },
-  { "id": "town_3",      "name": "Старик с Иерро",        "type": "llm", "voice": "bm_george" }
+  { "id": "town_3",      "name": "Старик с Иерро",        "type": "llm", "voice": "bm_george" },
+  {"id": "cacique", "name": "Касик", "type": "llm", "voice": "am_onyx"},
+  {"id": "elder", "name": "Старейшина", "type": "llm", "voice": "bm_george"},
+  {"id": "villager_1", "name": "Жительница", "type": "llm", "voice": "bf_isabella"},
+  {"id": "villager_2", "name": "Житель", "type": "llm", "voice": "am_eric"},
+  {"id": "villager_3", "name": "Рыбак", "type": "llm", "voice": "am_liam"},
+  {"id": "admiral", "name": "Вождь чужаков", "type": "llm", "voice": "am_michael"},
+  {"id": "notary", "name": "Чужак с листами", "type": "llm", "voice": "bm_lewis"},
+  {"id": "sailor_es", "name": "Чужак с бусами", "type": "llm", "voice": "am_adam"}
 ]

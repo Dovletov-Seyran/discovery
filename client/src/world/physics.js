@@ -8,7 +8,7 @@ export function sphereContact(world,p,radius,from=p){
   const start=new Vector3().fromArray(from),end=new Vector3().fromArray(p);
   const capsule={start,end,radius};
   if(world.zone==='ship')world.collider?.collide(capsule);
-  else for(const c of world.island.chunks.values()){
+  else for(const c of world.island?.chunks.values()??[]){
     if(!c.visible)continue;
     const b=c.bounds;
     if(start.x<b.min.x-radius||start.x>b.max.x+radius||start.z<b.min.z-radius||start.z>b.max.z+radius)continue;
@@ -18,7 +18,7 @@ export function sphereContact(world,p,radius,from=p){
   return end.toArray();
 }
 export function surfaceHit(world,origin,direction,maxDistance=3){
-  const ray=new Ray(origin,direction),colliders=world.zone==='ship'?[world.collider]:[...world.island.chunks.values()].filter(c=>c.visible).map(c=>c.collider);
+  const ray=new Ray(origin,direction),colliders=world.zone==='ship'?[world.collider]:[...(world.island?.chunks.values()??[])].filter(c=>c.visible).map(c=>c.collider);
   let best=null;
   for(const c of colliders){
     const hit=c?.bvh.raycastFirst(ray,2);

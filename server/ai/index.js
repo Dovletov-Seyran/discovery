@@ -120,7 +120,8 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   if (en) {
     // Перевод (LLM) и озвучка (отдельный поток) идут параллельно
     const [tr, voice] = await Promise.all([
-      toRussian(en, { names: nameGlossary(context, userText) }).catch(() => ({ text: '', ms: 0 })),
+      // Чужаки на Гуанахани (foreign) говорят по-испански: таино их не понимают — субтитры без перевода
+      agent.foreign ? Promise.resolve({ text: en, ms: 0 }) : toRussian(en, { names: nameGlossary(context, userText) }).catch(() => ({ text: '', ms: 0 })),
       speak(en, agent.voice, { name: npc }).catch((err) => (console.warn(`[tts] ${err.message}`), { url: null, ms: 0 })),
     ]);
     ru = tr.text;
