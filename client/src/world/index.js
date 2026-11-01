@@ -2,7 +2,7 @@
 // API as agreed in docs/front-1-world.md, plus:
 //   world.frame(dt)              — update and draw one frame (call from the game loop)
 //   world.loadLayout(layout)     — props, interactables and NPCs of the ship (chunk `ship 0,0`)
-//   world.entity(id) / world.setEntityState(id, { visible, fill })
+//   world.entity(id) / world.setEntityState(id, { visible, fill, paused })
 //   world.applyEntity(id, state) — server `entity` state: { holder } hides an item, { emptyAt } drives the hourglass
 //   world.layout                 — spawn points and night seats from the current layout
 //   world.stats()                — numbers for the F3 overlay
@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { generateTextures, Materials } from './materials.js';
 import { buildShip } from './ship.js';
 import {WorldObjects} from './objects.js';
-import { buildLayout, applyState, animateProp } from './props.js';
+import { buildLayout, applyState, animateProp, MODELS } from './props.js';
 import { Island } from './island.js';
 import { Environment } from './environment.js';
 import { Pipeline } from './pipeline.js';
@@ -21,7 +21,8 @@ import { Chunks } from './chunks.js';
 import {paths as canaryPaths} from '../../../content/canary_layout.json';
 import { Cutscenes } from './cutscene.js';
 import { npcActivity } from '../../../shared/npc-activity.js';
-import { prepareNpc, animateNpc, collideNpcs } from './npc-animation.js';
+import { prepareNpc, animateNpc, collideNpcs, giveChart } from './npc-animation.js';
+import { WorldPatches } from './world-patches.js';
 import islandLod from 'virtual:island-lod';
 
 const SMOKE_PUFFS = 8;
@@ -42,6 +43,8 @@ export const world = {
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFShadowMap;
+    // карта теней — ещё один проход по сцене: пересчитываем через кадр (frame), а не каждый
+    r.shadowMap.autoUpdate = false;
     r.info.autoReset = false;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 12000);
@@ -76,6 +79,7 @@ export const world = {
     this.objects = new WorldObjects(this);
     this.players = new Players(this.scene, this.M);
     this.env.mirrorHide.push(this.zoneRoot, this.smoke, this.players.group);
+    this.patches = new WorldPatches(this);
     this.pipeline = new Pipeline(r, this.scene, this.camera);
     this.pipeline.build(quality);
     this.collider = new Collider(this.shipCollider);
@@ -98,6 +102,9 @@ export const world = {
       prepareNpc(npc);
       for (const field of ['paused','speaker','behavior']) npc.userData[field] = npc.userData.definition.state?.[field] ?? null;
     }
+    // Columbus keeps a chart of his own: when a player takes the one from the table, he reads that one
+    const columbus = this.npcs.find((n) => n.userData.id === 'columbus');
+    if (columbus) giveChart(columbus, MODELS.map(this.M).obj);
     this.updateNpcs(0);
     this.env.lamps = [];
     this.env.addLamps(built.lamps);
@@ -108,6 +115,7 @@ export const world = {
     }
     this.collider = new Collider([...this.shipCollider, ...built.col]);
     this.objects?.loaded();
+    this.patches?.invalidate();
   },
 
   unloadLayout() {
@@ -122,7 +130,9 @@ export const world = {
   // what the player can use right now: the ship's or the island's visible chunks'
   get interactables() { return [...(this.zone === 'ship' ? this.shipInteractables : this.island.interactables),...(this.objects?.selectable??[])]; },
 
-  applyPatch(message) { this.objects?.applyPatch(message); },
+  // world_patch: предметы и декор (сухари, товар, бочки, брошенное игроками) — WorldObjects Санджара;
+  // изменения корабля и неба (паруса, флаг, фонари, туман) — WorldPatches
+  applyPatch(message) { this.objects?.applyPatch(message); this.patches?.apply(message); },
 
   entity(id) {
     return this.shipInteractables.find((o) => o.userData.id === id) ?? this.island.interactables.find((o) => o.userData.id === id) ?? this.objects?.records.get(id)?.obj ?? null;
@@ -145,6 +155,7 @@ export const world = {
   setZone(zone) {
     this.zone = zone;
     this.objects?.setZone(zone);
+    this.patches?.invalidate();
     const ship = zone === 'ship';
     this.ship.visible = ship; this.zoneRoot.visible = ship; this.smoke.visible = ship;
     this.island.group.visible = zone === 'canary';
@@ -179,8 +190,9 @@ export const world = {
 
   updateNpcs(dt) {
     const seconds = (Date.now() + this.npcClockOffset) / 1000;
+    const chartTaken = this.entity('map')?.visible === false;
     if (this.zone === 'ship') {
-      for (const npc of this.npcs) animateNpc(npc, dt, seconds, this.env.t >= 0.82, this.npcScene);
+      for (const npc of this.npcs) animateNpc(npc, dt, seconds, this.env.t >= 0.82, this.npcScene, chartTaken);
     } else {
       for (const npc of this.island?.interactables ?? []) if(npc.userData.kind==='npc') {
         const state=npcActivity(npc.userData.definition,seconds,this.npcScene,npc.userData.paused);
@@ -195,12 +207,15 @@ export const world = {
     this.cutscene.update?.(dt); // takes the camera while a cutscene runs
     this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
     this.island.refresh();
+    this.patches?.update();
     this.players.update(dt);
     this.updateNpcs(dt);
     this.objects?.update();
     for(const o of this.interactables)if(!this.objects?.records.has(o.userData.id))animateProp(o,Date.now()+(this.objects?.clockOffset??0));
     this.updateSmoke(dt);
     this.renderer.info.reset();
+    this.frameNo = (this.frameNo ?? 0) + 1;
+    if (this.frameNo % 2 === 1) this.renderer.shadowMap.needsUpdate = true;
     this.pipeline.render(this.env.bloom);
     this.measure(dt);
   },
@@ -218,20 +233,21 @@ export const world = {
     }
   },
 
-  // F1.1: measure FPS between seconds 1 and 4; below 45 → drop to low
+  // Автокачество (F1.1): кадры ограничены (fpsCap — сколько просили нарисовать, game/frame-limit.js).
+  // Не успеваем нарисовать и 70% от просимого за окно в 4 с (первое — с 1-й по 4-ю секунду,
+  // дальше — всю игру: ноут греется и сбрасывает частоту) → «низкое». Назад само не поднимается.
   measure(dt) {
     const f = this.fps;
     f.frames++; f.time += dt; f.clock += dt;
     if (f.time >= 0.5) { f.value = f.frames / f.time; f.frames = 0; f.time = 0; }
     const pr = f.probe;
-    if (f.auto && pr && f.clock > pr.from) {
-      pr.frames++; pr.time += dt;
-      if (f.clock > pr.to) {
-        const avg = pr.frames / pr.time;
-        if (avg < 45 && this.quality !== 'low') { console.info(`[world] ${avg.toFixed(0)} FPS → low`); this.setQuality('low'); }
-        f.probe = null;
-      }
-    }
+    if (!f.auto || !pr || f.clock <= pr.from || this.quality === 'low') return;
+    pr.frames++; pr.time += dt;
+    if (pr.cap !== this.fpsCap) { pr.cap = this.fpsCap; pr.frames = 0; pr.time = 0; return; } // открыли меню — меряем заново
+    if (pr.time < 4) return;
+    const avg = pr.frames / pr.time, want = Math.min(this.fpsCap ?? 60, 60);
+    if (avg < want * 0.7) { console.info(`[world] ${avg.toFixed(0)} из ${want} FPS → low`); this.setQuality('low'); }
+    pr.frames = 0; pr.time = 0;
   },
 
   stats() {

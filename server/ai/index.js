@@ -4,12 +4,12 @@ import { getAgent, loadAgents, currentTask, crewNames, knownPeople } from './age
 import { understand } from './understand.js';
 import { chat, warmup, ollamaUp, queueStats } from './llm.js';
 import { loadMemory, saveMemory, setStore, turnsToCompress, resetMemory } from './memory.js';
-import { decide, perform, setWorld, storyPlan } from './actions.js';
+import { decide, perform, setWorld, storyPlan, resetCooldowns, cancelAction } from './actions.js';
 import { buildMessages, cleanAnswer, isEnglish, ensureRepeatOpening, latin, TEMPERATURE, GENERIC_HELP } from './prompt.js';
 import { toRussian } from './translate.js';
 import { speak, loadTTS, ttsReady } from './tts.js';
 
-export { setStore, setWorld, storyPlan, loadAgents, getAgent, loadMemory, resetMemory };
+export { resetCooldowns, setStore, setWorld, storyPlan, loadAgents, getAgent, loadMemory, resetMemory };
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -142,7 +142,7 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   // Разрешённое действие выполняется вместе с ответом: мир меняется, когда агент отдаёт приказ
   let action = null;
   if (intent.kind === 'action') {
-    if (!isCurrent()) intent.verdict = {ok:false,reason:'cancelled'};
+    if (!isCurrent() && intent.verdict.ok) { cancelAction(agent, intent.action); intent.verdict = { ok: false, reason: 'cancelled' }; }
     const done = intent.verdict.ok ? perform(agent, intent.action) : null;
     action = { id: intent.action.id, ok: !!intent.verdict.ok && done?.ok !== false, reason: intent.verdict.reason ?? null };
   }

@@ -9,16 +9,25 @@ import * as world from './world-state.js';
 
 // id → { id, zone, x, z, kind, item?, period?, ... } — интерактивные объекты и NPC
 const defs = new Map();
-for (const zone of ['ship', 'canary']) {
-  // остров — с координатами, как их считает генератор (rel/shore разворачиваются в точки)
-  const raw = loadContent(`${zone}_layout.json`, {});
-  const layout = zone === 'canary' && raw.shape ? resolveLayout(raw).layout : raw;
-  for (const o of layout.interact ?? []) defs.set(o.id, { ...o, zone, x: o.p[0], z: o.p.at(-1) });
-  for (const o of layoutToggles(layout,zone)) defs.set(o.id,{...o,x:o.p[0],z:o.p[2]});
-  for (const o of layout.npcs ?? []) defs.set(o.id, { ...o, kind: 'npc', zone, x: o.p[0], z: o.p.at(-1) });
+let staticIds = new Set();
+// Админка (server/admin) после правки раскладки зовёт loadDefs() снова; состояние объектов
+// и предметы, брошенные игроками (dynamic), сохраняются
+export function loadDefs() {
+  const dynamic = [...defs.values()].filter((d) => d.dynamic);
+  defs.clear();
+  for (const zone of ['ship', 'canary']) {
+    // остров — с координатами, как их считает генератор (rel/shore разворачиваются в точки)
+    const raw = loadContent(`${zone}_layout.json`, {});
+    const layout = zone === 'canary' && raw.shape ? resolveLayout(raw).layout : raw;
+    for (const o of layout.interact ?? []) defs.set(o.id, { ...o, zone, x: o.p[0], z: o.p.at(-1) });
+    for (const o of layoutToggles(layout,zone)) defs.set(o.id,{...o,x:o.p[0],z:o.p[2]});
+    for (const o of layout.npcs ?? []) defs.set(o.id, { ...o, kind: 'npc', zone, x: o.p[0], z: o.p.at(-1) });
+  }
+  staticIds = new Set(defs.keys());
+  for (const d of dynamic) if (!defs.has(d.id)) defs.set(d.id, d);
 }
+loadDefs();
 
-const staticIds = new Set(defs.keys());
 let objects = {};       // id → состояние ({ holder }, { emptyAt }, ...)
 let sharedQuests = {};  // questId → состояние общих заданий (роль никто не взял)
 let dirty = false;

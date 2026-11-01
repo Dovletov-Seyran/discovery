@@ -3,7 +3,7 @@
 // server's own generator, so it always matches the real chunks; the generator itself never reaches the browser.
 // The summary is part of the 10% budget: export its UTF-8 size so Chunks reserves space before loading nearby chunks.
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ID = 'virtual:island-lod', RID = '\0' + ID, STEP = 8;
 const TERRAIN = fileURLToPath(new URL('../../../server/world/terrain.js', import.meta.url));
@@ -18,7 +18,7 @@ export default function islandLod() {
     async load(id) {
       if (id !== RID) return null;
       this.addWatchFile(TERRAIN); this.addWatchFile(LAYOUT);
-      const { generateCanary } = await import(`${TERRAIN}?t=${Date.now()}`); // fresh after an edit
+      const { generateCanary } = await import(`${pathToFileURL(TERRAIN).href}?t=${Date.now()}`); // fresh after an edit; as a file:// URL, a bare Windows path (C:/...) fails
       const layout = JSON.parse(readFileSync(LAYOUT, 'utf8'));
       const { chunks, heightAt } = generateCanary(layout, { warn: () => {} });
       const res = layout.size / STEP + 1, h = [];

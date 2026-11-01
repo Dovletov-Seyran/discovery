@@ -81,6 +81,7 @@ export async function talk(req) {
   // Купили товар — с прилавка он исчезает у всех (если торговец его выкладывал)
   if (req.tradeResult?.outcome === 'sold') {
     const id = `goods_${req.tradeResult.item}`;
+    world.setFlag(`sold:${id}`);
     if (world.has(id)) world.apply([{ op: 'remove', id }], { source: `${req.npc}:trade` });
   }
   if (impl?.talk) return impl.talk(req);
@@ -92,6 +93,7 @@ let storyTimers = [];
 export function onSceneStart(scene, startAt = Date.now()) {
   storyTimers.forEach(clearTimeout);
   storyTimers = [];
+  if (scene.id === 'lobby') impl?.resetCooldowns?.();
   if (!impl?.storyPlan || !impl.loadAgents) return;
   const story = scene.id === 'night_story' ? loadContent('night_story.json', null) : null;
   const segments = story?.segments ?? [];

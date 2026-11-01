@@ -13,6 +13,8 @@ import * as rules from './rules.js';
 import * as worldState from './world-state.js';
 import * as ai from './ai-bridge.js';
 import {tickNpcBrain,resetNpcBrain} from './npc-brain.js';
+import { worldEvent, forget as forgetEvents } from './world-events.js';
+import { clientReport, countTick, forgetClient } from './stats.js';
 import { onChunkReq, onChunkDrop } from '../world/chunks.js';
 
 director.setHooks({
@@ -125,6 +127,7 @@ function onMove(p, msg) {
   if (!director.acceptsMove() && !locked) return;
   if (Number.isFinite(msg.r)) p.r = msg.r;
   if (ANIMS.includes(msg.a)) p.a = locked ? 'sit' : msg.a;
+  if (p.a === 'run') worldEvent(p, 'run'); // раз в 3 с, пока бежит
   if (locked || !isVec3(msg.p)) return; // в night_story можно только крутить головой
 
   const now = Date.now();
@@ -175,6 +178,19 @@ function onChat(p, msg) {
   if (text.length > CONFIG.CHAT_MAX_LEN) return notice(p, `Сообщение длиннее ${CONFIG.CHAT_MAX_LEN} символов`);
   if (text.startsWith('/') && CONFIG.DEV) return devCommand(p, text);
   players.broadcast({ t: S2C.CHAT, from: p.id, name: p.name, text });
+  worldEvent(p, 'talk');
+}
+
+// Состояние объекта для чанка. Пауза NPC на время разговора — в самом состоянии (entities.syncNpcDialogues)
+const entityState = (id) => entities.stateOf(id);
+
+// Админка поменяла раскладку зоны: игроки получают заново те её чанки, что у них уже загружены
+export function resendChunks(zone) {
+  for (const p of players.connected()) {
+    if (p.zone !== zone || !p.chunks?.size) continue;
+    const keys = [...p.chunks].filter((k) => k.startsWith(`${zone}:`)).map((k) => k.slice(zone.length + 1));
+    if (keys.length) onChunkReq(p, { zone, keys }, { send: (m) => players.send(p, m), entityState });
+  }
 }
 
 // Предмет, появившийся по world_patch (сухари из пайка), взяли — у всех он исчезает
@@ -201,17 +217,54 @@ const handlers = {
   [C2S.SCARE]: rules.scare,
   [C2S.READY]: (p, msg) => director.onReadyMessage(p, msg.value !== false),
   [C2S.SKIP_VOTE]: (p) => director.onSkipVote(p),
-  [C2S.CHUNK_REQ]: (p, msg) => onChunkReq(p, msg, {
-    send: (m) => players.send(p, m),
-    entityState: entities.stateOf,
-  }),
+  [C2S.CHUNK_REQ]: (p, msg) => onChunkReq(p, msg, { send: (m) => players.send(p, m), entityState }),
   [C2S.CHUNK_DROP]: onChunkDrop,
+  // Задержка до сервера и обратно: клиент сам вычтет свой ts (раз в 2 с, для HUD и админки)
+  [C2S.PING]: (p, msg) => players.send(p, { t: S2C.PONG, ts: Number.isFinite(msg.ts) ? msg.ts : null, serverNow: Date.now() }),
+  [C2S.CLIENT_STATS]: (p, msg) => clientReport(p.id, msg),
 };
 
 export function handle(p, msg) {
   const h = handlers[msg.t];
   if (h) return h(p, msg);
   if (CONFIG.DEV) console.log(`[game] необработанное сообщение ${msg.t}`);
+}
+
+// --- Управление (dev-команды и админка server/admin) ---
+
+// Сбросить сцену и прогресс всем; пользователи остаются
+export function resetAll() {
+  resetProgress();
+  for (const x of players.all()) {
+    if (!x.connected) { players.remove(x.id); continue; } // без ожидания grace
+    x.inventory = []; x.money = 0;x.itemUses={};x.vitals={stamina:100,drunkUntil:0,drunkStrength:0}; x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
+    players.sendInventory(x);
+  }
+  director.resetToStart();
+}
+
+// Выгнать игрока: соединение закрывается с CLOSE.KICKED (клиент не переподключается сам), место в экипаже свободно
+export function kick(id) {
+  const p = players.get(id);
+  if (!p) return false;
+  const ws = p.ws;
+  if (ws) {
+    players.send(p, { t: S2C.NOTICE, text: 'Администратор отключил вас от игры' });
+    leave(p, ws);
+    ws.close(CLOSE.KICKED, 'kicked');
+  }
+  players.remove(p.id);
+  forgetClient(p.id); forgetEvents(p.id);
+  quests.refreshParty(director.scene(), players.party(), [p]);
+  director.onPartyChanged();
+  console.log(`[admin] ${p.name} отключён администратором`);
+  return true;
+}
+
+// Объявление всем: всплывающее сообщение и строка в чате
+export function announce(text) {
+  players.broadcast({ t: S2C.NOTICE, text });
+  players.broadcast({ t: S2C.CHAT, from: 0, name: 'Администратор', text });
 }
 
 // --- Dev-команды (только DEV=1) ---
@@ -223,13 +276,7 @@ function devCommand(p, text) {
       if (!director.setScene(arg)) notice(p, `Нет сцены ${arg}`);
       break;
     case '/reset':
-      resetProgress();
-      for (const x of players.all()) {
-        if (!x.connected) { players.remove(x.id); continue; } // без ожидания grace
-        x.inventory = []; x.money = 0;x.itemUses={};x.vitals={stamina:100,drunkUntil:0,drunkStrength:0}; x.quests = {}; x.log = []; x.trade = {}; x.ready = false; x.seat = null;
-        players.sendInventory(x);
-      }
-      director.resetToStart();
+      resetAll();
       break;
     case '/give':
       if (!arg) return notice(p, '/give <item>');
@@ -250,6 +297,7 @@ function devCommand(p, text) {
 
 let tick = 0;
 function sendSnapshots() {
+  countTick();
   if (!director.acceptsMove() && !director.isLocked()) return;
   tick++;
   const byZone = new Map();
@@ -269,6 +317,7 @@ function sendSnapshots() {
 
 export function start() {
   director.init();
+  ai.onSceneStart(director.scene(), director.startAt());
   const timers = [
     setInterval(sendSnapshots, 1000 / CONFIG.TICK_HZ),
     setInterval(() => {director.tick();rules.syncNpcDialogues();}, 250),

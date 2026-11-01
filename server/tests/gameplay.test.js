@@ -79,9 +79,9 @@ test('NPC response echoes dialogue/request ids; duplicate requests do not overla
 test('astrolabe requires a valid measured angle as well as the latitude answer',()=>{
   p.inventory=['astrolabe'];p.role='piloto';p.quests={};entities.reset();
   quests.onSceneStart(director.scene(),[p]);
-  rules.minigame(p,{game:'astrolabe',result:{answer:33,angle:5}});
+  rules.minigame(p,{game:'astrolabe',result:{variant:'gomera',answer:28,angle:5}});
   assert.notEqual(p.quests.q_latitude.status,'done');
-  rules.minigame(p,{game:'astrolabe',result:{answer:33,angle:73}});
+  rules.minigame(p,{game:'astrolabe',result:{variant:'gomera',answer:28,angle:68}});
   assert.equal(p.quests.q_latitude.status,'done');
 });
 test('navigation task advances through owned compass and map use, once per step',()=>{

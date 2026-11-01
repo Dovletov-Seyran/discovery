@@ -1,12 +1,15 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
+import { createServer as createHttpServer } from 'node:http';
+import { createServer, request } from 'node:https';
+import selfsigned from 'selfsigned';
 import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 process.env.DB_FILE = ':memory:';
 process.env.TTS = '0';
 process.env.ADMIN_TOKEN = 'test-admin-token';
+process.env.DEV = '1'; // админка Тамерлана: по http только с этого же компьютера и под DEV
 const { AI } = await import('../ai/config.js');
 const { setTransport } = await import('../ai/llm.js');
 const db = await import('../db.js');
@@ -19,11 +22,15 @@ cpSync(AI.AGENTS_DIR, dir, { recursive: true });
 AI.AGENTS_DIR = dir;
 setTransport(async (messages, opts) => ({ text: opts.format ? JSON.stringify({ kind: 'small_talk', topic: 'none', person: 'none' }) : 'Aye.', ms: 1 }));
 
-let server, base;
+let server, base, certificate;
 before(async () => {
-  server = createServer(handleHttp);
+  const tls = await selfsigned.generate([{ name: 'commonName', value: 'localhost' }], {
+    days: 1, keySize: 2048, extensions: [{ name: 'subjectAltName', altNames: [{ type: 7, ip: '127.0.0.1' }] }],
+  });
+  certificate = tls.cert;
+  server = createServer({ key: tls.private, cert: tls.cert }, handleHttp);
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  base = `http://127.0.0.1:${server.address().port}`;
+  base = `https://127.0.0.1:${server.address().port}`;
 });
 after(() => {
   server.close();
@@ -33,8 +40,13 @@ after(() => {
 
 const auth = { Authorization: 'Bearer test-admin-token' };
 const call = async (path, { method = 'GET', body, headers = auth } = {}) => {
-  const res = await fetch(base + path, { method, headers: { ...headers, ...(body != null ? { 'Content-Type': 'application/json' } : {}) }, body: typeof body === 'string' ? body : body && JSON.stringify(body) });
-  return { status: res.status, body: await res.json() };
+  const payload = typeof body === 'string' ? body : body && JSON.stringify(body);
+  return new Promise((resolve, reject) => {
+    const req = request(base + path, { method, ca: certificate, headers: { ...headers, ...(body != null ? { 'Content-Type': 'application/json' } : {}) } }, res => {
+      let text = ''; res.on('data', chunk => text += chunk); res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(text) }));
+    });
+    req.on('error', reject); req.end(payload);
+  });
 };
 
 test('без токена и с чужим токеном — 401', async () => {
@@ -109,4 +121,15 @@ test('метрики ИИ: очередь и средние времена', asy
   assert.equal(m.body.queue.waiting, 0);
   assert.ok(m.body.answers >= 1);
   for (const k of ['understand', 'reply', 'translate', 'tts', 'total']) assert.ok(Number.isFinite(m.body.avgMs[k]), k);
+});
+
+
+test('валидный токен по незашифрованному HTTP с другого ноутбука не открывает админку', async () => {
+  const { handleAdmin } = await import('../admin/index.js');
+  let status, body;
+  const res = { writeHead: (code) => { status = code; }, end: (json) => { body = JSON.parse(json); } };
+  const req = { method: 'GET', url: '/api/admin/agents', headers: auth, socket: { encrypted: false, remoteAddress: '192.168.1.23' } };
+  await handleAdmin(req, res, '/api/admin/agents');
+  assert.equal(status, 403);
+  assert.equal(body.error, 'https_only');
 });

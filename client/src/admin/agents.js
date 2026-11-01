@@ -1,7 +1,8 @@
 // Админка, вкладка «Агенты»: личность, стиль, правила, факты, темы, действия, температура;
 // просмотр и сброс памяти агента об игроке; метрики ИИ. Сохранение применяется на сервере без перезапуска.
-// Использование (каркас админки): const tab = mountAgentsTab(container, { token }); … tab.destroy();
+// Вкладка каркаса админки (client/src/admin/main.js): agentsTab. Запросы — api() каркаса (токен, ошибки).
 // Сервер: server/admin/agents.js.
+import { api as adminApi } from './api.js';
 
 const STYLE_ID = 'admin-agents-style';
 const CSS = `
@@ -40,26 +41,17 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const lines = (list) => (list ?? []).join('\n');
 const fromLines = (text) => text.split('\n').map((s) => s.trim()).filter(Boolean);
 
-export function mountAgentsTab(container, { token = '', base = '' } = {}) {
+export function mountAgentsTab(container) {
   if (!document.getElementById(STYLE_ID)) {
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = CSS;
     document.head.append(style);
   }
-  const api = async (path, opts = {}) => {
-    const res = await fetch(`${base}/api/admin${path}`, {
-      ...opts,
-      headers: { Authorization: `Bearer ${token}`, ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...opts.headers },
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw Object.assign(new Error(body.message || `HTTP ${res.status}`), { body, status: res.status });
-    return body;
-  };
+  const api = (path, { method = 'GET', body } = {}) => adminApi(method, path, body);
 
   let list = { agents: [], players: [] };
   let current = null; // JSON агента
-  let metricsTimer = null;
 
   container.innerHTML = `<div class="aa">
     <nav class="aa-list"><h3>Агенты</h3><div data-list></div></nav>
@@ -175,7 +167,7 @@ export function mountAgentsTab(container, { token = '', base = '' } = {}) {
     const btn = $('[data-form] [type=submit]');
     btn.disabled = true;
     try {
-      const res = await api(`/agents/${encodeURIComponent(current.id)}`, { method: 'PUT', body: JSON.stringify(body) });
+      const res = await api(`/agents/${encodeURIComponent(current.id)}`, { method: 'PUT', body });
       current = res.agent;
       renderForm();
       status('Сохранено. Агент уже отвечает по-новому.', true);
@@ -207,7 +199,7 @@ export function mountAgentsTab(container, { token = '', base = '' } = {}) {
     const q = userQuery();
     if (!q || !confirm(`Сбросить память агента ${current.id} об игроке ${q}?`)) return;
     try {
-      await api(`/agents/${encodeURIComponent(current.id)}/memory/reset`, { method: 'POST', body: JSON.stringify({ user: q }) });
+      await api(`/agents/${encodeURIComponent(current.id)}/memory/reset`, { method: 'POST', body: { user: q } });
       status('Память сброшена: при следующей встрече агент знакомится заново.', true);
       showMemory();
     } catch (e) {
@@ -259,13 +251,8 @@ export function mountAgentsTab(container, { token = '', base = '' } = {}) {
   });
 
   refreshList();
-  refreshMetrics();
-  metricsTimer = setInterval(refreshMetrics, 3000);
-  return {
-    refresh: refreshList,
-    destroy() {
-      clearInterval(metricsTimer);
-      container.innerHTML = '';
-    },
-  };
+  // каркас зовёт refresh() раз в every мс: обновляются только метрики, форму с правками не трогаем
+  return { refresh: refreshMetrics };
 }
+
+export const agentsTab = { id: 'agents', title: 'Агенты', every: 3000, mount: (el) => mountAgentsTab(el) };

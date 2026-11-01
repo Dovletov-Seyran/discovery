@@ -1,21 +1,21 @@
 // Действия игрока в мире: подбор, взаимодействие, передача предметов, мини-игры, торговля, «Бу!», разговор с NPC.
 // Сервер решает всё сам; клиент присылает только намерения.
-import {emitWorldEvent} from './world-events.js';
 import {toggle,canPickup} from './objects.js';
 import {applyItemUse,advanceStamina} from './item-actions.js';
 import {ITEM_RULES} from '../../shared/item-actions.js';
 import { CONFIG } from '../../shared/config.js';
+import { ASTROLABE, latitude } from '../../shared/astrolabe.js';
 import { S2C } from '../../shared/protocol.js';
 import { loadContent } from '../content.js';
 import { players } from './players.js';
 import * as director from './director.js';
 import * as entities from './entities.js';
 import * as quests from './quests.js';
+import { worldEvent, ITEM_EVENT } from './world-events.js';
 import * as ai from './ai-bridge.js';
 
 const NPCS = new Map(loadContent('npcs.json', []).map((n) => [n.id, n]));
 const ROUTINES = loadContent('npc-routines.json', {});
-const ASTROLABE_ANSWER = 33; // 90 − 73 + 16
 
 const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
 const sceneId = () => director.scene().id;
@@ -100,11 +100,10 @@ export function use(p, msg) {
     if(source){if(source.dynamic)entities.remove(source.id);else entities.setState(source.id,{holder:'consumed'});}
   }
   players.send(p,{t:S2C.ITEM_USED,...result});
+  worldEvent(p,ITEM_EVENT[result.effect],{item});
   players.sendInventory(p);players.save(p,{now:true});
   if(item==='wine'||item==='rum')event(p,{type:'interact',target:'wine_barrel'});
   event(p,{type:'use',item});
-  const action={food:'eat',drink:'drink',water:'drink',swing:'swing',shot:'scare'}[result.effect];
-  if(action)emitWorldEvent(p,action,{item});
 }
 export function tickVitals(now=Date.now()){
   syncNpcDialogues(now);
@@ -126,6 +125,7 @@ export function interact(p, msg) {
   if (d.kind === 'toggle') return toggle(p,msg);
   if (!entities.isNear(p, id)) return notice(p, 'Подойди ближе');
   if (d.kind === 'npc' && npcOwner(id) && npcOwner(id) !== p) return claimNpc(p, id);
+  if (d.kind === 'dance') worldEvent(p, 'dance');
 
   switch (d.kind) {
     case 'hourglass': {
@@ -175,7 +175,9 @@ export function minigame(p, msg) {
   let success = msg.result?.success === true;
   if (msg.game === 'astrolabe') {
     if (!p.inventory.includes('astrolabe')) return notice(p, 'Нужна астролябия');
-    success = Number(msg.result?.answer) === ASTROLABE_ANSWER && Number.isFinite(msg.result?.angle) && Math.abs(msg.result.angle - 73) <= 2;
+    // вариант (дата, склонение, высота Солнца) выбирает клиент, ответ считаем здесь
+    const v = ASTROLABE.find((x) => x.id === msg.result?.variant), angle = Number(msg.result?.angle);
+    success = !!v && Number(msg.result?.answer) === latitude(v) && Number.isFinite(angle) && Math.abs(angle - v.sun) <= 2;
     if (!success) notice(p, 'Неверно. Широта = 90° − высота Солнца + склонение');
   }
   event(p, { type: 'minigame', game: msg.game, success });
@@ -276,6 +278,7 @@ async function npcRequest(p, npc, req) {
   if (p.npcRequest || now - p.lastNpcTalkAt < CONFIG.NPC_TALK_COOLDOWN_MS) return replyError(p, npc, req, 'Подожди немного и повтори вопрос.');
   if (!claimNpc(p, npc, req)) return;
   p.lastNpcTalkAt = now;
+  worldEvent(p, 'talk');
   const started = director.startAt();
   const res = await askAi(p, npc, req);
   if (!res || started !== director.startAt()) return;
@@ -372,6 +375,7 @@ export function scare(p, msg) {
   if (!target || target === p || !target.connected || target.zone !== p.zone) return;
   p.lastScareAt = now;
   players.broadcast({ t: S2C.SCARED, by: p.id, target: target.id });
+  worldEvent(p, 'scare');
 }
 
 // --- Начало сцены: объекты, выданные предметы, задания ---

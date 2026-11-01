@@ -107,7 +107,9 @@ export function syncWorld(p,{reset=false}={}){
   if(!p.connected)return;
   if(reset)p.objectVersions=new Map();
   const versions=p.objectVersions??=new Map(),seen=new Set(),ops=[],now=Date.now();
-  const refresh=now-(p.objectSnapshotAt??0)>2000;if(refresh)p.objectSnapshotAt=now;
+  // Полный повтор состояния — страховка раз в 15 с (было 2 с: каждый раз все объекты раскладки летели
+  // каждому игроку и клиент пересобирал кэш). Изменения по-прежнему уходят сразу — по версиям ниже.
+  const refresh=now-(p.objectSnapshotAt??0)>15000;if(refresh)p.objectSnapshotAt=now;
   // Never send the entire world's dynamic registry to a client. Nearest instances win.
   const definitions=entities.allDefs().sort((a,b)=>{
     if(a.dynamic!==b.dynamic)return Number(!!a.dynamic)-Number(!!b.dynamic);
