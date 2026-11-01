@@ -67,6 +67,13 @@ export function findPerson(agentId, text) {
 export const knowsPerson = (agentId, person) => !!person?.opinions?.[agentId] || !!agents.get(agentId)?.knownCrew?.includes(person?.id);
 
 // Текущее задание игрока в этой сцене: { title, step, aboutYou } (шаг — по-английски, из content/quests.json)
+// Что игрок уже сделал в игре (выполненные задания) — агент «видел сам или слышал от других»
+export function deedsOf(context = {}) {
+  if (!agents.size) loadAgents();
+  const done = new Set(context.questsDone ?? []);
+  return quests.filter((q) => done.has(q.id) && q.doneEn).map((q) => q.doneEn);
+}
+
 export function currentTask(context = {}, agentId = null) {
   if (!quests) loadAgents();
   const state = context.quests ?? {};

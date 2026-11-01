@@ -1,8 +1,12 @@
 import { AI } from './config.js';
-import { worldFacts } from './agents.js';
+import { worldFacts, deedsOf } from './agents.js';
 
 const ROLE_NAMES = { grumete: 'ship boy', piloto: 'pilot', lengua: 'interpreter' };
 const ROLE_ADDRESS = { grumete: 'boy', piloto: 'pilot', lengua: 'interpreter' };
+// Часть 2 (Гуанахани): те же роли сервера — жители деревни таино (docs/content-part2.md)
+const TAINO_NAMES = { grumete: 'young fisherman of the village', piloto: 'woman of the house who makes casabe', lengua: "cacique's apprentice" };
+const TAINO_ADDRESS = { grumete: 'son', piloto: 'daughter', lengua: 'child' };
+const part2 = (context) => String(context.scene ?? '').startsWith('p2');
 
 export const REPEAT_OPENING = 'As I told you';
 
@@ -28,9 +32,10 @@ const OPENER = '(The player comes up to you.)';
  * и ОДНУ инструкцию под вид реплики — так маленькая модель отвечает по делу, а не «вообще».
  */
 export function buildMessages({ agent, context = {}, intent, mem, repeat = false, extraCard, steerCard, task, taskTold = false, tradeResult, returning, text }) {
-  const role = ROLE_NAMES[context.role] || 'sailor';
+  const names = part2(context) ? TAINO_NAMES : ROLE_NAMES, address = part2(context) ? TAINO_ADDRESS : ROLE_ADDRESS;
+  const role = names[context.role] || 'sailor';
   const name = latin(context.name || '') || 'a sailor';
-  const playerIs = (agent.playerIs ?? 'the {role} on your ship').replace('{role}', role);
+  const playerIs = (agent.playerIs ?? (part2(context) ? 'the {role}' : 'the {role} on your ship')).replace('{role}', role);
   const k = agent.knowledge ?? {};
   const lines = [
     `You are ${agent.name}. ${agent.persona}`,
@@ -45,12 +50,14 @@ export function buildMessages({ agent, context = {}, intent, mem, repeat = false
 
   lines.push(
     '',
-    `YOU ARE TALKING TO: ${name}, ${playerIs}. If you address them, call them "${ROLE_ADDRESS[context.role] || 'sailor'}" or by name, never by another title.`,
+    `YOU ARE TALKING TO: ${name}, ${playerIs}. If you address them, call them "${agent.foreign ? 'amigo' : address[context.role] || 'friend'}" or by name, never by another title.`,
   );
   const others = (context.party ?? []).filter((p) => p.name !== context.name && p.role);
-  if (others.length) lines.push(`Their shipmates in this game: ${others.map((p) => `${latin(p.name)} (the ${ROLE_NAMES[p.role]})`).join(', ')}.`);
+  if (others.length) lines.push(`${part2(context) ? 'Others of the village in this game' : 'Their shipmates in this game'}: ${others.map((p) => `${latin(p.name)} (the ${names[p.role]})`).join(', ')}.`);
   const reactions = (context.log || []).map((code) => agent.reactions?.[code]).filter(Boolean).slice(-2);
   if (reactions.length) lines.push(`What this player did today: ${reactions.join(' ')}`);
+  const deeds = deedsOf(context);
+  if (deeds.length) lines.push(`WHAT THEY HAVE DONE (you saw it yourself or heard it from others): they ${deeds.join('; they ')}.`);
 
   // Память об этом игроке
   lines.push('', `YOUR MEMORY OF ${name.toUpperCase()}:`);
@@ -107,7 +114,7 @@ function directive({ intent, repeat, extraCard, steerCard, task, taskTold, trade
     case 'player_shares':
       return 'They tell you something about themselves. React to exactly what they said, briefly and in character, as someone who will remember it.';
     case 'recall':
-      return 'They ask what you remember. Answer ONLY from YOUR MEMORY and the conversation above: name the specific things they told you, exactly as they were said. Never add any detail that is not written there (no new relatives, places or facts). If you do not remember something, say so honestly.';
+      return 'They ask what you remember. Answer ONLY from YOUR MEMORY, WHAT THEY HAVE DONE and the conversation above: name the specific things they did and told you, exactly as written there. Never add any detail that is not written there (no new relatives, places or facts). If nothing is written about it, say honestly that you do not know.';
     case 'task_help':
       if (task && taskTold) {
         return `They ask about their task again; you already told them: "${task.step}". Do not repeat it word for word: remind them in other, shorter words, explain the part they seem to ask about using these facts if they help (${facts.join(' ')}), and ask what is unclear.${task.aboutYou ? ' This task is about YOU: speak in the first person.' : ''}`;
