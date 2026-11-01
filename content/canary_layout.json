@@ -25,7 +25,7 @@
     { "id": "church", "m": "church", "p": [256, 252], "r": 0 },
     { "id": "governor_house", "m": "house_governor", "p": [232, 258], "r": 0.3 },
     { "id": "market_stall_1", "m": "market_stall", "p": [268, 284], "r": -1.57 },
-    { "id": "market_stall_2", "m": "market_stall", "p": [268, 292], "r": -1.57 },
+    { "id": "market_stall_2", "m": "market_stall_trade", "p": [268, 292], "r": -1.57 },
     { "id": "market_stall_3", "m": "market_stall", "p": [268, 300], "r": -1.57 },
     { "id": "shipyard", "m": "shipyard", "p": [290, 320], "r": 0 },
     { "id": "warehouse", "m": "warehouse", "p": [300, 300], "r": -1.57 },

@@ -121,6 +121,10 @@ export async function handle(req, res, path, { sendJson, readJson }) {
     sendJson(res, 401, { error: 'unauthorized', message: process.env.ADMIN_TOKEN ? 'Нужен заголовок Authorization: Bearer <ADMIN_TOKEN>' : 'Админка выключена: сервер запущен без ADMIN_TOKEN' });
     return true;
   }
+  if (!req.socket?.encrypted) {
+    sendJson(res, 403, { error: 'https_required', message: 'Админка доступна только по HTTPS' });
+    return true;
+  }
   const url = new URL(req.url, 'http://x');
 
   if (path === '/api/admin/ai' && req.method === 'GET') {

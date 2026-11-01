@@ -5,6 +5,7 @@
 import { tokenize, wordsMatch } from './retrieval.js';
 
 // Вопрос о вещи, а не просьба: «расскажи про фонари», «зачем флаг?», «что за паёк?»
+const NEGATED = /(?:^|[^а-яёa-z])(?:не\s+(?:(?:надо|нужно|следует|смей)\s+)?(?:заж|подним|подня|убир|убер|выда|разда|показ)|(?:do not|don't|never)\s+(?:light|raise|hoist|furl|lower|give|show))/i;
 const ABOUT = /расскаж|рассказ|объясн|что так|что за |почему|зачем|когда|откуда|tell me|what is|why|explain/i;
 
 let world = { isApplied: () => false, apply: () => ({ ok: true }), hasFlag: () => false, setFlag: () => true };
@@ -31,7 +32,7 @@ export function kwHit(action, text) {
  * → action или null
  */
 export function pickAction(agent, { modelAction, text, scene }) {
-  if (!text || ABOUT.test(text)) return null;
+  if (!text || ABOUT.test(text) || NEGATED.test(text)) return null;
   const here = available(agent, scene);
   const chosen = here.find((a) => a.id === modelAction);
   if (chosen) return kwHit(chosen, text) ? chosen : null;
@@ -39,8 +40,12 @@ export function pickAction(agent, { modelAction, text, scene }) {
   return byWords.find((a) => kwHit(a, text)) ?? null;
 }
 
+// Проданный товар не возвращается на прилавок по повторной просьбе.
+const patchesFor = (action) => (action.patch ?? []).filter(op => !(action.id === 'show_goods' && op.op === 'spawn' && world.hasFlag(`sold:${op.id}`)));
+
 // Кулдауны общие на весь мир: фонари зажёг один игрок — горят у всех
 const lastAt = new Map(); // `${agent}:${action}` → ms
+export const cancelAction = (agent, action) => lastAt.delete(`${agent.id}:${action.id}`);
 export const resetCooldowns = () => lastAt.clear();
 
 /**
@@ -54,16 +59,18 @@ export function decide(agent, action, { scene, now = Date.now() } = {}) {
   const since = now - (lastAt.get(key) ?? -Infinity);
   const cd = (action.cooldownSec ?? 0) * 1000;
   if (since < cd) return { ok: false, reason: 'cooldown', waitSec: Math.ceil((cd - since) / 1000) };
-  if (action.patch?.length && world.isApplied(action.patch)) return { ok: false, reason: 'done' };
+  if (action.patch?.length && (!patchesFor(action).length || world.isApplied(patchesFor(action)))) return { ok: false, reason: 'done' };
   lastAt.set(key, now);
   return { ok: true };
 }
 
 // Выполнить разрешённое действие: патч в мир (рассылка всем — там же)
 export function perform(agent, action) {
-  if (action.once) world.setFlag(`action:${agent.id}:${action.id}`);
-  if (!action.patch?.length) return { ok: true, ops: [] };
-  return world.apply(action.patch, { source: `${agent.id}:${action.id}` });
+  const patch = patchesFor(action);
+  const result = patch.length ? world.apply(patch, { source: `${agent.id}:${action.id}` }) : { ok: true, ops: [] };
+  if (result.ok && action.once) world.setFlag(`action:${agent.id}:${action.id}`);
+  if (!result.ok) lastAt.delete(`${agent.id}:${action.id}`);
+  return result;
 }
 
 /**

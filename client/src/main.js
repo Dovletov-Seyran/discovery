@@ -5,7 +5,7 @@ import {sceneProgressView} from './ui/scene-progress.js';
 import {Equipment,itemPictures} from './game/equipment.js';
 import {itemIcon,ITEM_ACTIONS} from './ui/item-icons.js';
 import {CONFIG} from '../../shared/config.js';
-import {SocketClient,Events} from './net/socket.js';
+import {SocketClient,Events,forwardGameEvents} from './net/socket.js';
 import {MockClient} from './net/mock.js';
 import {GameplayRuntime} from './game/runtime.js';
 import {WorldConnection} from './game/world-connection.js';
@@ -204,7 +204,7 @@ function bindNetwork(client){
   client.on('player_join',message=>gameEvents.emit('player_join',message));
   client.on('player_leave',message=>gameEvents.emit('player_leave',message));
   client.on('tod',message=>{scene.tod=message.value;world?.setTimeOfDay?.(message.value);gameEvents.emit('tod',message);});
-  for(const type of ['chunk','chunk_denied','entity','scared','inventory','quest','npc_say','trade_state'])client.on(type,message=>gameEvents.emit(type,message));
+  forwardGameEvents(client,gameEvents);
 }
 function renderLobby(){
   $('#screen').innerHTML=lobbyView(players,you,connected);

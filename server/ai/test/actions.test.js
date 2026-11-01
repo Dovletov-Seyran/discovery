@@ -159,3 +159,23 @@ test('ночная история: туман густеет и фонарь т�
   assert.equal(fast.at(-1).ms, 35_000);
   assert.deepEqual(storyPlan([getAgent('storyteller')], { scene: 'ship_day', segments, durations }), []);
 });
+
+test('отрицательные приказы не запускают действие даже при ошибке модели',()=>{
+  for(const text of ['Не зажигайте фонари','Не поднимайте флаг','Не убирайте паруса','Не нужно выдавать паёк',"Don't raise flag"])
+    for(const action of columbus.actions) assert.equal(pickAction(columbus,{text,modelAction:action.id,scene:'ship_day'}),null,text);
+});
+
+test('закрытый разговор или смена сцены не выполняют запоздалый приказ и не тратят кулдаун',async()=>{
+  classified={action:'give_rations'};
+  const res=await talk({userId:'stale-action',npc:'columbus',context:ctx('ship_day'),text:'Выдайте паёк',isCurrent:()=>false});
+  assert.equal(res.action.ok,false);assert.equal(res.action.reason,'cancelled');assert.equal(world.has('ration_1'),false);
+  const retry=await talk({userId:'retry-action',npc:'columbus',context:ctx('ship_day'),text:'Выдайте паёк'});
+  assert.equal(retry.action.ok,true);
+});
+
+
+test('повторный показ не возвращает проданный товар на прилавок',async()=>{
+ classified={action:'show_goods'};world.setFlag('sold:goods_cheese');
+ const res=await talk({userId:'remaining-goods',npc:'trader',context:ctx('canary'),text:'Покажи товар'});
+ assert.equal(res.action.ok,true);assert.equal(world.has('goods_cheese'),false);assert.equal(world.has('goods_meat'),true);
+});

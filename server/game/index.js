@@ -260,6 +260,7 @@ function sendSnapshots() {
 
 export function start() {
   director.init();
+  ai.onSceneStart(director.scene(), director.startAt());
   const timers = [
     setInterval(sendSnapshots, 1000 / CONFIG.TICK_HZ),
     setInterval(() => director.tick(), 250),

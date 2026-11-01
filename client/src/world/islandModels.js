@@ -102,7 +102,7 @@ function warehouse(M) {
   return { obj: g, col: [boxGeo(w, top, d, 0, top / 2, 0)] };
 }
 
-function marketStall(M) {
+function marketStall(M, stocked = true) {
   const g = new THREE.Group(), w = 3.2, d = 1.8;
   for (const [x, z, hh] of [[-1, -1, 2.6], [1, -1, 2.6], [-1, 1, 2.2], [1, 1, 2.2]]) g.add(mesh(boxGeo(0.1, hh, 0.1, x * w / 2, hh / 2, z * d / 2), M.get('trim')));
   g.add(mesh(boxGeo(w, 0.08, d * 0.8, 0, 0.9, 0.1), M.get('wood')));
@@ -111,10 +111,12 @@ function marketStall(M) {
   g.add(mesh(awning, M.canvas('awning', 128, (x, S) => {
     for (let i = 0; i < 8; i++) { x.fillStyle = i % 2 ? '#e8dcc0' : '#a8322a'; x.fillRect(i * S / 8, 0, S / 8, S); }
   }, { side: THREE.DoubleSide, rough: 0.95 })));
-  // goods: cheese wheels, sacks, a basket of biscuits
-  for (let i = 0; i < 3; i++) g.add(mesh(cylGeo(0.2, 0.2, 0.12, 16).translate(-1.1 + i * 0.25, 1.0 + (i === 1 ? 0.12 : 0), 0.1), M.get('cheese')));
-  for (let i = 0; i < 2; i++) { const s = new THREE.SphereGeometry(0.3, 12, 8); s.scale(1, 1.25, 0.9); s.translate(0.3 + i * 0.55, 1.25, 0.05); g.add(mesh(s, M.get('sack'))); }
-  g.add(mesh(lenUV(lathe([[0.18, 0], [0.24, 0.18], [0.26, 0.2]], 14), 0.2, 1.6).translate(1.25, 0.94, 0.15), M.get('stave')));
+  if (stocked) {
+    // goods: cheese wheels, sacks, a basket of biscuits
+    for (let i = 0; i < 3; i++) g.add(mesh(cylGeo(0.2, 0.2, 0.12, 16).translate(-1.1 + i * 0.25, 1.0 + (i === 1 ? 0.12 : 0), 0.1), M.get('cheese')));
+    for (let i = 0; i < 2; i++) { const s = new THREE.SphereGeometry(0.3, 12, 8); s.scale(1, 1.25, 0.9); s.translate(0.3 + i * 0.55, 1.25, 0.05); g.add(mesh(s, M.get('sack'))); }
+    g.add(mesh(lenUV(lathe([[0.18, 0], [0.24, 0.18], [0.26, 0.2]], 14), 0.2, 1.6).translate(1.25, 0.94, 0.15), M.get('stave')));
+  }
   return { obj: g, col: [boxGeo(w, 1.0, d * 0.8, 0, 0.5, 0.1)] };
 }
 
@@ -196,7 +198,7 @@ function tarBucket(M) {
 }
 
 export const ISLAND_MODELS = {
-  house, house_governor: governorHouse, church, warehouse, market_stall: marketStall, shipyard, pier,
+  house, house_governor: governorHouse, church, warehouse, market_stall: marketStall, market_stall_trade: (M) => marketStall(M, false), shipyard, pier,
   well, boat: rowboat, planks: plankStack, tar_bucket: tarBucket, barrel: MODELS.barrel,
 };
 

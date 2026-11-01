@@ -9,7 +9,11 @@ import {narrativeContent} from '../ui/narrative.js';
 export class WorldConnection {
   constructor({events,send,attach,canvas,onStatus=()=>{}}){
     this.send=send;this.attach=attach;this.canvas=canvas;this.onStatus=onStatus;
-    this.remotePlayers=new Map();this.hourglasses=new Map();this.active=false;
+    this.pendingPatches=[];this.remotePlayers=new Map();this.hourglasses=new Map();this.active=false;
+    events.on('world_patch',message=>{
+      if(this.world)this.world.applyPatch?.(message);
+      else { if(message.full)this.pendingPatches=[];this.pendingPatches.push(message); }
+    });
     events.on('auth_ok',message=>{
       this.you=message.you;this.meta=message.world;this.active=true;this.shipRequested=false;
       for(const id of this.remotePlayers.keys())this.world?.players?.remove?.(id);
@@ -63,6 +67,8 @@ export class WorldConnection {
       const {world}=await load();
       await world.init(this.canvas,'high');
       this.world=world;
+      for(const patch of this.pendingPatches)world.applyPatch?.(patch);
+      this.pendingPatches=[];
       world.chunks?.setWorldMeta?.(this.meta);
       world.chunks?.setSender?.(({t,...payload})=>this.send(t,payload));
       for(const [id,player] of this.remotePlayers)world.players?.upsert?.(id,player);
