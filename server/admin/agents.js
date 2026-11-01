@@ -110,14 +110,22 @@ const noUser = { status: 400, body: { error: 'bad_user', message: 'Укажи и
 export function registerAgentRoutes(route) {
   route('GET', '/api/admin/ai', () => ai.metrics());
 
-  route('GET', '/api/admin/agents', () => ({
-    agents: [...loadAgents().keys()].map((id) => {
+  // В списке — только ИИ-агенты (npcs.json type llm); неагентные NPC с готовыми репликами — отдельно, для справки
+  route('GET', '/api/admin/agents', () => {
+    const npcs = new Map(loadContent('npcs.json', []).map((n) => [n.id, n]));
+    const known = loadAgents();
+    // порядок как в игре (npcs.json): Колумб, Хуан, торговец… затем часть 2
+    const agents = [...npcs.keys()].filter((id) => known.has(id) && npcs.get(id).type === 'llm').map((id) => {
       const a = getAgent(id);
-      return { id, name: a.name, cards: a.cards?.length ?? 0, actions: a.actions?.length ?? 0 };
-    }),
+      return { id, ru: npcs.get(id)?.name ?? id, name: a.name, cards: a.cards?.length ?? 0, actions: a.actions?.length ?? 0 };
+    });
+    const scripted = [...npcs.values()].filter((n) => n.type !== 'llm').map((n) => ({ id: n.id, ru: n.name }));
+    return {
+    agents, scripted,
     players: players.all().map((p) => ({ id: p.id, name: p.name, role: p.role, connected: p.connected })),
     scenes: [...SCENES],
-  }));
+    };
+  });
 
   route('GET', '/api/admin/agents/:id', ({ params }) => (known(params.id) ? JSON.parse(readFileSync(fileOf(params.id), 'utf8')) : notFound(params.id)));
 

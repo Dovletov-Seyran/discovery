@@ -25,7 +25,8 @@ export function loadAgents() {
 // Быт и места там, где сейчас идёт сцена: корабль или Канары
 export function worldFacts(context = {}, agentId) {
   if (!agents.size) loadAgents();
-  const zone=String(context.scene ?? '').startsWith('canary')?'canary':'ship';
+  const scene=String(context.scene ?? '');
+  const zone=scene.startsWith('p2')?'guanahani':scene.startsWith('canary')?'canary':'ship';
   const overrides=agents.get(agentId)?.personalFacts??{};
   return (facts[zone]??[]).map(f=>Object.entries(overrides).find(([prefix])=>f.startsWith(prefix))?.[1]??f);
 }

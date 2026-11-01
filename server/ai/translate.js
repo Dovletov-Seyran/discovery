@@ -68,6 +68,10 @@ const SYSTEM = [
 // names — [{ en, ru }]: люди экипажа и имена игроков (латиница в ответе → как их пишут по-русски)
 const plain = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+// Всё, кроме латиницы и кириллицы (иероглифы, кана, хангыль)
+const FOREIGN_SCRIPT = /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\uf900-\ufaff]/;
+const FOREIGN_SCRIPT_ALL = new RegExp(FOREIGN_SCRIPT.source, 'g');
+
 export async function toRussian(en, { names = [] } = {}) {
   // Чужие слова (One Piece) прячем под метку, чтобы модель их не «перевела», и возвращаем после
   const keep = names.filter((n) => n.en === n.ru && n.en.length > 1 && en.includes(n.en));
@@ -79,15 +83,15 @@ export async function toRussian(en, { names = [] } = {}) {
     ...(used.length ? ['Names (write them exactly like this):', ...used.map((n) => `- ${n.en} → ${n.ru}`)] : []),
     'Output only the translation, nothing else.',
   ].join('\n');
-  const res = await chat(
-    [
-      { role: 'system', content: keep.length ? `${system}\nTokens like QX0, QX1 are names: copy them unchanged.` : system },
-      ...EXAMPLES.flatMap(([from, to]) => [{ role: 'user', content: from }, { role: 'assistant', content: to }]),
-      { role: 'user', content: en },
-    ],
-    { priority: 0, temperature: 0.1, maxTokens: 320 },
-  );
-  let text = res.text.replace(/^["«]+|["»]+$/g, '').trim();
+  const messages = [
+    { role: 'system', content: keep.length ? `${system}\nTokens like QX0, QX1 are names: copy them unchanged.` : system },
+    ...EXAMPLES.flatMap(([from, to]) => [{ role: 'user', content: from }, { role: 'assistant', content: to }]),
+    { role: 'user', content: en },
+  ];
+  let res = await chat(messages, { priority: 0, temperature: 0.1, maxTokens: 320 });
+  // Маленькая модель изредка вставляет иероглифы («батей-广场»): переводим ещё раз, потом просто вычищаем
+  if (FOREIGN_SCRIPT.test(res.text)) res = await chat(messages, { priority: 0, temperature: 0, maxTokens: 320 });
+  let text = res.text.replace(FOREIGN_SCRIPT_ALL, '').replace(/-(?=[\s,.!?]|$)/g, '').replace(/\s{2,}/g, ' ').replace(/^["«]+|["»]+$/g, '').trim();
   keep.forEach((n, i) => { text = text.split(`QX${i}`).join(n.en); });
   return { text, ms: res.ms };
 }

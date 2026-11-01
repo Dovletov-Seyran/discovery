@@ -68,7 +68,9 @@ export async function understand({ agent, text, turns = [], scene }) {
   const user = `${recent ? `Recent conversation:\n${recent}\n\n` : ''}Player's last message: ${text}`;
 
   // Спросили о человеке экипажа, которого агент лично не знает (торговец о Пинсоне) — честно «не знаю его»
+  // Таино до высадки не знают никого из экипажа (knownPeople пуст) — для них это незнакомое слово, а не слух
   if (keywordPerson && !knowsPerson(agent.id, keywordPerson)) {
+    if (!people.length) return { kind: 'unknown', card: null, person: null, action: null, agentId: agent.id, ms: 0, via: 'keywords' };
     return { kind: 'stranger', card: null, person: keywordPerson, action: null, agentId: agent.id, ms: 0, via: 'keywords' };
   }
 
