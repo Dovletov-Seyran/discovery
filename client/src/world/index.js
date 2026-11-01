@@ -20,6 +20,7 @@ import { Players } from './players.js';
 import { Collider } from './collision.js';
 import { Chunks } from './chunks.js';
 import { Cutscenes } from './cutscene.js';
+import { Firelight } from './firelight.js';
 import { strum } from './people.js';
 import canaryLayout from '../../../content/canary_layout.json';
 import guanahaniLayout from '../../../content/guanahani_layout.json';
@@ -65,6 +66,7 @@ export const world = {
     this.smoke = new THREE.Group();
     this.smokeMat = new THREE.SpriteMaterial({ map: tex.soft.map, color: 0xc9c4bc, transparent: true, depthWrite: false });
     this.scene.add(this.smoke);
+    this.firelight = new Firelight(this);
     this.cutscene = new Cutscenes(this);
 
     // The islands, each its own chunk zone: La Gomera (part 1) and Guanahani (part 2). Paths are the static town
@@ -148,6 +150,7 @@ export const world = {
     this.env.setZone(zone);
     this.env.setShore({ canary: canaryLod, guanahani: guanahaniLod }[zone] ?? null);
     this.players.setLooks(zone === 'guanahani' ? 'taino' : 'crew'); // part 2: the players are villagers
+    this.firelight.setZone(zone);
     this.chunks.setZone(zone);
   },
 
@@ -174,6 +177,7 @@ export const world = {
     this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
     this.island?.refresh();
     this.players.update(dt);
+    this.firelight.update(this.env.time); // after dark on Guanahani: torches and the batey fire
     for (const n of this.npcs) if (n.userData.rig) strum(n.userData.rig, this.env.time, this.env.t < 0.82); // silent at night
     for (const o of this.interactables) {
       const u = o.userData;

@@ -156,6 +156,7 @@ function firePit(M) {
   g.add(mesh(mergeGeometries(ring), M.get('limestone')));
   for (let i = 0; i < 3; i++) g.add(mesh(between(new V3(Math.cos(i * 2.1) * 0.5, 0.05, Math.sin(i * 2.1) * 0.5), new V3(0, 0.35, 0), 0.06, 0.05, 6), M.get('trim')));
   g.add(mesh(new THREE.SphereGeometry(0.22, 8, 6).scale(1, 0.5, 1).translate(0, 0.08, 0), M.get('ember')));
+  g.userData.flame = new V3(0, 0.45, 0); // after dark the world lights it here (firelight.js)
   return { obj: g };
 }
 

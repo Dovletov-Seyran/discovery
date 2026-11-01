@@ -202,7 +202,8 @@ check(!!(await g.wait('npc_say', (m) => m.line === 'p2_departure_1', 18000)), '�
 const after = await scene('p2_after', { jump: false, ms: 9000 });
 check(after?.fleet === false, '«Что было дальше»');
 for (const b of bots) b.send('skip_vote');
-check(!!(await g.wait('scene', (m) => m.id === 'end', 3000)), 'все за «Дальше» → конец');
+const theEnd = await g.wait('scene', (m) => m.id === 'p2_end', 3000);
+check(theEnd?.type === 'cutscene' && theEnd.fleet === true, 'все за «Дальше» → «Конец» над уходящими кораблями');
 
 for (const b of bots) b.ws.close();
 await sleep(200);

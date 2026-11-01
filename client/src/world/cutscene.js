@@ -257,19 +257,14 @@ export class Cutscenes {
       rig.root.position.set(x, this.w.groundHeight(x, z, 20) ?? 0.5, z);
       rig.root.rotation.y = r + Math.PI; // r: camera-style yaw, the model faces +z
     }
-    for (const tc of this.torches ?? []) tc.userData.flicker(t);
+    this.w.scene.updateMatrixWorld();
+    (this.torches ?? []).forEach((tc, i) => this.w.firelight.burn(tc, true, 8, t, i));
   }
 
-  // a burning torch raised in the right hand: a stick, a flickering flame and its light
+  // a burning torch raised in the right hand (its light comes from the world's fire pool, see firelight.js)
   torch() {
-    const g = new THREE.Group(), M = this.w.M;
-    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.7, 6).translate(0, 0.35, 0), M.get('trim')));
-    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.w.smokeMat.map, color: 0xffb050, blending: THREE.AdditiveBlending, depthWrite: false }));
-    flame.position.y = 0.8; flame.scale.setScalar(0.6);
-    const light = new THREE.PointLight(0xff9a40, 6, 16, 2); light.position.y = 0.85;
-    g.add(flame, light);
+    const g = this.w.firelight.torch();
     g.position.set(-0.32, 1.5, 0.15);
-    g.userData.flicker = (t) => { const k = 0.85 + 0.15 * Math.sin(t * 17) * Math.sin(t * 7.3 + 1); light.intensity = 6 * k; flame.scale.setScalar(0.55 + 0.12 * k); };
     this.torches = [...(this.torches ?? []), g];
     return g;
   }
@@ -280,17 +275,24 @@ export class Cutscenes {
     if (!this.hearths) {
       this.hearths = def.fires.map(([x, z]) => {
         const g = new THREE.Group(), y = (this.w.groundHeight(x, z, 30) ?? 1) + 0.4;
-        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.w.smokeMat.map, color: 0xff9a40, blending: THREE.AdditiveBlending, depthWrite: false }));
+        const glow = new THREE.Sprite(this.w.firelight.flameMat);
         glow.scale.setScalar(3.5);
-        const light = new THREE.PointLight(0xff8a3a, 30, 26, 2); light.position.y = 0.6;
-        g.add(glow, light); g.position.set(x, y, z);
+        g.add(glow); g.position.set(x, y, z);
         this.w.scene.add(g);
-        return { g, light, glow };
+        return { g, glow, light: null };
       });
     }
     const on = t < (def.firesUntil ?? Infinity); // out by morning
-    this.hearths.forEach(({ g }) => { g.visible = on; });
-    this.hearths.forEach(({ light, glow }, i) => { const k = 0.85 + 0.15 * Math.sin(t * 9 + i * 2) * Math.sin(t * 5.3 + i); light.intensity = 30 * k; glow.scale.setScalar(3.2 + 0.6 * k); });
+    const fl = this.w.firelight;
+    this.hearths.forEach((h, i) => {
+      h.g.visible = on;
+      if (!on) { fl.give(h.light); h.light = null; return; }
+      // borrowed from the pool (taken here, not up front: the game may still hold the player's torch this frame)
+      if (!h.light && (h.light = fl.take(0xff8a3a, 26, 2))) fl.group.worldToLocal(h.light.position.copy(h.g.position).setY(h.g.position.y + 0.2));
+      const k = 0.85 + 0.15 * Math.sin(t * 9 + i * 2) * Math.sin(t * 5.3 + i);
+      if (h.light) h.light.intensity = 30 * k;
+      h.glow.scale.setScalar(3.2 + 0.6 * k);
+    });
   }
 
   // the ships' lanterns at night, seen from the shore
@@ -369,7 +371,8 @@ export class Cutscenes {
     if (this.boat) this.boat.group.visible = false;
     for (const { rig } of this.cast ?? []) { rig.root.removeFromParent(); rig.root.traverse((o) => o.geometry?.dispose()); }
     for (const g of this.glows ?? []) { g.removeFromParent(); g.material.dispose(); }
-    for (const h of this.hearths ?? []) h.g.removeFromParent();
+    for (const h of this.hearths ?? []) { h.g.removeFromParent(); w.firelight.give(h.light); }
+    for (const tc of this.torches ?? []) w.firelight.burn(tc, false);
     this.cast = this.glows = this.torches = this.hearths = null;
     if (c.def.boat?.entity) w.setEntityState(c.def.boat.entity, { visible: true });
     if (!c.def.lamps?.persist) w.env.lampScale = null;
