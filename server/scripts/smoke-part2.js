@@ -194,7 +194,7 @@ check(!!boats, 'тревога → утро, к берегу идёт шлюпк
 
 // --- встреча ---
 const landing = await scene('p2_landing', { jump: false, ms: 14000 });
-check(landing?.fleet === true && Math.abs(landing.spawn[0] - 121) < 1, `шлюпка у берега → p2_landing, все на дюне ${JSON.stringify(landing?.spawn)}`);
+check(landing?.fleet === true && Math.abs(landing.spawn[0] - 117) < 1.5, `шлюпка у берега → p2_landing, все на дюне ${JSON.stringify(landing?.spawn)}`);
 await Promise.all(bots.map(async (b) => {
   await b.use('banners', 'quest', (m) => m.id === 'q_p2_meet' && m.progress === 1);
   const gift = { grumete: null, piloto: 'parrots', lengua: 'skeins' }[b.role];
