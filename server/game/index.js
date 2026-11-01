@@ -46,6 +46,7 @@ export function join(session, ws) {
   }
   p.dialogue = null;
   p.npcRequest = null;
+  rules.syncNpcDialogues();
   p.ws = ws;
   p.connected = true;
   p.disconnectedAt = null;
@@ -86,6 +87,7 @@ export function leave(p, ws) {
   if (p.ws !== ws) return; // это старая вкладка, игрок уже переподключился
   p.dialogue = null;
   p.npcRequest = null;
+  rules.syncNpcDialogues();
   p.ws = null;
   p.connected = false;
   p.disconnectedAt = Date.now(); // готовность сохраняем: 60 с игрок остаётся в партии

@@ -27,6 +27,8 @@ const fake = createFakeServer(
 world.chunks.setWorldMeta(fake.meta);
 world.chunks.setSender(fake.handle);
 world.setTimeOfDay(+(P.get('tod') ?? 0.4), true);
+// Проверка сцен без игроков: ?scene=ship_evening&elapsed=30 (секунды с начала).
+if (P.has('scene')) world.setNpcScene({ id: P.get('scene'), startAt: Date.now() - Math.max(0, Number(P.get('elapsed')) || 0) * 1000 });
 $('loading').remove();
 window.world = world;
 if (BENCH) {
