@@ -10,6 +10,7 @@ import {ASTROLABE,latitude,answers,signed} from '../../shared/astrolabe.js';
 import {SocketClient,Events,forwardGameEvents} from './net/socket.js';
 import {MockClient} from './net/mock.js';
 import {Telemetry} from './net/telemetry.js';
+import {FPS_PLAY,FPS_CALM} from './game/frame-limit.js';
 import {GameplayRuntime} from './game/runtime.js';
 import {WorldConnection} from './game/world-connection.js';
 import {ROLES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,escape,itemId} from './ui/content.js';
@@ -44,7 +45,7 @@ const itemCooldowns=new Map();
 let scriptIndex=0,scriptLines=[],tradeState=null,partyReady={},serverBuild=null;
 const knownCards=new Set();
 const telemetry=new Telemetry(()=>world); // ping и метрики клиента для админки
-const settings={quality:'high',sensitivity:2,voices:0.8};
+const settings={quality:'high',sensitivity:2,voices:0.8,fps:FPS_PLAY};
 const voices=new VoiceLibrary({onVoice:playing=>gameEvents.emit('voice',{playing})});
 const narrative=new NarrativePlayer(voices,{
   onFrame:frame=>{
@@ -459,8 +460,9 @@ function receiveDialogue(message){
 }
 function stopNpcAudio(){if(npcAudio){npcAudio.pause();npcAudio=null;gameEvents.emit('voice',{playing:false});}}
 function openMenu(){
-  showModal('menu',`<section class="menu-panel">${closeButton()}<h2>Настройки</h2><label for="quality">Качество</label><select id="quality"><option value="high">Высокое</option><option value="low">Низкое</option></select><label for="sensitivity">Чувствительность</label><input id="sensitivity" type="range" min="1" max="5" step="0.1" value="${settings.sensitivity}"><label for="voice-volume">Голос</label><input id="voice-volume" type="range" min="0" max="1" step="0.05" value="${settings.voices}"><button class="primary" data-close>Продолжить</button><button id="leave" class="quiet-button">Выйти</button></section>`);
+  showModal('menu',`<section class="menu-panel">${closeButton()}<h2>Настройки</h2><label for="quality">Качество</label><select id="quality"><option value="high">Высокое</option><option value="low">Низкое</option></select><label for="fps">Кадров в секунду</label><select id="fps"><option value="60">60 — плавно</option><option value="30">30 — тише и холоднее</option></select><label for="sensitivity">Чувствительность</label><input id="sensitivity" type="range" min="1" max="5" step="0.1" value="${settings.sensitivity}"><label for="voice-volume">Голос</label><input id="voice-volume" type="range" min="0" max="1" step="0.05" value="${settings.voices}"><button class="primary" data-close>Продолжить</button><button id="leave" class="quiet-button">Выйти</button></section>`);
   $('#quality').value=settings.quality;$('#quality').onchange=event=>{settings.quality=event.target.value;world?.setQuality?.(settings.quality);};
+  $('#fps').value=String(settings.fps);$('#fps').onchange=event=>{settings.fps=Number(event.target.value);};
   $('#sensitivity').oninput=event=>{settings.sensitivity=Number(event.target.value);if(runtime)runtime.controller.sensitivity=settings.sensitivity/1000;};
   $('#voice-volume').oninput=event=>{settings.voices=Number(event.target.value);if(npcAudio)npcAudio.volume=settings.voices;voices.volume=settings.voices;};
   $('#leave').onclick=logout;
@@ -486,6 +488,8 @@ if(typeof ResizeObserver!=='undefined'){
 if(!preview)new WorldAudio(gameEvents);
 if(!preview)new WorldConnection({
   events:gameEvents,send:sendGameMessage,attach:attachWorld,canvas,
+  // открыто меню, журнал или диалог — 30 кадров: игрок читает, сцене хватает (ноут не греется)
+  fpsLimit:()=>modal?FPS_CALM:settings.fps,
   onStatus:status=>{
     const labels={loading:'Загрузка…',missing:'Мир не подключён',error:'Не удалось загрузить сцену'};
     $('#world-status').textContent=labels[status]||'';

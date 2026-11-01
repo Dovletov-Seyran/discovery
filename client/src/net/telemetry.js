@@ -1,6 +1,7 @@
 // Задержка и метрики клиента (ТЗ: админ-панель). Раз в 2 с: ping { ts } — сервер сразу отвечает pong
 // с тем же ts, задержка туда и обратно = сейчас − ts; и client_stats { fps, ping, calls, chunks, pct, mem }.
-// FPS считается по requestAnimationFrame: в свёрнутой вкладке кадров нет, и отчёты почти не идут.
+// FPS — нарисованные кадры мира (world.stats; кадры ограничены, frame-limit.js), до загрузки мира —
+// по requestAnimationFrame: в свёрнутой вкладке кадров нет, и отчёты почти не идут.
 const EVERY_MS = 2000;
 const round = (v) => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
 
@@ -28,7 +29,7 @@ export class Telemetry {
     if (!this.client?.send('ping', { ts: now })) return; // не в игре — и отчитываться не о чем
     const stats = this.getWorld()?.stats?.(), mem = performance.memory?.usedJSHeapSize; // memory есть только в Chrome
     this.client.send('client_stats', {
-      fps: round(this.fps), ping: this.ping, calls: stats?.calls ?? null,
+      fps: round(Number.isFinite(stats?.fps) && stats.fps > 0 ? stats.fps : this.fps), ping: this.ping, calls: stats?.calls ?? null,
       chunks: stats?.chunks?.loaded ?? null, pct: round(stats?.chunks?.pct), mem: mem ? round(mem / 1048576) : null,
     });
   }

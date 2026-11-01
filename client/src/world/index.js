@@ -42,6 +42,8 @@ export const world = {
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFShadowMap;
+    // карта теней — ещё один проход по сцене: пересчитываем через кадр (frame), а не каждый
+    r.shadowMap.autoUpdate = false;
     r.info.autoReset = false;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.1, 12000);
@@ -204,6 +206,8 @@ export const world = {
     for(const o of this.interactables)if(!this.objects?.records.has(o.userData.id))animateProp(o,Date.now()+(this.objects?.clockOffset??0));
     this.updateSmoke(dt);
     this.renderer.info.reset();
+    this.frameNo = (this.frameNo ?? 0) + 1;
+    if (this.frameNo % 2 === 1) this.renderer.shadowMap.needsUpdate = true;
     this.pipeline.render(this.env.bloom);
     this.measure(dt);
   },
@@ -221,20 +225,21 @@ export const world = {
     }
   },
 
-  // F1.1: measure FPS between seconds 1 and 4; below 45 → drop to low
+  // Автокачество (F1.1): кадры ограничены (fpsCap — сколько просили нарисовать, game/frame-limit.js).
+  // Не успеваем нарисовать и 70% от просимого за окно в 4 с (первое — с 1-й по 4-ю секунду,
+  // дальше — всю игру: ноут греется и сбрасывает частоту) → «низкое». Назад само не поднимается.
   measure(dt) {
     const f = this.fps;
     f.frames++; f.time += dt; f.clock += dt;
     if (f.time >= 0.5) { f.value = f.frames / f.time; f.frames = 0; f.time = 0; }
     const pr = f.probe;
-    if (f.auto && pr && f.clock > pr.from) {
-      pr.frames++; pr.time += dt;
-      if (f.clock > pr.to) {
-        const avg = pr.frames / pr.time;
-        if (avg < 45 && this.quality !== 'low') { console.info(`[world] ${avg.toFixed(0)} FPS → low`); this.setQuality('low'); }
-        f.probe = null;
-      }
-    }
+    if (!f.auto || !pr || f.clock <= pr.from || this.quality === 'low') return;
+    pr.frames++; pr.time += dt;
+    if (pr.cap !== this.fpsCap) { pr.cap = this.fpsCap; pr.frames = 0; pr.time = 0; return; } // открыли меню — меряем заново
+    if (pr.time < 4) return;
+    const avg = pr.frames / pr.time, want = Math.min(this.fpsCap ?? 60, 60);
+    if (avg < want * 0.7) { console.info(`[world] ${avg.toFixed(0)} из ${want} FPS → low`); this.setQuality('low'); }
+    pr.frames = 0; pr.time = 0;
   },
 
   stats() {

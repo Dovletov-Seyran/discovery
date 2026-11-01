@@ -2,13 +2,15 @@
 const modules=import.meta.glob('../world/index.js');
 const introModules=import.meta.glob('../intro/index.js');
 
+import {frameDue,FPS_PLAY} from './frame-limit.js';
 import {layoutForWorld} from './contracts.js';
 import {buildTimeline} from '../ui/timeline.js';
 import {narrativeContent} from '../ui/narrative.js';
 
 export class WorldConnection {
-  constructor({events,send,attach,canvas,onStatus=()=>{}}){
-    this.send=send;this.attach=attach;this.canvas=canvas;this.onStatus=onStatus;
+  // fpsLimit() — сколько кадров в секунду рисовать сейчас (main.js: 60 в игре, 30 в меню и диалоге)
+  constructor({events,send,attach,canvas,onStatus=()=>{},fpsLimit=()=>FPS_PLAY}){
+    this.send=send;this.attach=attach;this.canvas=canvas;this.onStatus=onStatus;this.fpsLimit=fpsLimit;
     this.pendingPatches=[];this.remotePlayers=new Map();this.active=false;
     // Патчи мира (предметы игроков и действия агентов) до загрузки мира копим и проигрываем по порядку
     events.on('world_patch',message=>{
@@ -117,6 +119,9 @@ export class WorldConnection {
       if(!this.active)return;
       // Пока идёт интро, канвас рисует оно само (world.frame вызывать нельзя)
       if(this.introPlaying){this.previous=null;this.frameId=requestAnimationFrame(loop);return;}
+      // лишний вызов браузера (экран 120 Гц) — пропускаем: видеокарта отдыхает
+      const cap=this.fpsLimit();this.world.fpsCap=cap;
+      if(!frameDue(ms,this.previous,cap)){this.frameId=requestAnimationFrame(loop);return;}
       const dt=this.previous===null||this.previous===undefined?0:Math.min((ms-this.previous)/1000,0.05);
       this.previous=ms;
       if(this.scene?.zone&&this.scene.zone!=='ship')this.world.chunks?.update?.(this.world.camera.position,dt);

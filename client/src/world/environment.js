@@ -164,7 +164,12 @@ export class Environment {
     });
     patchWater(this.water);
     const reflect = this.water.onBeforeRender;
+    // Отражение — это вся сцена, нарисованная второй раз. Обновляем его через кадр (на «низком» — раз в 4 кадра):
+    // волны и качка размывают отражение, разницы не видно, а видеокарте вдвое меньше работы
+    const every = q === 'low' ? 4 : 2;
+    let frame = 0;
     this.water.onBeforeRender = (...args) => {
+      if (frame++ % every) return;
       const hidden = this.mirrorHide.filter((o) => o.visible);
       hidden.forEach((o) => (o.visible = false));
       reflect(...args);
@@ -216,7 +221,8 @@ export class Environment {
     this.daylight = THREE.MathUtils.clamp(p.li / 7, 0, 1);
     this.M.get('sail').emissiveIntensity = this.M.get('sailCross').emissiveIntensity = 0.09 * this.daylight;
     const now = performance.now();
-    if (forceEnv || (Math.abs(this.t - this.envT) > 0.005 && now - this.envAt > 2000)) {
+    // карта окружения (PMREM) — тяжёлый пересчёт: только при заметной смене времени суток и не чаще раза в 6 с
+    if (forceEnv || (Math.abs(this.t - this.envT) > 0.02 && now - this.envAt > 6000)) {
       const old = this.envRT;
       this.envRT = this.pmrem.fromScene(this.envScene, 0, 1, 20000);
       this.scene.environment = this.envRT.texture;
