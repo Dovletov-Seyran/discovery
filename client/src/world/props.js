@@ -268,6 +268,14 @@ export const MODELS = {
   },
   espingarda,
   none: () => ({ obj: new THREE.Group() }),
+  // Круг танцующих на празднике: модели нет (пляшут матросы), но прицел должен в него попадать —
+  // невидимый цилиндр 0,7 м в радиусе посреди круга (сами танцоры снаружи — с ними можно заговорить);
+  // столкновений нет, сквозь круг можно пройти
+  dance_circle: () => {
+    const g = new THREE.Group(), hit = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 1.8, 12).translate(0, 0.9, 0), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }));
+    hit.userData.noBake = true; hit.castShadow = false; g.add(hit);
+    return { obj: g };
+  },
   cards: (M) => {
     const g = new THREE.Group(), faces = [0xf2ead8, 0xf2ead8, 0x9a2a22, 0xf2ead8, 0x2a3f6a];
     for (let i = 0; i < 9; i++) {
@@ -275,6 +283,9 @@ export const MODELS = {
       g.add(mesh(c, M.canvas('card' + (i % 5), 16, (x) => { x.fillStyle = '#' + faces[i % 5].toString(16).padStart(6, '0'); x.fillRect(0, 0, 16, 16); })));
     }
     for (let i = 0; i < 5; i++) g.add(mesh(cylGeo(0.016, 0.016, 0.004, 10).translate(0.2 + i * 0.012, 0.004 * i + 0.002, -0.1), M.get('brass')));
+    // карты — тонкие листики вразброс, прицел проскакивал между ними: невидимая область над всей раздачей
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.42).translate(0.03, 0.06, 0), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }));
+    hit.userData.noBake = true; g.add(hit);
     return { obj: g };
   },
   lantern: (M) => {

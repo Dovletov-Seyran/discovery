@@ -137,7 +137,15 @@ export function interact(p, msg) {
   if (d.kind === 'toggle') return toggle(p,msg);
   if (!entities.isNear(p, id)) return notice(p, 'Подойди ближе');
   if (d.kind === 'npc' && npcOwner(id) && npcOwner(id) !== p) return claimNpc(p, id);
-  if (d.kind === 'dance') worldEvent(p, 'dance');
+  if (d.kind === 'dance') { worldEvent(p, 'dance'); performAction(p, 'dance'); sayLine('feast_dance', p); }
+  // Карты на празднике: E у стола — партия с матросом. Сервер сдаёт сам: выиграл или проиграл,
+  // засчитывается сама игра (задание «Праздник»: сыграть в карты)
+  if (d.kind === 'cards') {
+    const win = Math.random() < 0.5;
+    sayLine(win ? 'feast_cards_lose' : 'feast_cards_win', p);
+    notice(p, win ? 'Партия в карты: ты выиграл!' : 'Партия в карты: матрос выиграл. Ещё партию?');
+    event(p, { type: 'minigame', game: 'cards', success: true });
+  }
 
   let gained = []; // предметы, которые игрок получил этим нажатием (→ события pickup / trade_complete)
   switch (d.kind) {
