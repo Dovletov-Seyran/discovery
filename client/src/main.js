@@ -378,12 +378,12 @@ function openDialogue(npc){
   scriptIndex=0;
   scriptLines=LINES.filter(line=>line.npc===npc&&!/hint|alarm|hourglass|task|wait|done|toast|cards|scare/.test(line.id));
   if(npc==='boatswain')scriptLines=[LINES.find(line=>line.id===`boatswain_hint_${you.role}`),...scriptLines].filter(Boolean);
-  showModal('dialogue',`<section class="dialogue-panel">${closeButton()}<h2>${escape(NPC_NAMES[npc]||npc)}</h2><p id="npc-text">${scripted?'…':'О чём спросить?'}</p><details><summary>Оригинал</summary><p id="npc-en"></p></details><div id="hints" class="hints"></div><div id="trade"></div>${scripted?'<button id="next-line" class="quiet-button">Далее <kbd>E</kbd></button>':`<form id="npc-form"><input maxlength="${CONFIG.CHAT_MAX_LEN}" placeholder="Ваш вопрос…" aria-label="Вопрос персонажу" required><button class="quiet-button">Спросить</button></form>`}<button class="quiet-button" data-close>Закончить разговор</button></section>`);
+  showModal('dialogue',`<section class="dialogue-panel">${closeButton()}<h2>${escape(NPC_NAMES[npc]||npc)}</h2><p id="npc-you" hidden></p><p id="npc-text">${scripted?'…':'О чём спросить?'}</p><details><summary>Оригинал</summary><p id="npc-en"></p></details><div id="hints" class="hints"></div><div id="trade"></div>${scripted?'<button id="next-line" class="quiet-button">Далее <kbd>E</kbd></button>':`<form id="npc-form"><input maxlength="${CONFIG.CHAT_MAX_LEN}" placeholder="Ваш вопрос…" aria-label="Вопрос персонажу" required><button class="quiet-button">Спросить</button></form>`}<button class="quiet-button" data-close>Закончить разговор</button></section>`);
   activeNpc=npc;dialogueId=uniqueId();
   const heartbeat=()=>net?.send('dialogue',{npc,dialogueId,active:true});
   heartbeat();dialogueHeartbeat=setInterval(heartbeat,10000);
   if(scripted){$('#next-line').onclick=nextScriptLine;nextScriptLine();return;}
-  $('#npc-form').onsubmit=event=>{event.preventDefault();const input=$('#npc-form input'),text=input.value.trim();if(text&&!waitingForReply){if(sendNpc('npc_talk',{npc,text})){input.value='';beginDialogueWait();}}};
+  $('#npc-form').onsubmit=event=>{event.preventDefault();const input=$('#npc-form input'),text=input.value.trim();if(text&&!waitingForReply){if(sendNpc('npc_talk',{npc,text})){input.value='';$('#npc-you').textContent=`Вы: ${text}`;$('#npc-you').hidden=false;beginDialogueWait();}}};
   if(npc==='trader'&&tradeState?.npc===npc)renderTrade();
   $('#npc-form input').focus();
   // Пустой npc_talk = игрок подошёл: агент здоровается с учётом прошлых разговоров и даёт подсказки
@@ -430,7 +430,7 @@ function receiveDialogue(message){
   clearTimeout(dialogueTimer);
   requestId=null;waitingForReply=false;setDialogueBusy(false);$('#npc-text').textContent=message.ru||'';$('#npc-en').textContent=message.en||'';
   if(!message.error)$('#hints').innerHTML=(message.hints||[]).map(hint=>`<button class="quiet-button" data-hint="${escape(hint.id)}">${escape(hint.ru)}</button>`).join('');
-  $('#hints').querySelectorAll('button').forEach(button=>button.onclick=()=>{if(sendNpc('npc_hint',{npc:activeNpc,hint:button.dataset.hint})){beginDialogueWait();}});
+  $('#hints').querySelectorAll('button').forEach(button=>button.onclick=()=>{if(sendNpc('npc_hint',{npc:activeNpc,hint:button.dataset.hint})){$('#npc-you').textContent=`Вы: ${button.textContent}`;$('#npc-you').hidden=false;beginDialogueWait();}});
   stopNpcAudio();
   if(typeof message.audio==='string'&&message.audio){
     let url;try{url=new URL(message.audio,location.href);}catch{return;}
@@ -498,7 +498,8 @@ window.addEventListener('keydown',event=>{
   if(event.code==='KeyJ'&&!event.repeat){event.preventDefault();if(modal==='journal')closeModal();else if(!modal)openJournal();return;}
   if(/^Digit[1-9]$/.test(event.code)&&!modal&&!chatOpen){const id=inventory[Number(event.code.slice(5))-1];if(id)equipItem(itemId(id));return;}
   if(event.code==='Enter'&&!modal){event.preventDefault();chatOpen=true;$('#chat-form').hidden=false;syncInput();$('#chat-form input').focus();return;}
-  if(event.code==='KeyE'&&!event.repeat){if(modal==='knowledge')closeModal();else if(modal==='dialogue'&&$('#next-line'))nextScriptLine();else if(!modal)interact();}
+  // preventDefault: иначе тот же keypress напечатает «e» в поле вопроса, которое открытый диалог только что сфокусировал
+  if(event.code==='KeyE'&&!event.repeat){event.preventDefault();if(modal==='knowledge')closeModal();else if(modal==='dialogue'&&$('#next-line'))nextScriptLine();else if(!modal)interact();}
 });
 login();
 if(!preview&&localStorage.getItem('discovery.token'))connect(localStorage.getItem('discovery.token'));

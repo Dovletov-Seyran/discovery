@@ -10,10 +10,14 @@ const SCENE_AMBIENCE = {
   cut_canary: { amb_sea_ship: 0.45, amb_gulls: 0.3 },
   canary: { amb_shore: 0.4, amb_island_birds: 0.3, amb_market: 0.2, amb_harbour: 0.22, amb_gulls: 0.14 },
   cut_evening: { amb_sea_ship: 0.45, amb_wind_sails: 0.3 },
-  ship_evening: { amb_sea_ship: 0.3, amb_feast_music: 0.4, amb_tavern_crowd: 0.28, amb_ship_creak: 0.18 },
+  // Праздник: «Ла Фолия» на виуэле с бубном (scripts/compose-feast.mjs), гул команды — тише, чтобы вечер был спокойным
+  ship_evening: { amb_sea_ship: 0.28, amb_feast_folia: 0.5, amb_tavern_crowd: 0.16, amb_ship_creak: 0.15 },
   cut_night: { amb_night_calm: 0.4, amb_night_drone: 0.25 },
   night_story: { amb_night_calm: 0.32, amb_night_drone: 0.28, amb_ship_creak: 0.1 },
 };
+
+// Звук по сюжету сцены: не зациклен, идёт от startAt сцены вместе с рассказом
+const SCENE_MUSIC = {};
 
 // Разовые звуки при входе в сцену: [id, задержка с, громкость]
 const SCENE_CUES = {
@@ -66,7 +70,7 @@ export class WorldAudio {
     events.on('npc_say', (message) => this.cues(LINE_CUES[message.line]));
     events.on('entity', (message) => this.onEntity(message));
     events.on('scared', () => this.play('sfx_scream', { volume: 1 }));
-    events.on('logout', () => { this.setAmbience({}); this.inventory = null; this.doneQuests.clear(); });
+    events.on('logout', () => { this.setAmbience({}); this.setMusic(null); this.inventory = null; this.doneQuests.clear(); });
   }
 
   // Контекст создаётся при первом звуке; браузер запустит его после клика (audio_unlock)
@@ -113,7 +117,36 @@ export class WorldAudio {
     for (const t of this.timers) clearTimeout(t);
     this.timers.clear();
     this.setAmbience(SCENE_AMBIENCE[scene.id] ?? {});
+    this.setMusic(SCENE_MUSIC[scene.id] ?? null, scene.startAt);
     this.cues(SCENE_CUES[scene.id]);
+  }
+
+  // Музыка сцены с её начала: вошедший посреди сцены слышит то же место, что и остальные
+  async setMusic(music, startAt) {
+    const ctx = this.context();
+    if (this.music && this.music.id === music?.id) return;
+    if (this.music) {
+      const { src, gain } = this.music;
+      gain.gain.cancelScheduledValues(ctx.currentTime);
+      gain.gain.setTargetAtTime(0, ctx.currentTime, FADE / 3);
+      src?.stop(ctx.currentTime + FADE + 0.1);
+      this.music = null;
+    }
+    if (!music) return;
+    const current = (this.music = { id: music.id, gain: ctx.createGain(), src: null });
+    const buffer = await this.buffer(music.id);
+    if (this.music !== current || !buffer) return;
+    const offset = (Date.now() - (startAt ?? Date.now())) / 1000;
+    if (offset >= buffer.duration) return;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    // С середины — коротко вводим громкость, с начала — сразу (там тишина и тихий вход)
+    current.gain.gain.setValueAtTime(offset > 0.5 ? 0 : music.volume, ctx.currentTime);
+    if (offset > 0.5) current.gain.gain.linearRampToValueAtTime(music.volume, ctx.currentTime + 1);
+    src.connect(current.gain).connect(this.ambBus);
+    if (offset < 0) src.start(ctx.currentTime - offset);
+    else src.start(ctx.currentTime, offset);
+    current.src = src;
   }
 
   // Фон: новые слои плавно входят, лишние уходят, общие меняют громкость

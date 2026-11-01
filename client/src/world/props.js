@@ -296,16 +296,16 @@ export function buildInteract(M, item, models = MODELS) {
   return { obj, col: col ? colliderFor(col, item) : [], lamps };
 }
 
-export function buildNpc(M, n) {
+export function buildNpc(M, n, animated = false) {
   const look = NPC_LOOK[n.id] ?? NPC_LOOK.sailor_1;
-  // the guitarist keeps his limbs to play (world.frame → strum); everybody else is baked still
+  // Ship characters retain their joints; island characters keep the static mesh path.
   const rig = n.pose === 'guitar' ? guitarist(M.person, look) : person(M.person, look);
   if (n.pose !== 'guitar') pose(rig, n.pose ?? 'stand');
-  const g = n.pose === 'guitar' ? rig.root : bake(rig.root);
+  const g = animated || n.pose === 'guitar' ? rig.root : bake(rig.root);
   place(g, n);
   g.rotation.y += Math.PI; // r = camera-style yaw, the model faces +z
-  g.userData = { id: n.id, kind: 'npc', label: n.label, noBake: true, baseY: n.p[1], rig: n.pose === 'guitar' ? rig : null };
-  return { obj: g, col: colliderFor([new THREE.CylinderGeometry(0.3, 0.3, 1.7, 8).translate(0, 0.85, 0)], n) };
+  g.userData = { id: n.id, kind: 'npc', label: n.label, noBake: true, baseY: n.p[1], rig: animated || n.pose === 'guitar' ? rig : null, definition: n, animated };
+  return { obj: g, col: animated ? [] : colliderFor([new THREE.CylinderGeometry(0.3, 0.3, 1.7, 8).translate(0, 0.85, 0)], n) };
 }
 
 // Build everything a ship layout describes. Decor is baked into a few meshes; interactables and NPCs stay separate.
@@ -333,7 +333,7 @@ export function buildLayout(M, layout) {
     interactables.push(built.obj); col.push(...built.col); lamps.push(...built.lamps);
   }
   for (const n of layout.npcs) {
-    const { obj, col: c } = buildNpc(M, n);
+    const { obj, col: c } = buildNpc(M, n, true);
     npcs.push(obj); col.push(...c);
   }
   return { decor, interactables, npcs, col, lamps, smoke };

@@ -1,9 +1,13 @@
 import { AI } from './config.js';
+import { worldFacts } from './agents.js';
 
 const ROLE_NAMES = { grumete: 'ship boy', piloto: 'pilot', lengua: 'interpreter' };
 const ROLE_ADDRESS = { grumete: 'boy', piloto: 'pilot', lengua: 'interpreter' };
 
 export const REPEAT_OPENING = 'As I told you';
+
+// Общий вопрос «что мне делать?» — без названия конкретной вещи: на него отвечаем самим заданием
+export const GENERIC_HELP = /^\s*(а\s+)?(что|чем)\s+(же\s+)?(мне\s+|нам\s+)?(теперь\s+|сейчас\s+|дальше\s+)?(делать|заняться|сделать)|помоги|помощь|задани|что дальше|what (should|do|can) (i|we) do|help me|my task/i;
 
 // Имена игроков в промпте — латиницей: иначе модель вставляет кириллицу в английский ответ
 const TR = { а:'a', б:'b', в:'v', г:'g', д:'d', е:'e', ё:'yo', ж:'zh', з:'z', и:'i', й:'y', к:'k', л:'l', м:'m', н:'n', о:'o', п:'p', р:'r', с:'s', т:'t', у:'u', ф:'f', х:'kh', ц:'ts', ч:'ch', ш:'sh', щ:'shch', ъ:'', ы:'y', ь:'', э:'e', ю:'yu', я:'ya' };
@@ -23,7 +27,7 @@ const OPENER = '(The player comes up to you.)';
  * Персонаж получает: кто он, когда и где он, что знает о себе, память об этом игроке
  * и ОДНУ инструкцию под вид реплики — так маленькая модель отвечает по делу, а не «вообще».
  */
-export function buildMessages({ agent, context = {}, intent, mem, repeat = false, extraCard, steerCard, task, tradeResult, returning, text }) {
+export function buildMessages({ agent, context = {}, intent, mem, repeat = false, extraCard, steerCard, task, taskTold = false, tradeResult, returning, text }) {
   const role = ROLE_NAMES[context.role] || 'sailor';
   const name = latin(context.name || '') || 'a sailor';
   const playerIs = (agent.playerIs ?? 'the {role} on your ship').replace('{role}', role);
@@ -61,7 +65,7 @@ export function buildMessages({ agent, context = {}, intent, mem, repeat = false
   );
 
   // Инструкцию — последней, прямо перед репликой игрока: маленькая модель лучше всего слушает то, что ближе к концу
-  const todo = directive({ agent, intent, repeat, extraCard, steerCard, task, tradeResult, returning, mem, text });
+  const todo = directive({ agent, intent, repeat, extraCard, steerCard, task, taskTold, tradeResult, returning, mem, text, facts: worldFacts(context) });
   return [
     { role: 'system', content: lines.join('\n') },
     ...mem.turns.slice(-AI.HISTORY).map(({ role: r, content }) => ({ role: r, content })),
@@ -70,7 +74,7 @@ export function buildMessages({ agent, context = {}, intent, mem, repeat = false
   ];
 }
 
-function directive({ intent, repeat, extraCard, steerCard, task, tradeResult, returning, mem, text }) {
+function directive({ intent, repeat, extraCard, steerCard, task, taskTold, tradeResult, returning, mem, text, facts = [] }) {
   if (tradeResult) return describeTrade(tradeResult);
   if (!text) {
     if (!mem.turns.length && !mem.summary) return 'The player comes up to you for the first time. Greet them in character in one or two sentences.';
@@ -101,9 +105,17 @@ function directive({ intent, repeat, extraCard, steerCard, task, tradeResult, re
     case 'recall':
       return 'They ask what you remember. Answer ONLY from YOUR MEMORY and the conversation above: name the specific things they told you, exactly as they were said. Never add any detail that is not written there (no new relatives, places or facts). If you do not remember something, say so honestly.';
     case 'task_help':
+      if (task && taskTold) {
+        return `They ask about their task again; you already told them: "${task.step}". Do not repeat it word for word: remind them in other, shorter words, explain the part they seem to ask about using these facts if they help (${facts.join(' ')}), and ask what is unclear.${task.aboutYou ? ' This task is about YOU: speak in the first person.' : ''}`;
+      }
+      if (task && !GENERIC_HELP.test(text)) {
+        return `They ask about something specific. Answer exactly that from these facts if they cover it: ${facts.join(' ')} Then remind them of their own task in a few words: "${task.step}".${task.aboutYou ? ' Their task is about YOU: speak in the first person.' : ''}`;
+      }
       return task
         ? `They ask what they should do. Give them EXACTLY this advice in your own words, in one or two sentences, and add nothing else (no other tasks, no other people): "${task.step}".${task.aboutYou ? ' This task is about YOU, so say it in the first person ("ask me...").' : ''}`
         : 'They ask what to do, but they have no task left here. Tell them their work is done for now: rest, help the others or wait for orders.';
+    case 'need':
+      return `They have an everyday need or ask where something is. Answer ONLY from these facts about this place, choosing the one that fits: ${facts.map((f) => `• ${f}`).join(' ')} Tell them plainly where to get it or whom to ask, in one or two sentences, in character. If the facts do not cover it, say you do not know and send them to the boatswain. Do not talk about their task.`;
     case 'unknown':
       return `They mention something you have never heard of: it does not exist in your time and place. You have no idea what it is or what it is about, so never describe it or guess its contents. Repeat the strange word as a question, say plainly you have never heard of such a thing, and turn the talk back to ${steer}.`;
     case 'farewell':
@@ -165,4 +177,4 @@ export function ensureRepeatOpening(en) {
 export const isEnglish = (text) => !!text && !/[Ѐ-ӿ一-鿿]/.test(text);
 
 // Насколько свободно модель формулирует: где важна точность — меньше фантазии
-export const TEMPERATURE = { recall: 0.2, task_help: 0.3, about_you: 0.4, person: 0.5, topic: 0.6, unknown: 0.5 };
+export const TEMPERATURE = { recall: 0.2, task_help: 0.3, need: 0.3, about_you: 0.4, person: 0.5, topic: 0.6, unknown: 0.5 };

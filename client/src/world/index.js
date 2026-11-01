@@ -19,7 +19,7 @@ import { Collider } from './collision.js';
 import { Chunks } from './chunks.js';
 import {paths as canaryPaths} from '../../../content/canary_layout.json';
 import { Cutscenes } from './cutscene.js';
-import { strum } from './people.js';
+import { prepareNpc, animateNpc, collideNpcs } from './npc-animation.js';
 import islandLod from 'virtual:island-lod';
 
 const SMOKE_PUFFS = 8;
@@ -91,6 +91,8 @@ export const world = {
     this.zoneRoot.add(built.decor, ...built.interactables, ...built.npcs);
     this.shipInteractables = [...built.interactables, ...built.npcs];
     this.npcs = built.npcs;
+    for (const npc of this.npcs) prepareNpc(npc);
+    this.updateNpcs(0);
     this.env.lamps = [];
     this.env.addLamps(built.lamps);
     for (const p of built.smoke) for (let i = 0; i < SMOKE_PUFFS; i++) {
@@ -105,6 +107,7 @@ export const world = {
     this.zoneRoot.clear();
     this.smoke.clear();
     this.shipInteractables = [];
+    this.npcs = [];
     this.env.lamps = [];
     this.collider = new Collider(this.shipCollider);
   },
@@ -146,7 +149,19 @@ export const world = {
     this.pipeline.build(q);
   },
 
-  collide(capsule) { return this.zone === 'canary' ? this.island.collide(capsule) : this.collider.collide(capsule); },
+  collide(capsule) {
+    if (this.zone === 'canary') return this.island.collide(capsule);
+    const start = capsule.start.clone();
+    collideNpcs(this.npcs, capsule);
+    const result = this.collider.collide(capsule);
+    result.delta.copy(capsule.start).sub(start);
+    return result;
+  },
+
+  updateNpcs(dt) {
+    const seconds = Date.now() / 1000;
+    for (const npc of this.npcs) animateNpc(npc, dt, seconds, this.env.t >= 0.82);
+  },
   groundHeight(x, z, fromY) { return this.zone === 'canary' ? this.island.groundHeight(x, z, fromY) : this.collider.groundHeight(x, z, fromY); },
 
   frame(dt) {
@@ -155,7 +170,7 @@ export const world = {
     this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
     this.island.refresh();
     this.players.update(dt);
-    for (const n of this.npcs) if (n.userData.rig) strum(n.userData.rig, this.env.time, this.env.t < 0.82); // silent at night
+    if (this.zone === 'ship') this.updateNpcs(dt);
     for (const o of this.interactables) {
       const u = o.userData;
       if (u.emptyAt) u.setFill(THREE.MathUtils.clamp((u.emptyAt - Date.now()) / u.turnSpan, 0, 1));

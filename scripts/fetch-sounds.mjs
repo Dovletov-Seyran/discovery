@@ -134,5 +134,5 @@ writeFileSync(SOUNDS, JSON.stringify(list, null, 2) + '\n');
 writeFileSync(MANIFEST, JSON.stringify(manifest, null, 1));
 
 const rows = Object.entries(manifest).sort().map(([id, m]) => `| \`${id}\` | [${m.title.replace(/\|/g, '/')}](${m.url}) | ${m.author} | ${m.license} |`);
-writeFileSync(CREDITS, `# Звуки мира — источники\n\nВсе звуки — с [Freesound](https://freesound.org), лицензия **CC0 1.0** (общественное достояние, указание автора не обязательно, но мы указываем). Обработаны: обрезка, нормализация громкости, MP3.\n\nСписок и поисковые запросы — \`content/sounds.json\`, скачивание — \`node scripts/fetch-sounds.mjs\`.\n\n| Звук | Оригинал | Автор | Лицензия |\n|---|---|---|---|\n${rows.join('\n')}\n`);
+writeFileSync(CREDITS, `# Звуки мира — источники\n\nВсе звуки, кроме синтезированной нами музыки (лицензия «своя», скрипт по ссылке), — с [Freesound](https://freesound.org), лицензия **CC0 1.0** (общественное достояние, указание автора не обязательно, но мы указываем). Обработаны: обрезка, нормализация громкости, MP3.\n\nСписок и поисковые запросы — \`content/sounds.json\`, скачивание — \`node scripts/fetch-sounds.mjs\`.\n\n| Звук | Оригинал | Автор | Лицензия |\n|---|---|---|---|\n${rows.join('\n')}\n`);
 console.log(`\nГотово: ${done} новых, всего в манифесте ${Object.keys(manifest).length}`);

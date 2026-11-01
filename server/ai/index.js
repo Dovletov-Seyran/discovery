@@ -4,7 +4,7 @@ import { getAgent, loadAgents, currentTask, crewNames } from './agents.js';
 import { understand } from './understand.js';
 import { chat, warmup, ollamaUp } from './llm.js';
 import { loadMemory, saveMemory, setStore, turnsToCompress } from './memory.js';
-import { buildMessages, cleanAnswer, isEnglish, ensureRepeatOpening, latin, TEMPERATURE } from './prompt.js';
+import { buildMessages, cleanAnswer, isEnglish, ensureRepeatOpening, latin, TEMPERATURE, GENERIC_HELP } from './prompt.js';
 import { toRussian } from './translate.js';
 import { speak, loadTTS, ttsReady } from './tts.js';
 
@@ -73,8 +73,10 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   const repeat = intent.kind === 'topic' && mem.told.includes(intent.card.id);
   const extraCard = repeat ? untold[0] : null;
   const task = currentTask(context, npc);
+  // Задание уже объяснял недавно — второй раз другими словами, без дословного повтора
+  const taskTold = !!task && mem.turns.slice(-6).some((t) => t.role === 'assistant' && mentionsTask(t.content, task.step));
   const messages = buildMessages({
-    agent, context, intent, mem, repeat, extraCard, steerCard: untold[0], task, tradeResult, returning, text: userText,
+    agent, context, intent, mem, repeat, extraCard, steerCard: untold[0], task, taskTold, tradeResult, returning, text: userText,
   });
 
   // Шаг 3: сказать в образе
@@ -87,7 +89,7 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
       const answer = cleanAnswer(res.text);
       if (isEnglish(answer)) en = repeat ? ensureRepeatOpening(answer) : answer;
       // Подсказка по заданию должна быть про задание: нет ни одного ключевого слова — говорим само задание
-      if (en && intent.kind === 'task_help' && task && !mentionsTask(en, task.step)) en = `${task.step.charAt(0).toUpperCase()}${task.step.slice(1)}.`;
+      if (en && intent.kind === 'task_help' && task && !taskTold && GENERIC_HELP.test(userText) && !mentionsTask(en, task.step)) en = `${task.step.charAt(0).toUpperCase()}${task.step.slice(1)}.`;
     } catch (err) {
       console.warn(`[ai] ${npc}: ${err.message}`);
       break;

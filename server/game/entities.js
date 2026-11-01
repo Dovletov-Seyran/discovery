@@ -1,4 +1,5 @@
 // Объекты мира: описания из content/*_layout.json и изменяемое состояние (сохраняется в game_state).
+import { npcActivity } from '../../shared/npc-activity.js';
 import { CONFIG } from '../../shared/config.js';
 import { loadContent } from '../content.js';
 import { resolveLayout } from '../world/terrain.js';
@@ -53,5 +54,6 @@ export function reset() {
 export function isNear(p, id, extra = 1) {
   const d = defs.get(id);
   if (!d || d.zone !== p.zone || !p.p) return false;
-  return Math.hypot(d.x - p.p[0], d.z - p.p[2]) <= CONFIG.INTERACT_DIST + extra;
+  const position = d.zone === 'ship' && d.kind === 'npc' ? npcActivity(d).p : d.p;
+  return Math.hypot(position[0] - p.p[0], position[2] - p.p[2]) <= CONFIG.INTERACT_DIST + extra;
 }

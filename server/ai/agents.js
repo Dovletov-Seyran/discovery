@@ -8,6 +8,7 @@ const agents = new Map();
 const AGENT_PERSON = { columbus: 'columbus', storyteller: 'old_juan', trader: 'gonzalo' };
 let crew = null;
 let quests = null;
+let facts = null;
 
 export function loadAgents() {
   agents.clear();
@@ -17,7 +18,14 @@ export function loadAgents() {
   }
   crew = JSON.parse(readFileSync(AI.CREW_FILE, 'utf8')).people;
   quests = JSON.parse(readFileSync(AI.QUESTS_FILE, 'utf8'));
+  facts = JSON.parse(readFileSync(AI.FACTS_FILE, 'utf8'));
   return agents;
+}
+
+// Быт и места там, где сейчас идёт сцена: корабль или Канары
+export function worldFacts(context = {}) {
+  if (!agents.size) loadAgents();
+  return facts[String(context.scene ?? '').startsWith('canary') ? 'canary' : 'ship'] ?? [];
 }
 
 export function getAgent(id) {
