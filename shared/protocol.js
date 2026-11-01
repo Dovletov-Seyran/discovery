@@ -9,6 +9,9 @@ export const C2S = {
   CHUNK_DROP: 'chunk_drop', // { zone, keys }
   INTERACT: 'interact',     // { id }  — в лобби id: 'role:piloto'
   PICKUP: 'pickup',         // { id }
+  PLACE: 'place',           // {item, p, r} — sphere centre at a surface under the crosshair
+  THROW: 'throw',           // {item, p, v, r?} — validated launch; server supplies id and startedAt
+  TOGGLE: 'toggle',         // {id} — doors and chest lids
   USE: 'use',               // { item, target? }
   MINIGAME: 'minigame',     // { game, result }
   CHAT: 'chat',             // { text }
@@ -34,6 +37,10 @@ export const S2C = {
   TOD: 'tod',                   // { value }
   CHUNK: 'chunk',               // { zone, key, data }
   CHUNK_DENIED: 'chunk_denied', // { zone, key, reason }
+  // {ops:[{op:'spawn'|'remove'|'set',id,kind,item,model,zone,p,r,state}]} — предметы игроков (objects.js),
+  // действия агентов и поступки (world-state.js, у него ещё source и full: true — полное состояние агентских объектов)
+  WORLD_PATCH: 'world_patch',
+  WORLD_EVENT: 'world_event', // {type:'talk'|'eat'|'drink'|'run'|'swing'|'scare'|'dance'|'throw',who,p,zone,serverNow}
   ENTITY: 'entity',             // { id, state }
   VITALS: 'vitals',            // {stamina, drunkUntil, drunkStrength, serverNow}
   ITEM_USED: 'item_used',       // {item,effect,cooldownUntil,serverNow,vitals,uses?,money}
@@ -47,9 +54,6 @@ export const S2C = {
   NOTICE: 'notice',             // { text }
   POS_CORRECT: 'pos_correct',   // { p, r } — сервер отклонил move (слишком быстро), вернуть игрока сюда
   TRADE_STATE: 'trade_state',   // { npc, money, goods: [{item, price, sold}] } — при E у торговца и после каждого trade
-  // { ops: [{ op: 'spawn'|'remove'|'set', id, kind, model, zone, p, r, state }], full? } — динамические объекты мира.
-  // full: true — полное состояние (вход, переподключение, сброс): всё прежнее из патчей забыть.
-  WORLD_PATCH: 'world_patch',
 };
 
 // Коды закрытия WebSocket

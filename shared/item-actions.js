@@ -1,5 +1,6 @@
 // Every inventory item has an explicit action. Quantities/effects are decided by the server.
 export const ITEM_RULES={
+ cup:{effect:'cup',cooldown:500},
  compass:{effect:'compass',cooldown:400},map:{effect:'map',cooldown:400},astrolabe:{effect:'astrolabe',cooldown:400},
  wine:{effect:'drink',cooldown:1200,servings:3,drunkMs:10000,strength:.35},
  rum:{effect:'drink',cooldown:1500,servings:2,drunkMs:20000,strength:.65},

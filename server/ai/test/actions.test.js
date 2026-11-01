@@ -117,7 +117,7 @@ test('talk: паёк — сухари на столе, их можно взят�
   const res = await talk({ userId: 'a5', npc: 'columbus', context: ctx('ship_evening'), text: 'Адмирал, выдайте паёк' });
   assert.equal(res.action.ok, true);
   assert.equal(world.get('ration_1').kind, 'item');
-  assert.equal(world.get('ration_1').state.item, 'biscuit');
+  assert.equal(world.get('ration_1').item, 'biscuit');
   resetCooldowns();
   const again = await talk({ userId: 'a5', npc: 'columbus', context: ctx('ship_evening'), text: 'Выдай паёк ещё раз' });
   assert.equal(again.action.reason, 'once');

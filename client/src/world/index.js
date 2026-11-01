@@ -10,7 +10,8 @@
 import * as THREE from 'three';
 import { generateTextures, Materials } from './materials.js';
 import { buildShip } from './ship.js';
-import { buildLayout, applyState } from './props.js';
+import {WorldObjects} from './objects.js';
+import { buildLayout, applyState, animateProp } from './props.js';
 import { Island } from './island.js';
 import { Environment } from './environment.js';
 import { Pipeline } from './pipeline.js';
@@ -71,6 +72,7 @@ export const world = {
     this.chunks.setBuilder('ship', { add: (key, data) => this.loadLayout(data), remove: () => this.unloadLayout(), setVisible: () => {} });
     this.chunks.setBuilder('canary', this.island);
 
+    this.objects = new WorldObjects(this);
     this.players = new Players(this.scene, this.M);
     this.env.mirrorHide.push(this.zoneRoot, this.smoke, this.players.group);
     this.pipeline = new Pipeline(r, this.scene, this.camera);
@@ -104,6 +106,7 @@ export const world = {
       this.smoke.add(s);
     }
     this.collider = new Collider([...this.shipCollider, ...built.col]);
+    this.objects?.loaded();
   },
 
   unloadLayout() {
@@ -116,15 +119,18 @@ export const world = {
   },
 
   // what the player can use right now: the ship's or the island's visible chunks'
-  get interactables() { return this.zone === 'ship' ? this.shipInteractables : this.island.interactables; },
+  get interactables() { return [...(this.zone === 'ship' ? this.shipInteractables : this.island.interactables),...(this.objects?.selectable??[])]; },
+
+  applyPatch(message) { this.objects?.applyPatch(message); },
 
   entity(id) {
-    return this.shipInteractables.find((o) => o.userData.id === id) ?? this.island.interactables.find((o) => o.userData.id === id) ?? null;
+    return this.shipInteractables.find((o) => o.userData.id === id) ?? this.island.interactables.find((o) => o.userData.id === id) ?? this.objects?.records.get(id)?.obj ?? null;
   },
 
   applyEntity(id, state) {
     const o = this.entity(id);
     if (o) applyState(o, state);
+    this.objects?.applyEntity(id,state);
   },
 
   setEntityState(id, state) {
@@ -137,6 +143,7 @@ export const world = {
 
   setZone(zone) {
     this.zone = zone;
+    this.objects?.setZone(zone);
     const ship = zone === 'ship';
     this.ship.visible = ship; this.zoneRoot.visible = ship; this.smoke.visible = ship;
     this.island.group.visible = zone === 'canary';
@@ -154,10 +161,11 @@ export const world = {
   },
 
   collide(capsule) {
-    if (this.zone === 'canary') return this.island.collide(capsule);
+    if (this.zone === 'canary') { const result=this.island.collide(capsule);const delta=this.objects?.collide(capsule);if(delta)result.delta.add(delta);return result; }
     const start = capsule.start.clone();
     collideNpcs(this.npcs, capsule);
     const result = this.collider.collide(capsule);
+    this.objects?.collide(capsule);
     result.delta.copy(capsule.start).sub(start);
     return result;
   },
@@ -181,10 +189,8 @@ export const world = {
     this.island.refresh();
     this.players.update(dt);
     if (this.zone === 'ship') this.updateNpcs(dt);
-    for (const o of this.interactables) {
-      const u = o.userData;
-      if (u.emptyAt) u.setFill(THREE.MathUtils.clamp((u.emptyAt - Date.now()) / u.turnSpan, 0, 1));
-    }
+    this.objects?.update();
+    for(const o of this.interactables)if(!this.objects?.records.has(o.userData.id))animateProp(o,Date.now()+(this.objects?.clockOffset??0));
     this.updateSmoke(dt);
     this.renderer.info.reset();
     this.pipeline.render(this.env.bloom);

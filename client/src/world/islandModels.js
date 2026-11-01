@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { V3, mesh, boxUV, cylGeo, between, boxGeo, lathe, lenUV } from './geom.js';
+import { V3, mesh, boxUV, cylGeo, between, boxGeo, lathe, lenUV, bake } from './geom.js';
 import { MODELS } from './props.js';
 import { ihash } from './texgen.js';
 
@@ -8,10 +8,19 @@ import { ihash } from './texgen.js';
 // Each builder returns { obj, col?: BufferGeometry[] } like the ship props.
 
 // Whitewashed walls, stone corners and plinth, a gable roof of curved tiles; ridge along x.
-function gableHouse(M, w, d, h, { wall = 'plaster', pitch = 0.45, over = 0.4 } = {}) {
+function gableHouse(M, w, d, h, { wall = 'plaster', pitch = 0.45, over = 0.4, entry = null } = {}) {
   const g = new THREE.Group();
-  g.add(mesh(boxGeo(w, h, d, 0, h / 2, 0), M.get(wall)));
-  g.add(mesh(boxGeo(w + 0.08, 0.45, d + 0.08, 0, 0.22, 0), M.get('stone')));
+  const walls=[];
+  if(entry){
+    const {x=0,w:dw,h:dh}=entry,e=.2;
+    walls.push(boxGeo(w,h,e,0,h/2,-d/2),boxGeo(e,h,d,-w/2,h/2,0),boxGeo(e,h,d,w/2,h/2,0),boxGeo(w,.1,d,0,-.05,0));
+    const left=x-dw/2+w/2,right=w/2-x-dw/2;
+    walls.push(boxGeo(left,h,e,-w/2+left/2,h/2,d/2),boxGeo(right,h,e,w/2-right/2,h/2,d/2),boxGeo(dw,h-dh,e,x,dh+(h-dh)/2,d/2));
+    for(const geo of walls)g.add(mesh(geo.clone(),M.get(wall)));
+  }else{
+    g.add(mesh(boxGeo(w,h,d,0,h/2,0),M.get(wall)));
+    g.add(mesh(boxGeo(w+.08,.45,d+.08,0,.22,0),M.get('stone')));
+  }
   if (wall !== 'stone') for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(mesh(boxGeo(0.4, h, 0.4, x * (w / 2 - 0.15), h / 2, z * (d / 2 - 0.15)), M.get('stone')));
   const rise = Math.tan(pitch) * d / 2, half = d / 2 + over, yR = h + rise;
   for (const s of [-1, 1]) {
@@ -25,16 +34,20 @@ function gableHouse(M, w, d, h, { wall = 'plaster', pitch = 0.45, over = 0.4 } =
   prism.rotateY(Math.PI / 2); prism.translate(-w / 2, h, 0);
   g.add(mesh(boxUV(prism), M.get(wall)));
   g.add(mesh(cylGeo(0.09, 0.09, w + over * 1.2, 8).rotateZ(Math.PI / 2).translate(0, yR + 0.12, 0), M.get('roof')));
-  return { g, top: yR };
+  return { g, top: yR, walls };
 }
 
 function door(M, x, y, z, w = 1.1, h = 2.1, ry = 0) {
-  const g = new THREE.Group();
-  g.add(mesh(boxGeo(w + 0.25, h + 0.15, 0.06, 0, h / 2, 0), M.get('stone')));
-  g.add(mesh(boxGeo(w, h, 0.1, 0, h / 2, 0.02), M.get('trim')));
-  g.add(mesh(boxGeo(0.05, 0.05, 0.05, w * 0.32, h * 0.5, 0.09), M.get('iron')));
-  g.position.set(x, y, z); g.rotation.y = ry;
-  return g;
+  const g=new THREE.Group(),pivot=new THREE.Group();
+  g.userData.door={w,h};pivot.userData.noBake=true;
+  // Frame has an opening, rather than an opaque slab behind the animated leaf.
+  for(const side of [-1,1])g.add(mesh(boxGeo(.12,h+.12,.12,side*(w/2+.06),h/2,0),M.get('stone')));
+  g.add(mesh(boxGeo(w+.24,.12,.12,0,h+.06,0),M.get('stone')));
+  pivot.position.x=-w/2;g.add(pivot);
+  pivot.add(mesh(boxGeo(w,h,.10,w/2,h/2,.02),M.get('trim')));
+  pivot.add(mesh(boxGeo(.05,.05,.05,w*.82,h*.5,.09),M.get('iron')));
+  g.userData.setOpen=value=>{pivot.rotation.y=-1.45*value;};
+  bake(g);g.userData.noBake=true;g.position.set(x,y,z);g.rotation.y=ry;return g;
 }
 
 // Window with wooden shutters (typical Canarian green-painted wood is replaced by dark oak here).
@@ -48,14 +61,14 @@ function windowOn(M, x, y, z, ry = 0, w = 0.8, h = 1.0) {
 }
 
 function house(M) {
-  const w = 7, d = 5.5, h = 3.6, { g, top } = gableHouse(M, w, d, h);
+  const w = 7, d = 5.5, h = 3.6, { g, top, walls } = gableHouse(M, w, d, h,{entry:{x:-.6,w:1.1,h:2.1}});
   g.add(door(M, -0.6, 0, d / 2 + 0.03));
   g.add(windowOn(M, 1.9, 1.7, d / 2 + 0.03), windowOn(M, -2.6, 1.7, d / 2 + 0.03), windowOn(M, 0.5, 1.7, -d / 2 - 0.03, Math.PI));
-  return { obj: g, col: [boxGeo(w, top, d, 0, top / 2, 0)] };
+  return { obj: g, col: [...walls,boxGeo(w,.15,d,0,h+.05,0)] };
 }
 
 function governorHouse(M) {
-  const w = 11, d = 8, h = 6.8, { g, top } = gableHouse(M, w, d, h);
+  const w = 11, d = 8, h = 6.8, { g, top, walls } = gableHouse(M, w, d, h,{entry:{w:1.5,h:2.6}});
   const fz = d / 2 + 0.03;
   g.add(door(M, 0, 0, fz, 1.5, 2.6));
   for (const x of [-3.6, -1.8, 1.8, 3.6]) g.add(windowOn(M, x, 1.8, fz));
@@ -70,7 +83,7 @@ function governorHouse(M) {
   for (const x of [-1.3, 1.3]) b.add(door(M, x, by + 0.07, fz, 0.9, 2.0));
   for (let i = 0; i < 4; i++) b.add(mesh(between(new V3(-bw / 2 + 0.6 + i * 1.4, by - 0.05, d / 2 + 0.05), new V3(-bw / 2 + 0.6 + i * 1.4, by - 0.6, d / 2 + 0.05), 0.07, 0.07, 6), M.get('trim')));
   g.add(b);
-  return { obj: g, col: [boxGeo(w, top, d, 0, top / 2, 0)] };
+  return { obj: g, col: [...walls,boxGeo(w,.15,d,0,h+.05,0)] };
 }
 
 // Nave along z with the facade at +z, bell tower at the front corner.
@@ -97,9 +110,9 @@ function church(M) {
 }
 
 function warehouse(M) {
-  const w = 12, d = 7, h = 4.5, { g, top } = gableHouse(M, w, d, h, { wall: 'stone', pitch: 0.38 });
+  const w = 12, d = 7, h = 4.5, { g, top, walls } = gableHouse(M, w, d, h, { wall: 'stone', pitch: 0.38, entry:{w:2.6,h:3} });
   g.add(door(M, 0, 0, d / 2 + 0.03, 2.6, 3.0));
-  return { obj: g, col: [boxGeo(w, top, d, 0, top / 2, 0)] };
+  return { obj: g, col: [...walls,boxGeo(w,.15,d,0,h+.05,0)] };
 }
 
 function marketStall(M) {

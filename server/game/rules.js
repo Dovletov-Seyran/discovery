@@ -1,5 +1,7 @@
 // Действия игрока в мире: подбор, взаимодействие, передача предметов, мини-игры, торговля, «Бу!», разговор с NPC.
 // Сервер решает всё сам; клиент присылает только намерения.
+import {emitWorldEvent} from './world-events.js';
+import {toggle,canPickup} from './objects.js';
 import {applyItemUse,advanceStamina} from './item-actions.js';
 import {ITEM_RULES} from '../../shared/item-actions.js';
 import { CONFIG } from '../../shared/config.js';
@@ -60,8 +62,11 @@ export function pickup(p, msg) {
   if (!entities.isNear(p, id)) return notice(p, 'Подойди ближе');
   const st = entities.stateOf(id);
   if (st?.holder) return notice(p, st.holder === p.id ? 'Это уже у тебя' : 'Кто-то уже взял это');
+  if(!canPickup(p,id))return notice(p,'Предмет за препятствием или слишком далеко.');
+  if(p.inventory.includes(d.item))return notice(p,'Такой предмет уже есть в снаряжении.');
   entities.setState(id, { holder: p.id });
   p.inventory.push(d.item);
+  if(st?.uses!==undefined){p.itemUses??={};p.itemUses[d.item]=st.uses;}
   players.sendInventory(p);
   broadcastEntity(id);
   players.save(p, { now: true });
@@ -89,10 +94,16 @@ export function use(p, msg) {
   }
   const result=applyItemUse(p,item);
   if(result.error)return notice(p,result.error);
+  if(!p.inventory.includes(item)){
+    const source=entities.allDefs().find(d=>d.item===item&&entities.stateOf(d.id)?.holder===p.id);
+    if(source){if(source.dynamic)entities.remove(source.id);else entities.setState(source.id,{holder:'consumed'});}
+  }
   players.send(p,{t:S2C.ITEM_USED,...result});
   players.sendInventory(p);players.save(p,{now:true});
   if(item==='wine'||item==='rum')event(p,{type:'interact',target:'wine_barrel'});
   event(p,{type:'use',item});
+  const action={food:'eat',drink:'drink',water:'drink',swing:'swing',shot:'scare'}[result.effect];
+  if(action)emitWorldEvent(p,action,{item});
 }
 export function tickVitals(now=Date.now()){
   syncNpcDialogues(now);
@@ -111,6 +122,7 @@ export function interact(p, msg) {
   const d = entities.def(id);
   if (!d || d.zone !== p.zone) return;
   if (d.kind === 'item') return pickup(p, msg);
+  if (d.kind === 'toggle') return toggle(p,msg);
   if (!entities.isNear(p, id)) return notice(p, 'Подойди ближе');
 
   switch (d.kind) {
@@ -118,7 +130,7 @@ export function interact(p, msg) {
       const now = Date.now();
       const st = entities.stateOf(id);
       if (st?.emptyAt && now < st.emptyAt) return notice(p, `Песок ещё сыплется: ${Math.ceil((st.emptyAt - now) / 1000)} с`);
-      entities.setState(id, { emptyAt: now + hourglassPeriod(d) * 1000, turnedBy: p.id });
+      entities.setState(id, { startedAt: now, duration: hourglassPeriod(d) * 1000, emptyAt: now + hourglassPeriod(d) * 1000, turnedBy: p.id });
       broadcastEntity(id);
       sayLine('grumete_song');
       break;
@@ -335,7 +347,7 @@ export function onSceneStart(scene, party) {
   if (scene.id === 'ship_day') {
     const d = entities.def('hourglass');
     if (d) {
-      entities.setState('hourglass', { emptyAt: director.startAt() + hourglassPeriod(d) * 1000 });
+      entities.setState('hourglass', { startedAt: director.startAt(), duration: hourglassPeriod(d) * 1000, emptyAt: director.startAt() + hourglassPeriod(d) * 1000 });
       broadcastEntity('hourglass');
     }
   }

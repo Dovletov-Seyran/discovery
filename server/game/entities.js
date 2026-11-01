@@ -2,6 +2,8 @@
 import { npcActivity } from '../../shared/npc-activity.js';
 import { CONFIG } from '../../shared/config.js';
 import { loadContent } from '../content.js';
+import { layoutToggles } from '../../shared/world-interact.js';
+import { OBJECT_LIMIT, finiteVec } from '../../shared/object-physics.js';
 import { resolveLayout } from '../world/terrain.js';
 import * as world from './world-state.js';
 
@@ -12,20 +14,34 @@ for (const zone of ['ship', 'canary']) {
   const raw = loadContent(`${zone}_layout.json`, {});
   const layout = zone === 'canary' && raw.shape ? resolveLayout(raw).layout : raw;
   for (const o of layout.interact ?? []) defs.set(o.id, { ...o, zone, x: o.p[0], z: o.p.at(-1) });
+  for (const o of layoutToggles(layout,zone)) defs.set(o.id,{...o,x:o.p[0],z:o.p[2]});
   for (const o of layout.npcs ?? []) defs.set(o.id, { ...o, kind: 'npc', zone, x: o.p[0], z: o.p.at(-1) });
 }
 
+const staticIds = new Set(defs.keys());
 let objects = {};       // id → состояние ({ holder }, { emptyAt }, ...)
 let sharedQuests = {};  // questId → состояние общих заданий (роль никто не взял)
 let dirty = false;
+let epoch=0;
+export const generation=()=>epoch;
 
-// Объект раскладки или появившийся по world_patch предмет (сухари на столе можно взять, как обычный предмет)
+// Объект раскладки, предмет игрока (objects.js) или появившийся по world_patch агента (сухари на столе)
 export const def = (id) => defs.get(id) ?? dynamicDef(id);
 function dynamicDef(id) {
   const o = world.get(id);
   if (!o?.spawned || !o.p) return undefined;
-  return { id, kind: o.kind, item: o.state?.item, zone: o.zone, p: o.p, x: o.p[0], z: o.p[2], label: o.state?.label };
+  return { id, kind: o.kind, item: o.item ?? o.state?.item, zone: o.zone, p: o.p, x: o.p[0], z: o.p[2], label: o.label ?? o.state?.label };
 }
+export const allDefs = () => [...defs.values()];
+export const positionOf = id => objects[id]?.p ?? defs.get(id)?.p;
+export function register(data) {
+  if(!data||typeof data.id!=='string'||data.id.length>100||staticIds.has(data.id)||!finiteVec(data.p)||!['ship','canary'].includes(data.zone))return null;
+  if(!defs.has(data.id)&&[...defs.keys()].filter(id=>!staticIds.has(id)).length>=OBJECT_LIMIT)return null;
+  const d={...data,kind:data.kind??'item',x:data.p[0],z:data.p[2],dynamic:true};
+  defs.set(d.id,d);dirty=true;return d;
+}
+export function remove(id){if(staticIds.has(id))return false;defs.delete(id);delete objects[id];dirty=true;return true;}
+
 export const stateOf = (id) => objects[id];
 export const shared = () => sharedQuests;
 export const ownedItemIds = (holder, items) => [...defs.values()].filter(d=>d.kind==='item'&&objects[d.id]?.holder===holder
@@ -45,14 +61,20 @@ export function takeDirty() {
 }
 
 export function load(saved) {
+  epoch++;
+  for(const id of defs.keys())if(!staticIds.has(id))defs.delete(id);
   objects = saved?.objects ?? {};
+  for(const d of saved?.dynamic??[])register(d);
+  dirty=false;
   sharedQuests = saved?.sharedQuests ?? {};
   world.load(saved?.world);
 }
 
-export const snapshot = () => ({ objects, sharedQuests, world: world.snapshot() });
+export const snapshot = () => ({ objects, sharedQuests, dynamic:[...defs.values()].filter(d=>d.dynamic), world: world.snapshot() });
 
 export function reset() {
+  epoch++;
+  for(const id of defs.keys())if(!staticIds.has(id))defs.delete(id);
   objects = {};
   sharedQuests = {};
   dirty = true;
@@ -65,7 +87,7 @@ export function isNear(p, id, extra = 1) {
   if (!d || d.zone !== p.zone || !p.p) return false;
   const [sceneId, started] = (p.scene ?? 'ship_day').split('@');
   const scene = { id: sceneId, ...(started ? { startAt: Number(started) } : {}) };
-  const position = d.zone === 'ship' && d.kind === 'npc' ? npcActivity(d, Date.now() / 1000, scene, objects[id]?.paused).p : d.p;
+  const position = d.zone === 'ship' && d.kind === 'npc' ? npcActivity(d, Date.now() / 1000, scene, objects[id]?.paused).p : objects[id]?.p ?? d.p;
   return Math.hypot(position[0] - p.p[0], position[2] - p.p[2]) <= CONFIG.INTERACT_DIST + extra;
 }
 

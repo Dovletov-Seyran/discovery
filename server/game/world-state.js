@@ -24,7 +24,7 @@ export function validateOp(raw) {
   if (!OPS.has(op)) return `op: ожидается spawn | remove | set, получено ${JSON.stringify(op)}`;
   if (typeof id !== 'string' || !id || id.length > 64) return 'id: непустая строка до 64 символов';
   const out = { op, id };
-  for (const k of ['kind', 'model', 'zone', 'at']) {
+  for (const k of ['kind', 'item', 'model', 'label', 'zone', 'at']) {
     if (raw[k] == null) continue;
     if (typeof raw[k] !== 'string') return `${k}: ожидается строка`;
     out[k] = raw[k];
@@ -74,7 +74,7 @@ export function apply(rawOps, { source = 'server' } = {}) {
       continue;
     }
     if (op.op === 'spawn') {
-      const obj = { id: op.id, kind: op.kind, model: op.model, zone: op.zone ?? hooks.zone() ?? undefined, p: op.p, r: op.r ?? 0, state: op.state ?? {}, spawned: true };
+      const obj = { id: op.id, kind: op.kind, item: op.item, model: op.model, label: op.label, zone: op.zone ?? hooks.zone() ?? undefined, p: op.p, r: op.r ?? 0, state: op.state ?? {}, spawned: true };
       objects.set(op.id, obj);
       sent.push(toOp(obj));
       continue;
@@ -100,7 +100,7 @@ const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o[k] != null).ma
 
 function toOp(obj) {
   if (obj.removed) return { op: 'remove', id: obj.id, ...pick(obj, ['zone']) };
-  if (obj.spawned) return { op: 'spawn', id: obj.id, ...pick(obj, ['kind', 'model', 'zone', 'p', 'r']), state: obj.state ?? {} };
+  if (obj.spawned) return { op: 'spawn', id: obj.id, ...pick(obj, ['kind', 'item', 'model', 'label', 'zone', 'p', 'r']), state: obj.state ?? {} };
   return { op: 'set', id: obj.id, ...pick(obj, ['kind', 'zone', 'p', 'r']), state: obj.state ?? {} };
 }
 
@@ -142,13 +142,18 @@ export function load(saved) {
   dirty = false;
 }
 
-// /reset и новое прохождение: всё из патчей забыть и сказать клиентам
+// /reset и новое прохождение: всё из патчей забыть и сказать клиентам явными операциями
+// (клиент не обязан понимать full): появившееся — remove, изменённое в раскладке — set с null
 export function reset() {
-  const had = objects.size > 0;
+  const ops = [];
+  for (const o of objects.values()) {
+    if (o.spawned && !o.removed) ops.push({ op: 'remove', id: o.id });
+    else if (!o.spawned && !o.removed) ops.push({ op: 'set', id: o.id, state: Object.fromEntries(Object.keys(o.state ?? {}).map((k) => [k, null])) });
+  }
   objects = new Map();
   flags = new Set();
   dirty = true;
-  if (had) hooks.broadcast(fullMessage());
+  if (ops.length) hooks.broadcast({ t: S2C.WORLD_PATCH, ops, source: 'reset' });
 }
 
 export function takeDirty() {
@@ -164,9 +169,9 @@ const DEEDS = {
   q_water: {
     scene: 'ship_evening',
     patch: [
-      { op: 'spawn', id: 'water_barrel_1', kind: 'water_barrel', model: 'barrel', zone: 'ship', p: [-2.45, 0, 2.0], r: 0.2, state: { full: true } },
-      { op: 'spawn', id: 'water_barrel_2', kind: 'water_barrel', model: 'barrel', zone: 'ship', p: [-2.5, 0, 2.75], r: 1.1, state: { full: true } },
-      { op: 'spawn', id: 'water_barrel_3', kind: 'water_barrel', model: 'barrel', zone: 'ship', p: [-1.8, 0, 2.4], r: 2.3, state: { full: true } },
+      { op: 'spawn', id: 'water_barrel_1', kind: 'prop', model: 'barrel', label: 'Бочка с водой с Гомеры', zone: 'ship', p: [-2.45, 0, 2.0], r: 0.2, state: { full: true } },
+      { op: 'spawn', id: 'water_barrel_2', kind: 'prop', model: 'barrel', label: 'Бочка с водой с Гомеры', zone: 'ship', p: [-2.5, 0, 2.75], r: 1.1, state: { full: true } },
+      { op: 'spawn', id: 'water_barrel_3', kind: 'prop', model: 'barrel', label: 'Бочка с водой с Гомеры', zone: 'ship', p: [-1.8, 0, 2.4], r: 2.3, state: { full: true } },
     ],
   },
   // Руль «Пинты» починен: Пинта уходит из ремонта
@@ -180,6 +185,8 @@ export function onQuestDone(questId) {
 }
 
 export function onSceneStart(scene) {
+  // Клиент при смене зоны забывает объекты другой зоны — повторяем всё, что лежит в мире
+  if (objects.size) hooks.broadcast(fullMessage());
   for (const [questId, deed] of Object.entries(DEEDS)) {
     if (deed.scene === scene.id && hasFlag(`deed:${questId}`)) apply(deed.patch, { source: `deed:${questId}` });
   }

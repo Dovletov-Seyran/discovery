@@ -2,15 +2,16 @@
 const modules=import.meta.glob('../world/index.js');
 const introModules=import.meta.glob('../intro/index.js');
 
-import {layoutForWorld,entityPatch} from './contracts.js';
+import {layoutForWorld} from './contracts.js';
 import {buildTimeline} from '../ui/timeline.js';
 import {narrativeContent} from '../ui/narrative.js';
 
 export class WorldConnection {
   constructor({events,send,attach,canvas,onStatus=()=>{}}){
     this.send=send;this.attach=attach;this.canvas=canvas;this.onStatus=onStatus;
-    this.remotePlayers=new Map();this.hourglasses=new Map();this.active=false;
+    this.remotePlayers=new Map();this.active=false;this.pendingObjects=new Map();
     events.on('auth_ok',message=>{
+      this.world?.objects?.clear();this.pendingObjects.clear();
       this.you=message.you;this.meta=message.world;this.active=true;this.shipRequested=false;
       for(const id of this.remotePlayers.keys())this.world?.players?.remove?.(id);
       this.remotePlayers.clear();
@@ -27,22 +28,25 @@ export class WorldConnection {
     events.on('chunk',message=>{
       if(!this.world)return;
       // Остров и другие зоны — через менеджер чанков мира (кеш ≤ 10%); корабль — раскладкой ниже
-      if(message.zone!=='ship'){this.world.chunks?.receive?.(message.zone,message.key,message.data);return;}
+      if(message.zone!=='ship'){this.world.chunks?.receive?.(message.zone,message.key,message.data);this.world.objects?.loaded();return;}
       if(message.key!=='0,0')return;
       this.world.chunks?.setStaticData?.('ship-layout',new TextEncoder().encode(JSON.stringify(message.data)).length);
       const layout=layoutForWorld(message.data);
       this.world.loadLayout(layout);
-      this.hourglasses.clear();
-      for(const entry of layout.interactables){
-        if(entry.state)this.applyEntity(entry.id,entry.state);
-        if(entry.kind==='hourglass'&&entry.state?.emptyAt)this.hourglasses.set(entry.id,{emptyAt:entry.state.emptyAt,period:entry.period||60});
-      }
+      for(const entry of layout.interactables)if(entry.state)this.applyEntity(entry.id,entry.state);
+      this.world.objects?.loaded();
       this.onStatus('ready');
     });
     events.on('chunk_denied',message=>{if(message.zone!=='ship')this.world?.chunks?.denied?.(message.zone,message.key,message.reason);});
-    events.on('entity',message=>this.applyEntity(message.id,message.state));
+    events.on('entity',message=>this.applyEntity(message.id,message.state??message));
     events.on('scene_progress',message=>{
       if(this.world&&message.scene===this.scene?.id&&Number.isFinite(message.serverNow))this.world.npcClockOffset=message.serverNow-Date.now();
+    });
+    events.on('world_patch',message=>{
+      if(this.world){this.world.applyPatch?.(message);return;}
+      for(const op of message.ops??[]){if(op.op==='remove')this.pendingObjects.delete(op.id);else{const old=this.pendingObjects.get(op.id);this.pendingObjects.set(op.id,old?{...old,...op,state:{...old.state,...op.state},op:'spawn'}:op);}}
+      while(this.pendingObjects.size>128)this.pendingObjects.delete(this.pendingObjects.keys().next().value);
+      this.patchTime=message.serverNow;
     });
     events.on('player_join',player=>{
       if(player.id===this.you?.id)return;
@@ -67,7 +71,7 @@ export class WorldConnection {
       world.chunks?.setSender?.(({t,...payload})=>this.send(t,payload));
       for(const [id,player] of this.remotePlayers)world.players?.upsert?.(id,player);
       this.gameplay=this.attach(world,this.canvas);
-      this.applyScene();this.requestShip();this.startLoop();return world;
+      this.applyScene();world.applyPatch?.({ops:[...this.pendingObjects.values()],serverNow:this.patchTime});this.pendingObjects.clear();this.requestShip();this.startLoop();return world;
     })().catch(error=>{console.error('[front2] world initialization',error);this.onStatus('error');return null;}).finally(()=>this.loading=null);
     return this.loading;
   }
@@ -102,8 +106,9 @@ export class WorldConnection {
   }
   applyEntity(id,state={}){
     if(!this.world)return;
-    this.world.setEntityState?.(id,{...entityPatch(state),...('paused' in state?{paused:state.paused}:{})});
-    if(state.emptyAt)this.hourglasses.set(id,{emptyAt:state.emptyAt,period:60});
+    this.world.applyEntity?.(id,state);
+    // NPC стоит, пока с ним говорят (пауза маршрута — shared/npc-activity.js)
+    if('paused' in state)this.world.setEntityState?.(id,{paused:state.paused});
   }
   startLoop(){
     if(this.frameId||!this.active)return;
@@ -115,7 +120,6 @@ export class WorldConnection {
       this.previous=ms;
       if(this.scene?.zone&&this.scene.zone!=='ship')this.world.chunks?.update?.(this.world.camera.position,dt);
       this.gameplay.update(dt,ms/1000);
-      for(const [id,clock] of this.hourglasses)this.world.setEntityState?.(id,{fill:Math.min(1,Math.max(0,(clock.emptyAt-Date.now())/(clock.period*1000)))});
       this.world.frame(dt);this.gameplay.renderOverlay?.();this.frameId=requestAnimationFrame(loop);
     };
     this.frameId=requestAnimationFrame(loop);

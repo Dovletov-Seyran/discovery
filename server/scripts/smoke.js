@@ -252,6 +252,7 @@ check(!!(await g2.wait('entity', (m) => m.id === 'astrolabe' && m.state.holder =
 await g2.walkTo(...at('astrolabe'));
 g2.send('pickup', { id: 'astrolabe' });
 check(!!(await g2.wait('notice', (m) => m.text.includes('уже взял'))), 'второй раз взять нельзя');
+await g2.walkTo(...at('rum'));
 g2.send('pickup',{id:'rum'});
 check(!!(await g2.wait('inventory',m=>m.items.includes('rum'))),'ром можно подобрать на корабле');
 g2.send('use',{item:'rum'});

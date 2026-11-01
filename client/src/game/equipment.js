@@ -27,6 +27,7 @@ const makeObject=(make,M)=>{
 // Sizes in metres, measured on the long edge. Each tool gets a readable pose.
 export const HOLD_POSES={
  sword:{size:1.2,rotation:[-.24,-.12,-.18],depth:.95},
+ cup:{size:.32,rotation:[.15,0,-.1],depth:.72},
  compass:{size:.34,rotation:[1.10,0,0],depth:.72},
  astrolabe:{size:.40,rotation:[1.40,0,0],depth:.78},
  map:{size:.68,rotation:[1.05,0,-.10],depth:.88},

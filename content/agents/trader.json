@@ -198,47 +198,44 @@
         {
           "op": "spawn",
           "id": "goods_cheese",
-          "kind": "goods",
-          "model": "cheese",
+          "kind": "prop",
           "at": "trader",
           "off": [
             -1.6,
             0.95,
             -0.6
           ],
-          "state": {
-            "item": "cheese"
-          }
+          "state": {},
+          "item": "cheese",
+          "label": "Сыр на прилавке"
         },
         {
           "op": "spawn",
           "id": "goods_meat",
-          "kind": "goods",
-          "model": "meat",
+          "kind": "prop",
           "at": "trader",
           "off": [
             -1.6,
             0.95,
             0
           ],
-          "state": {
-            "item": "meat"
-          }
+          "state": {},
+          "item": "meat",
+          "label": "Солонина на прилавке"
         },
         {
           "op": "spawn",
           "id": "goods_biscuit",
-          "kind": "goods",
-          "model": "biscuit",
+          "kind": "prop",
           "at": "trader",
           "off": [
             -1.6,
             0.95,
             0.6
           ],
-          "state": {
-            "item": "biscuit"
-          }
+          "state": {},
+          "item": "biscuit",
+          "label": "Сухари на прилавке"
         }
       ],
       "reply": "Look, señor: Gomera cheese, salted meat, biscuit that keeps for months!",

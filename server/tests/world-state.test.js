@@ -78,8 +78,10 @@ test('сброс: /reset и новое прохождение забывают �
   a.inbox.length = 0;
   director.resetToStart();
   assert.equal(world.all().length, 0);
-  const full = a.patches().find((m) => m.full);
-  assert.deepEqual(full.ops, []);
+  // явные операции: клиент Санджара не обязан понимать full
+  const ops = a.patches().flatMap((m) => m.ops);
+  assert.ok(ops.some((o) => o.op === 'remove' && o.id === 'keep_me'));
+  assert.ok(ops.some((o) => o.op === 'set' && o.id === 'lantern' && o.state.lit === null));
 });
 
 test('предмет из патча можно взять — у всех он исчезает', () => {
@@ -114,6 +116,14 @@ test('поступки: вода с Гомеры — бочки вечером, 
   director.setScene('ship_evening');
   assert.equal(world.has('water_barrel_1'), false);
   assert.equal(world.has('pinta'), false);
+});
+
+test('после смены сцены (и зоны) агентские объекты приходят заново', () => {
+  director.setScene('ship_day');
+  world.apply([{ op: 'spawn', id: 'again', kind: 'prop', item: 'cheese', zone: 'ship', p: [0, 0, 0] }]);
+  a.inbox.length = 0;
+  director.setScene('ship_evening');
+  assert.ok(a.patches().some((m) => m.full && m.ops.some((o) => o.id === 'again' && o.item === 'cheese')));
 });
 
 test('купили товар с прилавка — он исчезает', async () => {
