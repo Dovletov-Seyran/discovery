@@ -139,8 +139,11 @@ export function interact(p, msg) {
   if (d.kind === 'toggle') return toggle(p,msg);
   if (!entities.isNear(p, id)) return notice(p, 'Подойди ближе');
   if (d.kind === 'npc' && npcOwner(id) && npcOwner(id) !== p) return claimNpc(p, id);
-  if(d.kind==='cards')return feast.cards(p,{action:'open'});
-  if(d.kind==='dance')return feast.dance(p,{action:'start'});
+  // Игры праздника (feast.js) — только на корабле вечером; ареито на батее Гуанахани — обычный танец и шаг задания
+  const feastNow = sceneId() === 'ship_evening';
+  if(feastNow&&d.kind==='cards')return feast.cards(p,{action:'open'});
+  if(feastNow&&d.kind==='dance')return feast.dance(p,{action:'start'});
+  if (!feastNow && d.kind === 'dance') { worldEvent(p, 'dance'); performAction(p, 'dance'); }
   if(d.kind==='npc'&&feast.reservation(id))return claimNpc(p,id);
   // обидчик деревни мирится с касиком даром; остальные таино с ним не говорят (docs/tz-combat.md)
   if (id === 'cacique' && combat.offerPeace(p)) return;
