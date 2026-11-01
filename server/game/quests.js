@@ -8,6 +8,10 @@ import * as entities from './entities.js';
 
 const QUESTS = loadContent('quests.json', []);
 
+// Задание выполнено по-настоящему (не страховочным таймером) — поступки в мире (game/index.js → world-state)
+let onDone = () => {};
+export const setOnDone = (fn) => { onDone = fn; };
+
 export const sceneQuests = (sceneId) => QUESTS.filter((q) => q.scene === sceneId);
 const requiredQuests = (sceneId) => sceneQuests(sceneId).filter((q) => !q.optional);
 
@@ -51,6 +55,7 @@ function completeStep(q, st, p) {
   if (st.step >= q.steps.length) {
     st.status = 'done';
     players.addLog(p, q.log);
+    onDone(q, p);
   }
 }
 
@@ -237,10 +242,11 @@ export const isSceneComplete = (scene, party) => requiredQuests(scene.id).every(
 export const playerDone = (p, sceneId) =>
   requiredQuests(sceneId).every((q) => { const r = ref(q, p); return !r || r.st.status === 'done'; });
 
-function finish(q, r, p) {
+function finish(q, r, p, { deed = false } = {}) {
   if (r.st.status === 'done') return;
   r.st.status = 'done';
   r.st.step = q.steps.length;
+  if (deed) onDone(q, p);
   notify(q, r, p);
   if (r.shared) entities.markDirty();
 }
@@ -263,7 +269,7 @@ export function completeFor(p, sceneId) {
     if (!r || r.st.status === 'done') continue;
     for (const step of q.steps) players.addLog(p, step.log);
     players.addLog(p, q.log);
-    finish(q, r, p);
+    finish(q, r, p, { deed: true });
   }
   players.save(p);
 }

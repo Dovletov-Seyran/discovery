@@ -2,13 +2,14 @@ import { readFileSync } from 'node:fs';
 import { AI } from './config.js';
 import { getAgent, loadAgents, currentTask, crewNames, knownPeople } from './agents.js';
 import { understand } from './understand.js';
-import { chat, warmup, ollamaUp } from './llm.js';
-import { loadMemory, saveMemory, setStore, turnsToCompress } from './memory.js';
+import { chat, warmup, ollamaUp, queueStats } from './llm.js';
+import { loadMemory, saveMemory, setStore, turnsToCompress, resetMemory } from './memory.js';
+import { decide, perform, setWorld, storyPlan } from './actions.js';
 import { buildMessages, cleanAnswer, isEnglish, ensureRepeatOpening, latin, TEMPERATURE, GENERIC_HELP } from './prompt.js';
 import { toRussian } from './translate.js';
 import { speak, loadTTS, ttsReady } from './tts.js';
 
-export { setStore };
+export { setStore, setWorld, storyPlan, loadAgents, getAgent, loadMemory, resetMemory };
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -73,7 +74,12 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   else if (hintPerson) intent = { kind: 'person', person: hintPerson, agentId: npc, ms: 0, via: 'hint' };
   else if (hintId === 'task') intent = { kind: 'task_help', agentId: npc, ms: 0, via: 'hint' };
   else if (hintId === 'self') intent = { kind: 'about_you', agentId: npc, ms: 0, via: 'hint' };
-  else intent = await understand({ agent, text: userText, turns: mem.turns });
+  else intent = await understand({ agent, text: userText, turns: mem.turns, scene: context.scene });
+
+  // Просьба сделать что-то в мире: можно ли — решает код (сцена, кулдаун, «уже сделано»)
+  if (intent.action) {
+    intent = { ...intent, kind: 'action', verdict: decide(agent, intent.action, { scene: context.scene, now }) };
+  }
 
   // Шаг 2: что именно сказать — решает код
   const repeat = intent.kind === 'topic' && mem.told.includes(intent.card.id);
@@ -90,7 +96,7 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   let llmMs = 0;
   for (let attempt = 0; attempt < 2 && !en; attempt++) {
     try {
-      const res = await chat(messages, { priority: 1, temperature: TEMPERATURE[intent.kind] ?? 0.7 });
+      const res = await chat(messages, { priority: 1, temperature: replyTemperature(agent, intent.kind) });
       llmMs += res.ms;
       const answer = cleanAnswer(res.text);
       if (isEnglish(answer)) en = repeat ? ensureRepeatOpening(answer) : answer;
@@ -127,21 +133,56 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
     saveMemory(userId, npc, mem);
     compactLater(userId, npc, agent, context);
   } else {
-    ({ en, ru } = pick(agent.fallbacks));
+    // Модель не ответила: разрешённое действие всё равно выполняется — говорим заготовку агента
+    if (intent.kind === 'action' && intent.verdict.ok && intent.action.reply) ({ reply: en, replyRu: ru = '' } = intent.action);
+    else ({ en, ru } = pick(agent.fallbacks));
     audio = (await speak(en, agent.voice, { name: npc }).catch(() => ({ url: null }))).url;
   }
 
+  // Разрешённое действие выполняется вместе с ответом: мир меняется, когда агент отдаёт приказ
+  let action = null;
+  if (intent.kind === 'action') {
+    const done = intent.verdict.ok ? perform(agent, intent.action) : null;
+    action = { id: intent.action.id, ok: !!intent.verdict.ok && done?.ok !== false, reason: intent.verdict.reason ?? null };
+  }
+
+  const timings = {
+    understand: intent.ms ?? 0, llm: llmMs, translate: translateMs, tts: ttsMs, total: ms(t0),
+    kind: intent.kind, via: intent.via, cards: intent.card ? [intent.card.id] : [], person: intent.person?.id, returning,
+    action: action?.id,
+  };
+  record(timings);
   return {
     en,
     ru,
     audio,
+    action,
     hints: hintsFor(agent, mem, { intent, task, key: `${userId}:${npc}` }),
     topicsTold,
     topicsDiscussed, // credit a delivered repeat if the original answer was missed/closed
-    timings: {
-      understand: intent.ms ?? 0, llm: llmMs, translate: translateMs, tts: ttsMs, total: ms(t0),
-      kind: intent.kind, via: intent.via, cards: intent.card ? [intent.card.id] : [], person: intent.person?.id, returning,
-    },
+    timings,
+  };
+}
+
+// Температура ответа: точные виды (память, задание, быт, действие) — свои низкие значения;
+// свободная речь — temperature из JSON агента (правится во вкладке «Агенты»)
+const PRECISE = new Set(['recall', 'task_help', 'need', 'about_you', 'action']);
+const replyTemperature = (agent, kind) => (PRECISE.has(kind) ? TEMPERATURE[kind] : agent.temperature ?? TEMPERATURE[kind] ?? 0.7);
+
+// --- Метрики ИИ для админки: средние за последние 50 ответов ---
+const RECENT = 50;
+const recent = [];
+function record(t) {
+  recent.push({ understand: t.understand, llm: t.llm, translate: t.translate, tts: t.tts, total: t.total, at: Date.now() });
+  if (recent.length > RECENT) recent.shift();
+}
+export function metrics() {
+  const avg = (k) => (recent.length ? Math.round(recent.reduce((s, t) => s + (t[k] || 0), 0) / recent.length) : 0);
+  return {
+    queue: queueStats(),
+    answers: recent.length,
+    avgMs: { understand: avg('understand'), reply: avg('llm'), translate: avg('translate'), tts: avg('tts'), total: avg('total') },
+    lastAt: recent.at(-1)?.at ?? null,
   };
 }
 

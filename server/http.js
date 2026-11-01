@@ -8,6 +8,7 @@ import * as auth from './auth.js';
 import * as ai from './game/ai-bridge.js';
 import { players } from './game/players.js';
 import { chunkStats } from './game/stats.js';
+import * as adminAgents from './admin/agents.js';
 
 const CLIENT_DIST = fileURLToPath(new URL('../client/dist/', import.meta.url));
 const DEV_PAGE = fileURLToPath(new URL('./dev/', import.meta.url));
@@ -30,13 +31,13 @@ function sendJson(res, status, body) {
   res.end(json);
 }
 
-function readJson(req) {
+function readJson(req, maxBody = MAX_BODY) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
     req.on('data', (c) => {
       size += c.length;
-      if (size > MAX_BODY) {
+      if (size > maxBody) {
         // Дальше не копим, остаток дочитываем вхолостую, чтобы клиент получил ответ 413
         req.removeAllListeners('data');
         req.resume();
@@ -93,6 +94,8 @@ async function handleApi(req, res, path) {
     const result = path === '/api/register' ? await auth.register(body) : await auth.login(body);
     return sendJson(res, result.status, result.body);
   }
+  // Админка: агенты и метрики ИИ (server/admin/agents.js)
+  if (await adminAgents.handle(req, res, path, { sendJson, readJson })) return;
   sendJson(res, 404, { error: 'not_found' });
 }
 

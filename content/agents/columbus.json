@@ -195,5 +195,193 @@
     "The friars of La Rabida, above all Friar Juan Perez, helped you reach the Queen when everyone else laughed at you.",
     "You are deeply devout. You hope the gold of the Indies will one day pay for freeing Jerusalem.",
     "Privately you fear the crew losing heart far from land, and that someone on the Pinta does not want this voyage to succeed."
+  ],
+  "actions": [
+    {
+      "id": "light_lanterns",
+      "en": "light the ship's lanterns",
+      "scenes": [
+        "ship_day",
+        "ship_evening"
+      ],
+      "cooldownSec": 60,
+      "kw": [
+        "зажги",
+        "зажгите",
+        "зажечь",
+        "зажигай",
+        "зажигайте",
+        "запали фонари",
+        "light lantern",
+        "light lamp"
+      ],
+      "patch": [
+        {
+          "op": "set",
+          "id": "lantern",
+          "kind": "lantern",
+          "state": {
+            "lit": true
+          }
+        },
+        {
+          "op": "set",
+          "id": "stern_lamp",
+          "kind": "lantern",
+          "state": {
+            "lit": true
+          }
+        }
+      ],
+      "reply": "Light the lanterns! Let the Pinta and the Niña see us.",
+      "replyRu": "Зажечь фонари! Пусть «Пинта» и «Нинья» нас видят."
+    },
+    {
+      "id": "raise_flag",
+      "en": "raise the flag of Castile",
+      "scenes": [
+        "ship_day",
+        "ship_evening"
+      ],
+      "cooldownSec": 60,
+      "kw": [
+        "поднять флаг",
+        "подыми флаг",
+        "подымите флаг",
+        "вывесить флаг",
+        "вывеси флаг",
+        "поднять знамя",
+        "raise flag",
+        "hoist flag"
+      ],
+      "patch": [
+        {
+          "op": "set",
+          "id": "flag_castile",
+          "kind": "flag",
+          "state": {
+            "raised": true
+          }
+        }
+      ],
+      "reply": "Raise the banner of Castile! Let the ocean know whose ships these are.",
+      "replyRu": "Поднять знамя Кастилии! Пусть океан знает, чьи это корабли."
+    },
+    {
+      "id": "furl_sails",
+      "en": "take in (furl) the sails",
+      "scenes": [
+        "ship_day",
+        "ship_evening"
+      ],
+      "cooldownSec": 90,
+      "kw": [
+        "убрать паруса",
+        "убери паруса",
+        "уберите паруса",
+        "спустить паруса",
+        "спусти паруса",
+        "свернуть паруса",
+        "сверните паруса",
+        "furl sails",
+        "lower sails",
+        "take sails"
+      ],
+      "patch": [
+        {
+          "op": "set",
+          "id": "sails",
+          "kind": "sails",
+          "state": {
+            "furled": true
+          }
+        }
+      ],
+      "reply": "Take in the sails! We rest a little, but only a little.",
+      "replyRu": "Убрать паруса! Отдохнём немного, но только немного."
+    },
+    {
+      "id": "give_rations",
+      "en": "hand out the daily ration of ship's biscuit to the crew",
+      "scenes": [
+        "ship_day",
+        "ship_evening"
+      ],
+      "cooldownSec": 120,
+      "once": true,
+      "kw": [
+        "выдай паек",
+        "выдать паек",
+        "выдайте паек",
+        "раздай паек",
+        "раздать паек",
+        "раздайте паек",
+        "дай паек",
+        "выдай пайки",
+        "раздай пайки",
+        "выдай сухари",
+        "раздай сухари",
+        "дай сухари",
+        "дайте сухари",
+        "выдать провиант",
+        "give ration",
+        "give biscuit"
+      ],
+      "patch": [
+        {
+          "op": "spawn",
+          "id": "ration_1",
+          "kind": "item",
+          "model": "biscuit",
+          "zone": "ship",
+          "p": [
+            2.4,
+            0.66,
+            2.75
+          ],
+          "r": 0.4,
+          "state": {
+            "item": "biscuit",
+            "label": "Сухари"
+          }
+        },
+        {
+          "op": "spawn",
+          "id": "ration_2",
+          "kind": "item",
+          "model": "biscuit",
+          "zone": "ship",
+          "p": [
+            2.8,
+            0.66,
+            2.75
+          ],
+          "r": 1.3,
+          "state": {
+            "item": "biscuit",
+            "label": "Сухари"
+          }
+        },
+        {
+          "op": "spawn",
+          "id": "ration_3",
+          "kind": "item",
+          "model": "biscuit",
+          "zone": "ship",
+          "p": [
+            2.6,
+            0.66,
+            3.35
+          ],
+          "r": 2.1,
+          "state": {
+            "item": "biscuit",
+            "label": "Сухари"
+          }
+        }
+      ],
+      "reply": "Cook, the ration! One biscuit for each man, and not a crumb more.",
+      "replyRu": "Кок, паёк! По сухарю на брата, и ни крошки больше."
+    }
   ]
 }

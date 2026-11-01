@@ -3,6 +3,7 @@ import { npcActivity } from '../../shared/npc-activity.js';
 import { CONFIG } from '../../shared/config.js';
 import { loadContent } from '../content.js';
 import { resolveLayout } from '../world/terrain.js';
+import * as world from './world-state.js';
 
 // id → { id, zone, x, z, kind, item?, period?, ... } — интерактивные объекты и NPC
 const defs = new Map();
@@ -18,7 +19,13 @@ let objects = {};       // id → состояние ({ holder }, { emptyAt }, .
 let sharedQuests = {};  // questId → состояние общих заданий (роль никто не взял)
 let dirty = false;
 
-export const def = (id) => defs.get(id);
+// Объект раскладки или появившийся по world_patch предмет (сухари на столе можно взять, как обычный предмет)
+export const def = (id) => defs.get(id) ?? dynamicDef(id);
+function dynamicDef(id) {
+  const o = world.get(id);
+  if (!o?.spawned || !o.p) return undefined;
+  return { id, kind: o.kind, item: o.state?.item, zone: o.zone, p: o.p, x: o.p[0], z: o.p[2], label: o.state?.label };
+}
 export const stateOf = (id) => objects[id];
 export const shared = () => sharedQuests;
 export const ownedItemIds = (holder, items) => [...defs.values()].filter(d=>d.kind==='item'&&objects[d.id]?.holder===holder
@@ -32,7 +39,7 @@ export function setState(id, patch) {
 
 export const markDirty = () => { dirty = true; };
 export function takeDirty() {
-  const d = dirty;
+  const d = world.takeDirty() || dirty;
   dirty = false;
   return d;
 }
@@ -40,19 +47,21 @@ export function takeDirty() {
 export function load(saved) {
   objects = saved?.objects ?? {};
   sharedQuests = saved?.sharedQuests ?? {};
+  world.load(saved?.world);
 }
 
-export const snapshot = () => ({ objects, sharedQuests });
+export const snapshot = () => ({ objects, sharedQuests, world: world.snapshot() });
 
 export function reset() {
   objects = {};
   sharedQuests = {};
   dirty = true;
+  world.reset();
 }
 
 // Игрок стоит рядом с объектом? Сравниваем по горизонтали, +1 м на задержку сети
 export function isNear(p, id, extra = 1) {
-  const d = defs.get(id);
+  const d = def(id);
   if (!d || d.zone !== p.zone || !p.p) return false;
   const [sceneId, started] = (p.scene ?? 'ship_day').split('@');
   const scene = { id: sceneId, ...(started ? { startAt: Number(started) } : {}) };

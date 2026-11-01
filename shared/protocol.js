@@ -47,6 +47,9 @@ export const S2C = {
   NOTICE: 'notice',             // { text }
   POS_CORRECT: 'pos_correct',   // { p, r } — сервер отклонил move (слишком быстро), вернуть игрока сюда
   TRADE_STATE: 'trade_state',   // { npc, money, goods: [{item, price, sold}] } — при E у торговца и после каждого trade
+  // { ops: [{ op: 'spawn'|'remove'|'set', id, kind, model, zone, p, r, state }], full? } — динамические объекты мира.
+  // full: true — полное состояние (вход, переподключение, сброс): всё прежнее из патчей забыть.
+  WORLD_PATCH: 'world_patch',
 };
 
 // Коды закрытия WebSocket

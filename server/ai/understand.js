@@ -4,6 +4,7 @@
 import { chat } from './llm.js';
 import { findCards } from './retrieval.js';
 import { knownPeople, findPerson, knowsPerson } from './agents.js';
+import { available, pickAction } from './actions.js';
 
 export const KINDS = {
   topic: 'asks about one of YOUR TOPICS below, or continues talking about it',
@@ -21,11 +22,13 @@ export const KINDS = {
 
 const shortName = (agent) => agent.name.split(',')[0];
 
-export async function understand({ agent, text, turns = [] }) {
+// scene — для действий агента: в классификатор попадают только доступные в этой сцене
+export async function understand({ agent, text, turns = [], scene }) {
   const cards = agent.cards;
   const people = knownPeople(agent.id);
   const keywordCards = findCards(agent, text);
   const keywordPerson = findPerson(agent.id, text);
+  const actions = available(agent, scene);
 
   const schema = {
     type: 'object',
@@ -33,8 +36,9 @@ export async function understand({ agent, text, turns = [] }) {
       kind: { type: 'string', enum: Object.keys(KINDS) },
       topic: { type: 'string', enum: [...cards.map((c) => c.id), 'none'] },
       person: { type: 'string', enum: [...people.map((p) => p.id), 'none'] },
+      ...(actions.length ? { action: { type: 'string', enum: [...actions.map((a) => a.id), 'none'] } } : {}),
     },
-    required: ['kind', 'topic', 'person'],
+    required: ['kind', 'topic', 'person', ...(actions.length ? ['action'] : [])],
   };
 
   const system = [
@@ -49,6 +53,12 @@ export async function understand({ agent, text, turns = [] }) {
     'PEOPLE (for kind "person"; otherwise person = "none"):',
     ...people.map((p) => `- ${p.id}: ${p.name}`),
     '',
+    ...(actions.length ? [
+      '',
+      'ACTIONS (field "action"): ONLY if the player clearly asks or orders you to do this right now. A question about these things, small talk or "what should I do" is "none":',
+      ...actions.map((a) => `- ${a.id}: ${a.en}`),
+    ] : []),
+    '',
     'If the message is a short follow-up ("and him?", "why?", "а он?"), use the recent conversation to decide.',
     keywordCards.length || keywordPerson ? `Keyword hints: ${[...keywordCards.map((c) => `topic ${c.id}`), keywordPerson && `person ${keywordPerson.id}`].filter(Boolean).join(', ')}` : '',
   ].join('\n');
@@ -58,15 +68,15 @@ export async function understand({ agent, text, turns = [] }) {
 
   // Спросили о человеке экипажа, которого агент лично не знает (торговец о Пинсоне) — честно «не знаю его»
   if (keywordPerson && !knowsPerson(agent.id, keywordPerson)) {
-    return { kind: 'stranger', card: null, person: keywordPerson, agentId: agent.id, ms: 0, via: 'keywords' };
+    return { kind: 'stranger', card: null, person: keywordPerson, action: null, agentId: agent.id, ms: 0, via: 'keywords' };
   }
 
   try {
     const res = await chat([{ role: 'system', content: system }, { role: 'user', content: user }], { format: schema, temperature: 0, maxTokens: 60, priority: 2 });
     const out = JSON.parse(res.text);
-    return { ...normalize(out, { cards, people, keywordCards, keywordPerson, text }), agentId: agent.id, ms: res.ms, via: 'llm' };
+    return { ...normalize(out, { cards, people, keywordCards, keywordPerson, text }), action: pickAction(agent, { modelAction: out.action, text, scene }), agentId: agent.id, ms: res.ms, via: 'llm' };
   } catch {
-    return { ...fallback({ keywordCards, keywordPerson }), agentId: agent.id, ms: 0, via: 'keywords' };
+    return { ...fallback({ keywordCards, keywordPerson }), action: pickAction(agent, { text, scene }), agentId: agent.id, ms: 0, via: 'keywords' };
   }
 }
 
@@ -74,7 +84,7 @@ export async function understand({ agent, text, turns = [] }) {
 const SEA_WORDS = /погод|ветер|ветр|шторм|бур[яюи]|дожд|туман|волн|небо|солнц|weather|wind|storm|rain|fog|waves/i;
 const FAREWELL_WORDS = /пока|до свидан|прощай|бывай|увидимся|до встречи|мне пора|пойду|ухожу|bye|good ?bye|farewell|see you/i;
 
-function normalize(out, { cards, people, keywordCards, keywordPerson, text = '' }) {
+export function normalize(out, { cards, people, keywordCards, keywordPerson, text = '' }) {
   let { kind, topic, person } = out;
   // «ок», «ладно», «понятно» модель принимает за прощание и закрывает разговор
   if (kind === 'farewell' && !FAREWELL_WORDS.test(text)) kind = 'small_talk';
