@@ -8,6 +8,7 @@ import * as auth from './auth.js';
 import * as ai from './game/ai-bridge.js';
 import { players } from './game/players.js';
 import { chunkStats } from './game/stats.js';
+import { handleAdmin } from './admin/index.js';
 
 const CLIENT_DIST = fileURLToPath(new URL('../client/dist/', import.meta.url));
 const DEV_PAGE = fileURLToPath(new URL('./dev/', import.meta.url));
@@ -75,6 +76,7 @@ function sendFile(res, file, cache) {
 }
 
 async function handleApi(req, res, path) {
+  if (path.startsWith('/api/admin/')) return handleAdmin(req, res, path);
   if (req.method === 'GET' && path === '/api/health') {
     const s = await ai.status();
     return sendJson(res, 200, {
@@ -122,6 +124,12 @@ export async function handleHttp(req, res) {
         ? resolveFile(SHARED, path.slice('/shared/'.length))
         : resolveFile(DEV_PAGE, path === '/dev/' ? 'index.html' : path.slice('/dev/'.length));
       return file ? sendFile(res, file, 'no-cache') : sendJson(res, 404, { error: 'not_found' });
+    }
+
+    // Админ-панель — отдельная страница сборки (client/admin.html), доступ решает её API
+    if (path === '/admin' || path === '/admin/') {
+      const admin = resolveFile(CLIENT_DIST, 'admin.html');
+      return admin ? sendFile(res, admin, 'no-cache') : sendJson(res, 404, { error: 'not_found', message: 'Клиент не собран: npm run build' });
     }
 
     const file = resolveFile(CLIENT_DIST, path === '/' ? 'index.html' : path.slice(1));

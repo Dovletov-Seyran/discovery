@@ -11,6 +11,7 @@ import * as director from './director.js';
 import * as entities from './entities.js';
 import * as quests from './quests.js';
 import * as npcPause from './npc-pause.js';
+import { worldEvent, ITEM_EVENT } from './world-events.js';
 import * as ai from './ai-bridge.js';
 
 const NPCS = new Map(loadContent('npcs.json', []).map((n) => [n.id, n]));
@@ -91,6 +92,7 @@ export function use(p, msg) {
   const result=applyItemUse(p,item);
   if(result.error)return notice(p,result.error);
   players.send(p,{t:S2C.ITEM_USED,...result});
+  worldEvent(p,ITEM_EVENT[result.effect]);
   players.sendInventory(p);players.save(p,{now:true});
   if(item==='wine'||item==='rum')event(p,{type:'interact',target:'wine_barrel'});
   event(p,{type:'use',item});
@@ -112,6 +114,7 @@ export function interact(p, msg) {
   if (!d || d.zone !== p.zone) return;
   if (d.kind === 'item') return pickup(p, msg);
   if (!entities.isNear(p, id)) return notice(p, 'Подойди ближе');
+  if (d.kind === 'dance') worldEvent(p, 'dance');
 
   switch (d.kind) {
     case 'hourglass': {
@@ -228,6 +231,7 @@ async function npcRequest(p, npc, req) {
   const now = Date.now();
   if (p.npcRequest || now - p.lastNpcTalkAt < CONFIG.NPC_TALK_COOLDOWN_MS) return replyError(p, npc, req, 'Подожди немного и повтори вопрос.');
   p.lastNpcTalkAt = now;
+  worldEvent(p, 'talk');
   const started = director.startAt();
   const res = await askAi(p, npc, req);
   if (!res || started !== director.startAt()) return;
@@ -322,6 +326,7 @@ export function scare(p, msg) {
   if (!target || target === p || !target.connected || target.zone !== p.zone) return;
   p.lastScareAt = now;
   players.broadcast({ t: S2C.SCARED, by: p.id, target: target.id });
+  worldEvent(p, 'scare');
 }
 
 // --- Начало сцены: объекты, выданные предметы, задания ---

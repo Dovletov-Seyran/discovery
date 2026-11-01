@@ -9,7 +9,8 @@ import * as ai from './ai-bridge.js';
 import * as entities from './entities.js';
 import { resolveLayout } from '../world/terrain.js';
 
-const scenes = new Map(loadContent('scenes.json', []).map((s) => [s.id, s]));
+let scenes = new Map();
+let canaryWorld = null;
 const FIRST = 'lobby';
 const DEFAULT_POS = [0, 1.6, 0];
 
@@ -22,19 +23,24 @@ const isRoleMap = (m) => m && ROLES.some((r) => r in m);
 //   spawns: { ship_day: { grumete: P, ... }, ship_evening: … } — по сценам
 //   seats:  [P, P, P]                                        — места у фонаря в night_story
 // Если в layout их нет — остаются точки из scenes.json.
-const shipLayout = loadContent('ship_layout.json', {});
-for (const s of scenes.values()) {
-  if (s.zone !== 'ship') continue;
-  const sp = shipLayout.spawns?.[s.id] ?? (isRoleMap(shipLayout.spawns) ? shipLayout.spawns : null);
-  if (sp && s.spawns) s.spawns = sp;
-  if (Array.isArray(shipLayout.seats) && shipLayout.seats.length && s.seats) s.seats = shipLayout.seats;
+// Админка (server/admin) после правки контента зовёт loadScenes() снова — без перезапуска сервера.
+export function loadScenes() {
+  scenes = new Map(loadContent('scenes.json', []).map((s) => [s.id, s]));
+  const shipLayout = loadContent('ship_layout.json', {});
+  for (const s of scenes.values()) {
+    if (s.zone !== 'ship') continue;
+    const sp = shipLayout.spawns?.[s.id] ?? (isRoleMap(shipLayout.spawns) ? shipLayout.spawns : null);
+    if (sp && s.spawns) s.spawns = sp;
+    if (Array.isArray(shipLayout.seats) && shipLayout.seats.length && s.seats) s.seats = shipLayout.seats;
+  }
+  // На Канарах — из content/canary_layout.json (spawns, обычно рядом с пристанью), уже с высотой рельефа
+  canaryWorld = (() => {
+    const layout = loadContent('canary_layout.json', null);
+    return layout?.spawns ? resolveLayout(layout) : null;
+  })();
+  for (const s of scenes.values()) if (s.zone === 'canary' && s.spawns && canaryWorld) s.spawns = canaryWorld.layout.spawns;
 }
-// На Канарах — из content/canary_layout.json (spawns, обычно рядом с пристанью), уже с высотой рельефа
-const canaryWorld = (() => {
-  const layout = loadContent('canary_layout.json', null);
-  return layout?.spawns ? resolveLayout(layout) : null;
-})();
-for (const s of scenes.values()) if (s.zone === 'canary' && s.spawns && canaryWorld) s.spawns = canaryWorld.layout.spawns;
+loadScenes();
 
 // Исправление старого сохранения делается и на сервере: иначе защита от телепорта
 // постоянно возвращает клиент, выбравшийся из-под земли, в его старую яму.
@@ -67,6 +73,7 @@ export const setHooks = (h) => { hooks = { ...hooks, ...h }; };
 
 export const scene = () => scenes.get(state.id) ?? { id: state.id, type: 'end' };
 export const getScene = (id) => scenes.get(id);
+export const allScenes = () => [...scenes.values()];
 export const zone = () => state.zone;
 // Конкретный запуск сцены: та же сцена, запущенная заново, — уже другая
 const sceneKey = () => `${state.id}@${state.startAt}`;

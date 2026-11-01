@@ -184,6 +184,24 @@ check(!!(await g.wait('pos_correct')), 'телепорт на 100 м → pos_cor
 
 g.send('chat', { text: 'Земля!' });
 check(!!(await l.wait('chat', (m) => m.text === 'Земля!' && m.from === g.id)), 'чат доходит до других');
+check(!!(await l.wait('world_event', (m) => m.type === 'talk' && m.who === g.id)), 'world_event: игрок говорит — видят остальные (для реагирующих NPC)');
+
+// --- ping и метрики клиента (админка) ---
+g.send('ping', { ts: 123.5 });
+const pong = await g.wait('pong', (m) => m.ts === 123.5);
+check(!!pong && pong.serverNow > 0, 'ping → pong с тем же ts');
+g.send('client_stats', { fps: 59.6, ping: 12, calls: 310, chunks: 9, pct: 3.5, mem: 140, junk: 'x'.repeat(50) });
+if (process.env.ADMIN_TOKEN) {
+  await sleep(200);
+  const admin = (path) => fetch(`${BASE}/api/admin${path}`, { headers: { Authorization: `Bearer ${process.env.ADMIN_TOKEN}` } });
+  const bad = await fetch(`${BASE}/api/admin/server`, { headers: { Authorization: 'Bearer wrong-token-000' } });
+  check(bad.status === 401, 'админка: неверный токен → 401');
+  const clients = await (await admin('/clients')).json();
+  const mine = clients.clients?.find((c) => c.id === g.id)?.history.at(-1);
+  check(mine?.fps === 59.6 && mine.ping === 12 && mine.junk === undefined, `админка: client_stats игрока сохранены ${JSON.stringify(mine)}`);
+  const srv = await (await admin('/server')).json();
+  check(Array.isArray(srv.history) && srv.players?.connected >= 2, 'админка: метрики сервера');
+} else console.log('  (ADMIN_TOKEN не задан — API админки не проверяем)');
 
 await l.walkTo(...at('columbus'));
 // Пока с Колумбом говорят, он стоит лицом к собеседнику — у всех одинаково (server/game/npc-pause.js)
