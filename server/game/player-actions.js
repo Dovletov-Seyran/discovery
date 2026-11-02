@@ -19,7 +19,7 @@ export function equipForUse(p,item){
 }
 export function performAction(p,kind,item=null,extra={}){
   const duration=PLAYER_ACTION_MS[kind];if(!duration||!p.p)return null;
-  const action={...extra,kind,item,startedAt:Date.now(),duration,seq:(p.actionSeq??0)+1,equipmentRev:p.equipmentRev??0,zone:p.zone,scene:p.scene};
+  const action={...extra,kind,item,startedAt:Date.now(),duration:kind==='dance'?Math.min(24000,Math.max(duration,extra.duration??duration)):duration,seq:(p.actionSeq??0)+1,equipmentRev:p.equipmentRev??0,zone:p.zone,scene:p.scene};
   p.actionSeq=action.seq;p.action=action;
   players.broadcast({t:S2C.PLAYER_ACTION,id:p.id,action,serverNow:action.startedAt},other=>other.zone===p.zone);
   return action;

@@ -9,6 +9,7 @@ export function sceneProgressView(progress,now=Date.now()){
  if((progress.phase==='timed'||progress.phase==='departing')&&Number.isFinite(progress.endsAt)){
   return {label:progress.phase==='departing'?'Переход через':'До следующей сцены',value:formatRemaining(progress.endsAt,now),detail:next};
  }
+ if(progress.phase==='activities')return {label:'Задания завершены',value:'',detail:'Ждём окончания карт и танца'};
  if(progress.phase==='dialogue')return {label:'Задания завершены',value:'',detail:'Ждём окончания разговоров'};
  if(progress.phase==='checkpoint')return {label:'Возвращение на корабль',value:`${progress.ready} / ${progress.total}`,detail:'Завершите задания и соберитесь у шлюпки'};
  return {label:'Переход после заданий',value:'',detail:`Закончили задания: ${progress.done} / ${progress.total}`};

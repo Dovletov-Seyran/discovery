@@ -17,6 +17,7 @@ import * as entities from './entities.js';
 import * as quests from './quests.js';
 import { worldEvent, ITEM_EVENT } from './world-events.js';
 import * as ai from './ai-bridge.js';
+import * as feast from './feast.js';
 import * as combat from './combat.js';
 
 const NPCS = new Map(loadContent('npcs.json', []).map((n) => [n.id, n]));
@@ -138,15 +139,12 @@ export function interact(p, msg) {
   if (d.kind === 'toggle') return toggle(p,msg);
   if (!entities.isNear(p, id)) return notice(p, 'Подойди ближе');
   if (d.kind === 'npc' && npcOwner(id) && npcOwner(id) !== p) return claimNpc(p, id);
-  if (d.kind === 'dance') { worldEvent(p, 'dance'); performAction(p, 'dance'); sayLine('feast_dance', p); }
-  // Карты на празднике: E у стола — партия с матросом. Сервер сдаёт сам: выиграл или проиграл,
-  // засчитывается сама игра (задание «Праздник»: сыграть в карты)
-  if (d.kind === 'cards') {
-    const win = Math.random() < 0.5;
-    sayLine(win ? 'feast_cards_lose' : 'feast_cards_win', p);
-    notice(p, win ? 'Партия в карты: ты выиграл!' : 'Партия в карты: матрос выиграл. Ещё партию?');
-    event(p, { type: 'minigame', game: 'cards', success: true });
-  }
+  // Игры праздника (feast.js) — только на корабле вечером; ареито на батее Гуанахани — обычный танец и шаг задания
+  const feastNow = sceneId() === 'ship_evening';
+  if(feastNow&&d.kind==='cards')return feast.cards(p,{action:'open'});
+  if(feastNow&&d.kind==='dance')return feast.dance(p,{action:'start'});
+  if (!feastNow && d.kind === 'dance') { worldEvent(p, 'dance'); performAction(p, 'dance'); }
+  if(d.kind==='npc'&&feast.reservation(id))return claimNpc(p,id);
   // обидчик деревни мирится с касиком даром; остальные таино с ним не говорят (docs/tz-combat.md)
   if (id === 'cacique' && combat.offerPeace(p)) return;
   if (combat.refuses(p, id)) return notice(p, 'С тобой не хотят говорить. Помирись с касиком: принеси ему дар');
@@ -262,6 +260,7 @@ function boardBoat(p, id) {
 
 export function minigame(p, msg) {
   if (!playable() || typeof msg.game !== 'string') return;
+  if(['cards','dance'].includes(msg.game))return; // Only the server session can credit these games.
   let success = msg.result?.success === true;
   if (msg.game === 'astrolabe') {
     if (!p.inventory.includes('astrolabe')) return notice(p, 'Нужна астролябия');
@@ -305,6 +304,7 @@ export function npcOwner(npc, now = Date.now()) {
 }
 
 function claimNpc(p, npc, req = {}) {
+  if(feast.reservation(npc)){replyError(p,npc,req,'Хуан ведёт игру в 21. Подойди к карточному столу, чтобы присоединиться.',{busy:true});return false;}
   const owner = npcOwner(npc);
   if (owner && owner !== p) {
     replyError(p, npc, req, `Сейчас разговаривает с ${owner.name}. Подожди, пока они закончат.`, { busy: true });
@@ -507,3 +507,6 @@ export function onSceneStart(scene, party) {
   }
   quests.onSceneStart(scene, party);
 }
+
+// Called only by the authoritative feast session, never by a client result packet.
+export const creditFeast=(p,game)=>event(p,{type:'minigame',game,success:true});

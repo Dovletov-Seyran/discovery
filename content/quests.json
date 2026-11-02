@@ -231,12 +231,12 @@
           {
             "type": "minigame",
             "game": "cards",
-            "text": "Сыграть в карты"
+            "text": "Завершить раздачу в 21"
           },
           {
-            "type": "interact",
-            "target": "dance",
-            "text": "Потанцевать"
+            "type": "minigame",
+            "game": "dance",
+            "text": "Завершить морской танец"
           }
         ],
         "en": "Join the feast: drink with the crew, talk to Old Juan, play cards or dance"

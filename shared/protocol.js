@@ -14,6 +14,8 @@ export const C2S = {
   TOGGLE: 'toggle',         // {id} — doors and chest lids
   EQUIP: 'equip',           // {item: itemId|null} — server validates ownership
   USE: 'use',               // { item, target? }
+  CARDS:'cards', // {action,sessionId?,revision?}: intent only, no client results
+  DANCE:'dance', // {action,sessionId?,index?,direction?}
   MINIGAME: 'minigame',     // { game, result }
   CHAT: 'chat',             // { text }
   DIALOGUE: 'dialogue',       // { npc, dialogueId, active } — открытие/heartbeat/закрытие, lease 30 с
@@ -31,6 +33,8 @@ export const C2S = {
 
 // Сервер → Клиент
 export const S2C = {
+  CARDS_STATE:'cards_state', // recipient-specific table, never the deck
+  DANCE_STATE:'dance_state', // own dance session and judged steps
   AUTH_OK: 'auth_ok',           // { you: {id, name, role}, state, world, scene }
   AUTH_FAIL: 'auth_fail',       // { reason }
   LOBBY: 'lobby',               // { players: [{id, name, role, ready, connected}] }
