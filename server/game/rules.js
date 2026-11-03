@@ -1,3 +1,4 @@
+import {createIslandActivities} from './canary-activities.js';
 // Действия игрока в мире: подбор, взаимодействие, передача предметов, мини-игры, торговля, «Бу!», разговор с NPC.
 // Сервер решает всё сам; клиент присылает только намерения.
 import {equipForUse,performAction} from './player-actions.js';
@@ -30,8 +31,9 @@ const playable = () => director.acceptsMove() && !director.isTransitioning();
 const itemName = (id) => ITEM_NAMES.get(id) ?? id;
 const countOf = (p, item) => p.inventory.filter((x) => x === item).length;
 // Объект только для некоторых сцен (scenes: [...]): шлюпки и люди Колумба на Гуанахани есть только 12 октября
-const present = (d) => !d.scenes || d.scenes.includes(sceneId());
+const present = (d) => !Array.isArray(d.scenes) || d.scenes.includes(sceneId());
 
+const islandWork=createIslandActivities({valid:(p,id)=>p.zone==='canary'&&entities.isNear(p,id),send:(p,m)=>players.send(p,m)});
 function event(p, ev) {
   const boatScene = !!director.scene().readyAt;
   const wasDone = boatScene && quests.playerDone(p, sceneId());
@@ -90,6 +92,13 @@ export function pickup(p, msg) {
 function deliver(p, item, target) {
   if (!p.inventory.includes(item) || !entities.isNear(p, target)) return false;
   if (!quests.wantsDelivery(p, sceneId(), item, target)) return false;
+  if(target==='carpenter'&&p.zone==='canary'&&quests.stateOf(p,sceneId(),'q_rudder')?.step===2&&quests.stateOf(p,sceneId(),'q_rudder')?.sub?.length===1){
+    islandWork.start(p,{kind:'repair',label:'Закрепляем руль вместе с плотником',duration:3000,target,finish:()=>{
+      if(!p.inventory.includes(item)||!quests.wantsDelivery(p,sceneId(),item,target))return;
+      removeItem(p,item);players.sendInventory(p);players.save(p,{now:true});event(p,{type:'deliver',item,target});
+      performAction(p,'give',item,{target});sayLine('carpenter_done',p);
+    }});performAction(p,'fill',item,{target,duration:3000});return true;
+  }
   removeItem(p, item);
   players.sendInventory(p);
   players.save(p, { now: true });
@@ -120,6 +129,7 @@ export function use(p, msg) {
   event(p,{type:'use',item});
 }
 export function tickVitals(now=Date.now()){
+  islandWork.tick(now);
   syncNpcDialogues(now);
   for(const p of players.connected()){
     const before=JSON.stringify(p.vitals);
@@ -163,13 +173,12 @@ export function interact(p, msg) {
     }
     case 'well':
       if (!p.inventory.includes('barrel')) return notice(p, 'Нужен пустой бочонок');
-      p.inventory[p.inventory.indexOf('barrel')] = 'barrel_full';
-      p.itemUses??={};p.itemUses.barrel_full=3;
-      if(p.equipped==='barrel')equipForUse(p,'barrel_full');
-      players.sendInventory(p);
-      players.save(p, { now: true });
-      performAction(p,'fill','barrel_full',{target:id});
-      break;
+      islandWork.start(p,{kind:'water',label:'Набираем воду из колодца',duration:3500,target:id,finish:()=>{
+        if(!p.inventory.includes('barrel'))return;
+        p.inventory[p.inventory.indexOf('barrel')]='barrel_full';p.itemUses??={};p.itemUses.barrel_full=3;
+        if(p.equipped==='barrel')equipForUse(p,'barrel_full');players.sendInventory(p);players.save(p,{now:true});
+        event(p,{type:'interact',target:id});notice(p,'Бочонок наполнен. Отнеси его к шлюпке.');
+      }});performAction(p,'fill','barrel',{target:id,duration:3500});return;
     case 'npc':
       if (id === 'trader') players.send(p, tradeState(p, id));
       if (d.swap) gained = swap(p, d);

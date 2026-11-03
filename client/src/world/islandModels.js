@@ -222,6 +222,12 @@ function tarBucket(M) {
 }
 
 export const ISLAND_MODELS = {
+  history_board:M=>{
+    const obj=new THREE.Group(),col=[boxGeo(.9,.65,.12,0,1.1,0),boxGeo(.1,1.1,.1,0,.55,0)];
+    obj.add(mesh(col[0].clone(),M.get('wood')),mesh(col[1].clone(),M.get('trim')));
+    const face=new THREE.PlaneGeometry(.82,.56);face.translate(0,1.1,.067);
+    obj.add(mesh(face,M.canvas('gomera-notes',256,(ctx,n)=>{ctx.fillStyle='#ded0ae';ctx.fillRect(0,0,n,n);ctx.fillStyle='#423323';ctx.textAlign='center';ctx.font=`${n*.09}px serif`;ctx.fillText('ЗАПИСКИ',n/2,n*.43);ctx.fillText('ГОМЕРЫ',n/2,n*.62);})));return {obj,col};
+  },
   house, house_governor: governorHouse, church, warehouse, market_stall: marketStall, market_stall_trade: (M) => marketStall(M, false), shipyard, pier,
   well, boat: rowboat, planks: plankStack, tar_bucket: tarBucket, barrel: MODELS.barrel,
   ...TAINO_MODELS,

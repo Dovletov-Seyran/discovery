@@ -1,3 +1,4 @@
+import {islandWorkSound} from './audio/island-work.js';
 import {sceneShortcut} from './game/scene-shortcuts.js';
 import {STAMINA} from '../../shared/stamina.js';
 import './ui/style.css';
@@ -17,7 +18,7 @@ import {duelView} from './ui/duel-hud.js';
 import {FPS_PLAY,FPS_CALM} from './game/frame-limit.js';
 import {GameplayRuntime} from './game/runtime.js';
 import {WorldConnection} from './game/world-connection.js';
-import {ROLES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,EPILOGUE,escape,itemId} from './ui/content.js';
+import {ROLES,GOMERA_NOTES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,EPILOGUE,escape,itemId} from './ui/content.js';
 import {shellView,loginView,lobbyView} from './ui/views.js';
 import {VoiceLibrary} from './ui/voice.js';
 import {narrativeContent,INTRO_TITLES} from './ui/narrative.js';
@@ -232,6 +233,13 @@ function bindNetwork(client){
   client.on('npc_thinking',message=>{if(matchesReply(message)){waitingForReply=true;$('#npc-text').textContent='Думает…';setDialogueBusy(true);}});
   client.on('npc_say',receiveDialogue);
   client.on('trade_state',message=>{tradeState=message;if(modal==='dialogue'&&activeNpc===message.npc)renderTrade();});
+  client.on('island_activity',message=>{
+    islandWorkSound(message);
+    let panel=document.getElementById('island-work');
+    if(!panel){panel=document.createElement('div');panel.id='island-work';panel.className='island-work';document.body.append(panel);}
+    if(message.status!=='started'){panel.hidden=true;notify(message.label);return;}
+    panel.hidden=false;panel.innerHTML=`<strong>${escape(message.label)}</strong><div class="island-work-track"><i style="animation-duration:${Math.max(0,message.duration-(message.serverNow-message.startedAt))}ms"></i></div><small>Оставайся рядом · отход прервёт работу</small>`;
+  });
   client.on('snapshot',message=>gameEvents.emit('snapshot',message));
   client.on('player_join',message=>gameEvents.emit('player_join',message));
   client.on('player_leave',message=>gameEvents.emit('player_leave',message));
@@ -246,7 +254,8 @@ function renderLobby(){
   $('#logout').onclick=logout;
 }
 function applyScene(message){
-  narrative.stop();
+  narrative.stop();islandWorkSound({status:'cancelled'});
+  if(document.getElementById('island-work'))document.getElementById('island-work').hidden=true;
   scene=message;
   sceneProgress=message.progress||null;
   if(Number.isFinite(sceneProgress?.serverNow))serverOffset=sceneProgress.serverNow-Date.now();
@@ -361,7 +370,9 @@ function openInventory(){
 }
 function openJournal(){
   const list=questList();
-  showModal('journal',`<section class="menu-panel journal-panel">${closeButton()}<h2>Судовой журнал</h2>${list.length?list.map(q=>{
+  const explored=quests.q_gomera_history,notes=GOMERA_NOTES.filter((_,i)=>explored?.status==='done'||explored?.sub?.includes(i));
+  const discoveries=notes.length?`<article class="journal-quest"><h3>Записки Гомеры</h3>${notes.map(n=>`<h4>${escape(n.label)}</h4><p>${escape(n.say)}</p>`).join('')}</article>`:'';
+  showModal('journal',`<section class="menu-panel journal-panel">${closeButton()}<h2>Судовой журнал</h2>${discoveries}${list.length?list.map(q=>{
     const def=QUESTS[q.id],progress=q.status==='done'?q.total:q.progress;
     return `<article class="journal-quest"><h3>${escape(q.title)} <small>${q.status==='done'?'Выполнено':q.shared?'Общее':q.optional?'Необязательно':''}</small></h3><ol>${(def?.steps||[{text:q.text}]).map((step,i)=>`<li class="${i<progress?'done':i===progress?'current':''}">${escape(step.text||'Задание')}${i===progress&&q.need?` <small>${q.count||0}/${q.need}</small>`:''}</li>`).join('')}</ol></article>`;
   }).join(''):'<p>В этой сцене заданий нет.</p>'}<small>J — закрыть</small></section>`);
@@ -495,7 +506,7 @@ function beginDialogueWait(){
 }
 function renderTrade(){
   if(!$('#trade')||!tradeState)return;
-  $('#trade').innerHTML=`<div class="trade-money">Кошель: ${tradeState.money} мараведи</div>${tradeState.goods.map(good=>`<form class="trade-row" data-trade="${escape(good.item)}"><label>${escape(ITEMS[good.item]?.name||good.item)} <small>${good.sold?'Куплено':`${good.price} м.`}</small></label>${good.sold?'':`<input aria-label="Цена: ${escape(ITEMS[good.item]?.name||good.item)}" type="number" min="1" max="10000" value="${good.price}"><button class="quiet-button">Предложить</button>`}</form>`).join('')}`;
+  $('#trade').innerHTML=`<div class="trade-money">Кошель: ${tradeState.money} мараведи · Куплено: ${tradeState.goods.filter(g=>g.sold).length}/${tradeState.goods.length}</div>${tradeState.goods.every(g=>g.sold)?'<p>Припасы собраны. Можно возвращаться к шлюпке.</p>':''}${tradeState.goods.map(good=>`<form class="trade-row" data-trade="${escape(good.item)}"><label><img src="${escape(picture(good.item))}" width="36" height="36" alt="" style="vertical-align:middle;margin-right:8px">${escape(ITEMS[good.item]?.name||good.item)} <small>${good.sold?'Куплено':`${good.price} м.`}</small></label>${good.sold?'':`<input aria-label="Цена: ${escape(ITEMS[good.item]?.name||good.item)}" type="number" min="1" max="10000" value="${good.price}"><button class="quiet-button">Предложить</button>`}</form>`).join('')}`;
   $('#trade').querySelectorAll('form').forEach(form=>form.onsubmit=event=>{event.preventDefault();if(sendNpc('trade',{npc:activeNpc,item:form.dataset.trade,offer:Number(form.querySelector('input').value)}))beginDialogueWait();});
   setDialogueBusy(waitingForReply);
 }

@@ -67,6 +67,10 @@
     { "id": "farm_barrel", "m": "barrel", "p": [313.6, 243.3] }
   ],
   "interact": [
+    {"id": "gomera_well_history", "m": "history_board", "p": [247, 292], "kind": "landmark", "label": "Вода для плавания", "say": "Перед переходом через океан команда пополняла на Гомере запасы воды и провизии."},
+    {"id": "gomera_yard_history", "m": "history_board", "p": [279, 316], "kind": "landmark", "label": "Верфь и паруса", "say": "На Канарах ремонтировали «Пинту», а на «Нинье» заменили латинские паруса прямыми."},
+    {"id": "gomera_market_history", "m": "history_board", "p": [263, 302], "kind": "landmark", "label": "Припасы в дорогу", "say": "Сухари, солонина и сыр долго хранились и входили в корабельные припасы."},
+
     { "id": "well", "m": "well", "p": [250, 290], "kind": "well", "label": "Колодец" },
     { "id": "boat", "m": "boat", "rel": "pier", "off": [2.45, 17], "y": 0.38, "kind": "boat", "label": "Шлюпка" },
     { "id": "barrel", "m": "barrel", "rel": "pier", "off": [-0.8, 19], "dy": 0.07, "kind": "item", "item": "barrel", "label": "Пустой бочонок" },

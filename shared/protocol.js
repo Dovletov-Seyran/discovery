@@ -53,6 +53,7 @@ export const S2C = {
   WORLD_PATCH: 'world_patch',
   WORLD_EVENT: 'world_event', // {type:'talk'|'eat'|'drink'|'run'|'swing'|'scare'|'dance'|'throw',who,p,zone,serverNow}
   ENTITY: 'entity',             // { id, state }
+  ISLAND_ACTIVITY: 'island_activity', // {status:'started'|'done'|'cancelled',kind?,label,duration?,startedAt?,serverNow?}
   VITALS: 'vitals',            // {stamina, drunkUntil, drunkStrength, serverNow}
   ITEM_USED: 'item_used',       // {item,effect,cooldownUntil,serverNow,vitals,uses?,money}
   INVENTORY: 'inventory',       // { items: [...] }

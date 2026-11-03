@@ -444,3 +444,5 @@ h1 .title-word { display: block; font-size: 26px; font-weight: 500; letter-spaci
 .modal-layer:has(.cards-panel),.modal-layer:has(.dance-panel){z-index:150;}
 .cards-panel .feast-actions{position:sticky;bottom:-22px;z-index:4;background:#172727;padding:10px 0 12px;box-shadow:0 -7px 14px #172727;}
 @media(max-width:700px){.cards-panel .feast-actions{bottom:-20px;}}
+
+.island-work{position:fixed;bottom:110px;left:24px;z-index:20;max-width:320px;padding:14px 18px;background:#101713ee;color:#eee4ce;border:1px solid #9b8c66;pointer-events:none}.island-work[hidden]{display:none}.island-work small{display:block;margin-top:6px}.island-work-track{height:5px;background:#514c3c;margin-top:10px;overflow:hidden}.island-work-track i{display:block;height:100%;background:#cbb778;transform-origin:left;animation:island-work-fill linear both}@keyframes island-work-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}

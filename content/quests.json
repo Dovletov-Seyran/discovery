@@ -1,4 +1,5 @@
 [
+  {"id": "q_gomera_history", "scene": "canary", "role": "all", "title": "Гомера перед отплытием", "optional": true, "steps": [{"type": "all_of", "text": "Необязательно: изучи три заметки у колодца, рынка и верфи", "of": [{"type": "interact", "target": "gomera_well_history"}, {"type": "interact", "target": "gomera_yard_history"}, {"type": "interact", "target": "gomera_market_history"}]}], "log": "gomera_explored"},
   {
     "id": "q_hourglass",
     "doneEn": "turned the sand glass at the stern and sang the prayer",
