@@ -18,4 +18,4 @@ export const EPILOGUE = epilogue;
 export const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 export const itemId = item => typeof item === 'string' ? item : item.id;
 
-export const GOMERA_NOTES=canary.interact.filter(x=>x.kind==='landmark');
+export const GOMERA_NOTES=canary.interact.filter(x=>x.id.startsWith('gomera_'));

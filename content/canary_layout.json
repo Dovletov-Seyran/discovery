@@ -67,6 +67,11 @@
     { "id": "farm_barrel", "m": "barrel", "p": [313.6, 243.3] }
   ],
   "interact": [
+    {"id": "harbor_manifest", "m": "history_board", "p": [259, 312], "kind": "landmark", "label": "Портовые сигналы", "say": "Помоги гавани подать сигнал готовности: низкий — высокий — средний — высокий. Три сигнальных бруска стоят рядом. Нажимай E на каждом."},
+    {"id": "harbor_low", "m": "signal_post", "p": [258, 315], "kind": "harbor_signal", "tone": "low", "label": "Низкий сигнал"},
+    {"id": "harbor_middle", "m": "signal_post", "p": [260, 315], "kind": "harbor_signal", "tone": "middle", "label": "Средний сигнал"},
+    {"id": "harbor_high", "m": "signal_post", "p": [262, 315], "kind": "harbor_signal", "tone": "high", "label": "Высокий сигнал"},
+
     {"id": "gomera_well_history", "m": "history_board", "p": [247, 292], "kind": "landmark", "label": "Вода для плавания", "say": "Перед переходом через океан команда пополняла на Гомере запасы воды и провизии."},
     {"id": "gomera_yard_history", "m": "history_board", "p": [279, 316], "kind": "landmark", "label": "Верфь и паруса", "say": "На Канарах ремонтировали «Пинту», а на «Нинье» заменили латинские паруса прямыми."},
     {"id": "gomera_market_history", "m": "history_board", "p": [263, 302], "kind": "landmark", "label": "Припасы в дорогу", "say": "Сухари, солонина и сыр долго хранились и входили в корабельные припасы."},

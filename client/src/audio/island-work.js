@@ -15,3 +15,10 @@ export function islandWorkSound(message){
   stop=()=>{try{source.stop();}catch{}source.disconnect();filter.disconnect();};source.onended=()=>{source.disconnect();filter.disconnect();};
  }catch{} // Audio availability never blocks work or quests.
 }
+
+export function harborTone(tone){
+ const Audio=globalThis.AudioContext??globalThis.webkitAudioContext;if(!Audio)return;
+ try{context??=new Audio();context.resume().catch(()=>{});const voice=context.createOscillator(),gain=context.createGain();
+ voice.type='sine';voice.frequency.value={low:330,middle:440,high:660}[tone]??440;gain.gain.setValueAtTime(.12,context.currentTime);gain.gain.exponentialRampToValueAtTime(.001,context.currentTime+.65);
+ voice.connect(gain);gain.connect(context.destination);voice.start();voice.stop(context.currentTime+.7);voice.onended=()=>{voice.disconnect();gain.disconnect();};}catch{}
+}

@@ -1,4 +1,4 @@
-import {islandWorkSound} from './audio/island-work.js';
+import {islandWorkSound,harborTone} from './audio/island-work.js';
 import {sceneShortcut} from './game/scene-shortcuts.js';
 import {STAMINA} from '../../shared/stamina.js';
 import './ui/style.css';
@@ -150,22 +150,25 @@ function connectionStatus(status){
   if(!connected&&modal==='dialogue')closeModal();
   syncInput();
 }
-function login(){
-  screen='login';$('#hud').hidden=true;$('#screen').innerHTML=loginView(preview);syncInput();
-  $('#login-form').onsubmit=event=>{event.preventDefault();authenticate(false);};
-  if($('#register'))$('#register').onclick=()=>authenticate(true);
+function login(register=false,name=''){
+  screen='login';$('#hud').hidden=true;$('#screen').innerHTML=loginView(preview,register);syncInput();
+  $('#login-name').value=name;
+  $('#login-form').onsubmit=event=>{event.preventDefault();authenticate(register);};
+  if($('#register'))$('#register').onclick=()=>login(!register,$('#login-name').value.trim());
 }
 async function authenticate(register){
   gameEvents.emit('audio_unlock',{});
   const name=$('#login-name').value.trim(), password=$('#login-password')?.value;
   if(name.length<3){$('#login-error').textContent='Имя — от 3 символов.';return;}
   if(!password||password.length<4){$('#login-error').textContent='Пароль — от 4 символов.';return;}
+  if(register&&password!==$('#register-confirm')?.value){$('#login-error').textContent='Пароли не совпадают.';return;}
   if(preview){connect(name);return;}
   const submit=$('#login-submit'),create=$('#register');submit.disabled=true;create.disabled=true;$('#login-error').textContent='';
   try{
     const response=await fetch(`/api/${register?'register':'login'}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({login:name,password})});
     const data=await response.json();
-    if(!response.ok||!data.token)throw new Error(response.status===401?'Неверное имя или пароль.':response.status===409?'Имя уже занято.':'Не удалось войти.');
+    if(!response.ok||!data.token)throw new Error(data.message||(response.status===401?'Неверное имя или пароль.':response.status===409?'Имя уже занято.':'Не удалось выполнить запрос.'));
+    if(register){login(false,name);$('#login-status').textContent='Аккаунт создан. Введите пароль и войдите.';$('#login-password').focus();return;}
     localStorage.setItem('discovery.token',data.token);connect(data.token);
   }catch(error){if($('#login-error'))$('#login-error').textContent=error instanceof TypeError?'Сервер недоступен.':error.message;}
   finally{submit.disabled=false;create.disabled=false;}
@@ -233,6 +236,7 @@ function bindNetwork(client){
   client.on('npc_thinking',message=>{if(matchesReply(message)){waitingForReply=true;$('#npc-text').textContent='Думает…';setDialogueBusy(true);}});
   client.on('npc_say',receiveDialogue);
   client.on('trade_state',message=>{tradeState=message;if(modal==='dialogue'&&activeNpc===message.npc)renderTrade();});
+  client.on('harbor_tone',message=>harborTone(message.tone));
   client.on('island_activity',message=>{
     islandWorkSound(message);
     let panel=document.getElementById('island-work');

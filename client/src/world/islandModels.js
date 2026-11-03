@@ -64,11 +64,37 @@ function windowOn(M, x, y, z, ry = 0, w = 0.8, h = 1.0) {
   return g;
 }
 
+// Reused primitives share the world's materials and are baked with the building.
+// The central aisle and front door are deliberately left clear.
+function furnishedRoom(M,w,d,store=false){
+ const obj=new THREE.Group(),col=[];
+ const box=(size,p,material,solid=true)=>{const g=boxGeo(...size,...p);obj.add(mesh(g,M.get(material)));if(solid)col.push(g.clone());};
+ const x=w/2-1.25,z=-d/2+1.1;
+ if(store){
+  for(const side of [-1,1])for(let k=0;k<3;k++)box([1,.7,1],[side*x,.5,z+k*1.25],'wood');
+ }else{
+  // Bed, folded cover and pillow along the right wall.
+  box([1.45,.45,2.0],[x,.38,z+.4],'trim');
+  box([1.38,.14,1.94],[x,.68,z+.4],'leather');
+  box([1.1,.12,.38],[x,.80,z-.28],'plaster',false);
+  // A table and stool on the left, away from the door swing.
+  box([1.55,.12,.9],[-x,1.0,z+.3],'wood',false);
+  for(const dx of [-.63,.63])for(const dz of [-.3,.3])box([.09,.8,.09],[-x+dx,.57,z+.3+dz],'trim',false);
+  col.push(boxGeo(1.55,.92,.9,-x,.61,z+.3));
+  box([.5,.5,.5],[-x,.4,z+1.55],'wood');
+  // Bowl, rolled cloth and wall shelf give the room a lived-in silhouette.
+  const bowl=new THREE.Mesh(new THREE.SphereGeometry(.14,12,8),M.get('wood'));bowl.scale.y=.45;bowl.position.set(-x+.3,1.11,z+.3);obj.add(bowl);
+  box([1.7,.09,.34],[0,1.65,-d/2+.3],'wood');
+  for(let k=0;k<4;k++)box([.17,.28,.22],[-.5+k*.25,1.83,-d/2+.3],k%2?'trim':'leather',false);
+ }
+ return {obj,col};
+}
 function house(M) {
   const w = 7, d = 5.5, h = 3.6, { g, top, walls } = gableHouse(M, w, d, h,{entry:{x:-.6,w:1.1,h:2.1}});
   g.add(door(M, -0.6, 0, d / 2 + 0.03));
   g.add(windowOn(M, 1.9, 1.7, d / 2 + 0.03), windowOn(M, -2.6, 1.7, d / 2 + 0.03), windowOn(M, 0.5, 1.7, -d / 2 - 0.03, Math.PI));
-  return { obj: g, col: [...walls,boxGeo(w,.15,d,0,h+.05,0)] };
+  const room=furnishedRoom(M,7,5.5,false);g.add(room.obj);
+  return { obj: g, col: [...room.col,...walls,boxGeo(w,.15,d,0,h+.05,0)] };
 }
 
 function governorHouse(M) {
@@ -87,7 +113,8 @@ function governorHouse(M) {
   for (const x of [-1.3, 1.3]) b.add(door(M, x, by + 0.07, fz, 0.9, 2.0));
   for (let i = 0; i < 4; i++) b.add(mesh(between(new V3(-bw / 2 + 0.6 + i * 1.4, by - 0.05, d / 2 + 0.05), new V3(-bw / 2 + 0.6 + i * 1.4, by - 0.6, d / 2 + 0.05), 0.07, 0.07, 6), M.get('trim')));
   g.add(b);
-  return { obj: g, col: [...walls,boxGeo(w,.15,d,0,h+.05,0)] };
+  const room=furnishedRoom(M,11,8,false);g.add(room.obj);
+  return { obj: g, col: [...room.col,...walls,boxGeo(w,.15,d,0,h+.05,0)] };
 }
 
 // Nave along z with the facade at +z, bell tower at the front corner.
@@ -116,7 +143,8 @@ function church(M) {
 function warehouse(M) {
   const w = 12, d = 7, h = 4.5, { g, top, walls } = gableHouse(M, w, d, h, { wall: 'stone', pitch: 0.38, entry:{w:2.6,h:3} });
   g.add(door(M, 0, 0, d / 2 + 0.03, 2.6, 3.0));
-  return { obj: g, col: [...walls,boxGeo(w,.15,d,0,h+.05,0)] };
+  const room=furnishedRoom(M,12,7,true);g.add(room.obj);
+  return { obj: g, col: [...room.col,...walls,boxGeo(w,.15,d,0,h+.05,0)] };
 }
 
 function marketStall(M, stocked = true) {
@@ -222,6 +250,10 @@ function tarBucket(M) {
 }
 
 export const ISLAND_MODELS = {
+  signal_post:M=>{
+    const obj=new THREE.Group(),col=[boxGeo(.35,1,.35,0,.5,0)];obj.add(mesh(col[0].clone(),M.get('wood')));
+    obj.add(mesh(boxGeo(.65,.18,.35,0,1.05,0),M.get('iron')));return {obj,col};
+  },
   history_board:M=>{
     const obj=new THREE.Group(),col=[boxGeo(.9,.65,.12,0,1.1,0),boxGeo(.1,1.1,.1,0,.55,0)];
     obj.add(mesh(col[0].clone(),M.get('wood')),mesh(col[1].clone(),M.get('trim')));

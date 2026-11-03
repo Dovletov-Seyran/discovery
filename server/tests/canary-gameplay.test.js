@@ -30,3 +30,13 @@ test('NPC scene schedules are objects, not presence arrays, and interaction must
  assert.equal(Array.isArray(entities.def('columbus').scenes),false);
  assert.doesNotThrow(()=>rules.interact(pilot,{id:'columbus'}));
 });
+
+test('harbor task is awarded by server-verified physical signal interactions, never an arbitrary completion id',()=>{
+ director.setScene('canary');const realNow=Date.now;let now=realNow();Date.now=()=>now;
+ try{
+  approach(sailor,'harbor_manifest');rules.interact(sailor,{id:'harbor_manifest'});
+  rules.interact(sailor,{id:'harbor_signals_complete'});assert.notEqual(sailor.quests.q_harbor_signals.status,'done');
+  for(const tone of ['low','high','middle','high']){now+=500;approach(sailor,'harbor_'+tone);rules.interact(sailor,{id:'harbor_'+tone});}
+  assert.equal(sailor.quests.q_harbor_signals.status,'done');players.save(sailor,{now:true});assert.equal(db.loadPlayer(sailor.id).trade.harbor_signal.done,true);
+ }finally{Date.now=realNow;}
+});

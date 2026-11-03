@@ -1,3 +1,4 @@
+import {strikeSignal} from '../../shared/harbor-signals.js';
 import {createIslandActivities} from './canary-activities.js';
 // Действия игрока в мире: подбор, взаимодействие, передача предметов, мини-игры, торговля, «Бу!», разговор с NPC.
 // Сервер решает всё сам; клиент присылает только намерения.
@@ -159,6 +160,18 @@ export function interact(p, msg) {
   if (id === 'cacique' && combat.offerPeace(p)) return;
   if (combat.refuses(p, id)) return notice(p, 'С тобой не хотят говорить. Помирись с касиком: принеси ему дар');
 
+  if(id==='harbor_manifest'){
+    p.trade??={};p.trade.harbor_signal??={step:0};players.save(p,{now:true});
+  }
+  if(d.kind==='harbor_signal'){
+    if(!p.trade?.harbor_signal)return notice(p,'Сначала прочитай порядок сигналов на стенде у дороги к причалу.');
+    const time=Date.now();if(time-(p.lastHarborTone??0)<350)return;p.lastHarborTone=time;
+    const result=strikeSignal(p.trade.harbor_signal,d.tone);p.trade.harbor_signal=result.state;players.save(p,{now:true});
+    players.send(p,{t:'harbor_tone',tone:d.tone});performAction(p,'toggle',null,{target:id});
+    if(result.done){event(p,{type:'interact',target:'harbor_signals_complete'});notice(p,'Сигнал готовности подан!');}
+    else notice(p,result.wrong?'Неверный сигнал. Попробуй снова: низкий — высокий — средний — высокий.':`Верно: ${result.state.step} из 4.`);
+    return;
+  }
   let gained = []; // предметы, которые игрок получил этим нажатием (→ события pickup / trade_complete)
   switch (d.kind) {
     case 'hourglass': {

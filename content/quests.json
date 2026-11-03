@@ -1,4 +1,5 @@
 [
+  {"id": "q_harbor_signals", "role": "all", "scene": "canary", "optional": true, "title": "Сигнал перед отплытием", "steps": [{"type": "interact", "target": "harbor_manifest", "text": "Прочитай порядок сигналов у дороги к причалу"}, {"type": "interact", "target": "harbor_signals_complete", "text": "Повтори на брусках: низкий — высокий — средний — высокий"}], "log": "harbor_signal_learned"},
   {"id": "q_gomera_history", "scene": "canary", "role": "all", "title": "Гомера перед отплытием", "optional": true, "steps": [{"type": "all_of", "text": "Необязательно: изучи три заметки у колодца, рынка и верфи", "of": [{"type": "interact", "target": "gomera_well_history"}, {"type": "interact", "target": "gomera_yard_history"}, {"type": "interact", "target": "gomera_market_history"}]}], "log": "gomera_explored"},
   {
     "id": "q_hourglass",
