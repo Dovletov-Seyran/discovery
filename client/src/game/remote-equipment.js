@@ -92,6 +92,7 @@ export class RemoteEquipment {
         right.ua.rotation.x=-.55-wave*1.2;right.fa.rotation.x=-.9-wave*.55;
         this.rig.head.rotation.x=-(action.kind==='drink'?.13:.05)*wave;break;
       case 'inspect':
+        if(action.guard){right.ua.rotation.set(-1.2,0,-.5);right.fa.rotation.x=-1.3;break;}
         right.ua.rotation.x=-.8-wave*.4;right.fa.rotation.x=-1;this.rig.head.rotation.x=wave*.18;break;
       case 'throw':
         right.ua.rotation.set(-.5-wave*2.1,0,-wave*.35);right.fa.rotation.x=-.2-wave*.35;this.rig.torso.rotation.y=-wave*.2;break;

@@ -77,7 +77,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
     ...options,
     send:(type,data)=>net?.send(type,data)??false,
     onTarget:target=>{
-      currentTarget=target;
+      currentTarget=target&&(target.distance<=CONFIG.INTERACT_DIST+.5||equipped==='espingarda'&&(target.kind==='npc'||target.kind==='warrior'))?target:null;target=currentTarget;
       $('#prompt').hidden=!target;
       $('#prompt').textContent=target?(target.speaker&&target.speaker.id!==you.id?`${target.label} · разговаривает с ${target.speaker.name}`:`E  ${target.label||'Взаимодействовать'}`):'';
       $('#crosshair').classList.toggle('active',!!target);
@@ -343,7 +343,7 @@ function closeModal(){feastUI?.closing(modal);endDialogue();clearTimeout(dialogu
 function closeButton(){return '<button class="close-button" data-close aria-label="Закрыть">×</button>';}
 function openKnowledge(id){
   const data=ITEMS[id]||{name:id,text:''};
-  showModal('knowledge',`<section class="menu-panel knowledge">${closeButton()}<span class="overline">ПРЕДМЕТ ПОЛУЧЕН</span><h2>${escape(data.name)}</h2>${data.text?`<p>${escape(data.text)}</p>`:''}<button class="primary" data-close>Продолжить</button></section>`);
+  showModal('knowledge',`<section class="menu-panel knowledge">${closeButton()}<span class="overline">${id==='treasure_map'?'КАРТА ТАЙНИКА':id==='medallion'?'НАХОДКА':'ПРЕДМЕТ ПОЛУЧЕН'}</span><h2>${escape(data.name)}</h2>${data.text?`<p>${escape(data.text)}</p>`:''}<button class="primary" data-close>Продолжить</button></section>`);
 }
 function picture(id){return pictures[id]||itemIcon(id);}
 function equipItem(id,{sync=true}={}){throwMode=false;pendingUnequip=null;equipped=id;equipment?.equip(id);renderEquipment();if(sync&&connected&&screen==='game')net?.send('equip',{item:id});}
@@ -375,8 +375,9 @@ function openInventory(){
 function openJournal(){
   const list=questList();
   const explored=quests.q_gomera_history,notes=GOMERA_NOTES.filter((_,i)=>explored?.status==='done'||explored?.sub?.includes(i));
+  const treasureEntry=quests.q_treasure?.status==='done'?`<article class="journal-quest"><h3>Письмо из тайника</h3><p>${escape(ITEMS.medallion.text)}</p></article>`:'';
   const discoveries=notes.length?`<article class="journal-quest"><h3>Записки Гомеры</h3>${notes.map(n=>`<h4>${escape(n.label)}</h4><p>${escape(n.say)}</p>`).join('')}</article>`:'';
-  showModal('journal',`<section class="menu-panel journal-panel">${closeButton()}<h2>Судовой журнал</h2>${discoveries}${list.length?list.map(q=>{
+  showModal('journal',`<section class="menu-panel journal-panel">${closeButton()}<h2>Судовой журнал</h2>${treasureEntry}${discoveries}${list.length?list.map(q=>{
     const def=QUESTS[q.id],progress=q.status==='done'?q.total:q.progress;
     return `<article class="journal-quest"><h3>${escape(q.title)} <small>${q.status==='done'?'Выполнено':q.shared?'Общее':q.optional?'Необязательно':''}</small></h3><ol>${(def?.steps||[{text:q.text}]).map((step,i)=>`<li class="${i<progress?'done':i===progress?'current':''}">${escape(step.text||'Задание')}${i===progress&&q.need?` <small>${q.count||0}/${q.need}</small>`:''}</li>`).join('')}</ol></article>`;
   }).join(''):'<p>В этой сцене заданий нет.</p>'}<small>J — закрыть</small></section>`);
@@ -404,6 +405,8 @@ function receiveItemUse(message){
   if(message.effect==='water')notify('Глоток воды.');
   if(message.effect==='shot'){equipment?.fire();playShot();notify('Выстрел · перезарядка 2,5 с');}
   if(message.effect==='map')openMap();
+  if(message.item==='medallion')openKnowledge('medallion');
+  if(message.effect==='treasure_map')openKnowledge('treasure_map');
   if(message.effect==='astrolabe')openAstrolabe();
   if(message.effect==='compass')notify('Север — 0°. Курс указан на приборе.');
   if(message.effect==='wallet')showModal('wallet',`<section class="menu-panel">${closeButton()}<h2>Кошель</h2><p>${message.money} мараведи</p><small>Припасы можно купить у торговца на Канарах.</small></section>`);
@@ -418,13 +421,19 @@ function openMap(){
 const TAINO_TARGETS=new Set(['cacique','elder','villager_1','villager_2','villager_3']);
 function attackTarget(){
   const t=currentTarget;
-  if(!t||scene.zone!=='guanahani'||!isPlay(scene)||!connected||modal||chatOpen)return null;
+  if(!t||!isPlay(scene)||!connected||modal||chatOpen)return null;
   if(t.kind==='duelist')return t.mine?t.id:null; // воин на батее: бить можно только своего соперника в поединке
+  if(t.kind==='npc'&&['sword','espingarda'].includes(equipped))return t.id;
   if(t.kind!=='warrior'&&!TAINO_TARGETS.has(t.id))return null;
   return document.pointerLockElement===canvas||equipped?t.id:null;
 }
 // Попадание по мне — красная вспышка; оглушили — затемнение, пока сервер переносит на берег
+let hitMarkerTimer;
 function onHit(message){
+  if(message.by===you.id){
+    $('#crosshair').classList.add('confirmed');clearTimeout(hitMarkerTimer);hitMarkerTimer=setTimeout(()=>$('#crosshair').classList.remove('confirmed'),180);
+    if(message.down)notify('Цель повержена.');
+  }
   if(message.target!==you.id)return;
   if(message.kind==='duel'){flashHurt(false);return;} // очко воину: только вспышка, здоровье не тратится
   flashHurt(message.down);
@@ -553,6 +562,7 @@ function closeChat(){chatOpen=false;$('#chat-form').hidden=true;syncInput();}
 function logout(){vitals=freshVitals();itemUses={};money=0;itemCooldowns.clear();sceneProgress=null;renderSceneProgress();closeModal();equipItem(null,{sync:false});narrative.stop();gameEvents.emit('logout',{});knownCards.clear();net?.disconnect();connected=false;scene={id:'lobby'};savedPosition=null;localStorage.removeItem('discovery.token');closeModal();closeChat();$('#chat-log').innerHTML='';$('#party').textContent='';login();}
 function interact(){
   if(!currentTarget||modal||!connected)return;
+  if(currentTarget.distance>CONFIG.INTERACT_DIST+.5){notify('Подойди ближе для взаимодействия.');return;}
   if(sceneProgress?.phase==='departing'){notify('Готовимся к переходу.');return;}
   const {id,kind}=currentTarget;
   if(kind==='npc'){openDialogue(id);net.send('interact',{id});return;}
@@ -597,6 +607,7 @@ window.addEventListener('keydown',event=>{
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
   if(event.code==='Escape'){event.preventDefault();if(modal&&modal!=='ended')closeModal();else if(chatOpen)closeChat();else if(!modal)openMenu();return;}
   if(typing)return;
+  if(event.code==='KeyQ'&&!event.repeat&&!modal&&!chatOpen&&equipped==='macana'){event.preventDefault();net.send('duel_guard',{});equipment?.guard?.();return;}
   if(event.code==='F3'){event.preventDefault();$('#debug').hidden=!$('#debug').hidden;if(!runtime)$('#debug').textContent='Мир не подключён';return;}
   if(event.code==='Tab'){event.preventDefault();if(modal==='inventory')closeModal();else if(!modal)openInventory();return;}
   if(event.code==='KeyJ'&&!event.repeat){event.preventDefault();if(modal==='journal')closeModal();else if(!modal)openJournal();return;}

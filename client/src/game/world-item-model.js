@@ -11,7 +11,7 @@ export function worldItemModel(M,item,model){
  if(!make)return null;
  const built=make(M);built.col?.forEach(g=>g.dispose());
  const content=built.obj;
- if(item==='sword')content.rotation.x=Math.PI/2;
+ if(item==='sword'||item==='shovel'||item==='medallion')content.rotation.x=Math.PI/2;
  let box=new THREE.Box3().setFromObject(content),size=box.getSize(new THREE.Vector3());
  if(['espingarda','planks'].includes(item)){
   if(size.y>size.z&&size.y>size.x)content.rotation.x=Math.PI/2;

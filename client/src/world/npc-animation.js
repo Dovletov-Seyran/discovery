@@ -78,6 +78,7 @@ export function giveChart(npc, chart) {
 
 const GLANCE_DIST = 3.5, _glance = new THREE.Vector3();
 export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', chartTaken = false, viewer = null) {
+  if(npc.userData.downUntil>seconds*1000)return;
   const { rig, definition, motion } = npc.userData;
   if (!rig || !motion) return;
   const state = npcActivity(definition, seconds, scene, npc.userData.paused, npc.userData.behavior);
@@ -247,6 +248,7 @@ export function animateNpc(npc, dt, seconds, night = false, scene = 'ship_day', 
   }
   motion.initialized = true;
   if(ownChart)alignChartToHands(npc);
+  if(npc.userData.panicUntil>seconds*1000){rig.torso.rotation.x=.25;rig.head.rotation.x=.25;for(const arm of rig.arms){arm.ua.rotation.x=-2.0;arm.fa.rotation.x=-1.3;}if(npc.userData.chart)npc.userData.chart.visible=false;}
 }
 
 // Follow the final blended hand pose. Keep the parchment in front of the knuckles,

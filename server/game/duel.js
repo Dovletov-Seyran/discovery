@@ -21,7 +21,7 @@ export const D = {
 };
 export const DUELISTS = [
   { id: 'duelist_young', name: 'Юный воин', log: 'duel_young', home: [160.5, 255], r: -Math.PI / 2, windup: 850, recover: 1100, speed: 2.4, think: [900, 1800], feint: 0 },
-  { id: 'duelist_veteran', name: 'Опытный воин', log: 'duel_veteran', home: [175.5, 255], r: Math.PI / 2, windup: 600, recover: 750, speed: 3.1, think: [500, 1200], feint: 0.3 },
+  { id: 'duelist_veteran', name: 'Опытный воин', log: 'duel_veteran', home: [175.5, 255], r: Math.PI / 2, windup: 560, recover: 680, speed: 3.5, think: [400, 1000], feint: 0.3 },
 ];
 
 let rnd = Math.random;
@@ -77,12 +77,13 @@ export function attack(p, id, now = Date.now()) {
   const d = duels.get(id);
   if (!d) return false;
   if (d.player !== p.id) return notice(p, 'Вызови воина на поединок: подойди и нажми E'), false;
+  if(heldItem(p)!==WEAPON)return notice(p,'Поединок ведётся на маках. Возьми тренировочную палицу.'),false;
   if (d.state === 'ready' || now - (p.lastDuelAttackAt ?? 0) < D.ATTACK_MS) return false;
   p.lastDuelAttackAt = now;
   performAction(p, 'swing', heldItem(p));
   if (flat(p.p, d.p) > D.REACH + D.LAG) return false; // промах: взмах в воздух
   // засчитывается: сбил замах, ударил, пока он открыт после своего удара, или сбоку / сзади
-  const open = d.state === 'windup' || d.state === 'recover', flank = Math.abs(bearing(d, p.p)) > D.FLANK;
+  const open = d.state === 'recover' || d.state === 'windup'&&(d.def.id!=='duelist_veteran'||!d.feinting&&now-d.t>d.def.windup*.55), flank = Math.abs(bearing(d, p.p)) > D.FLANK;
   if (d.state === 'stagger') return false;
   if (open || flank) {
     d.score[0]++; d.blocks = 0;
@@ -137,6 +138,7 @@ function fight(d, p, now) {
       if (d.feinting && now - d.t >= def.windup * 0.5) { d.feinting = false; setState(d, 'circle', now); d.nextMove = now + 350; return; }
       if (now - d.t < def.windup) return;
       setState(d, 'strike', now);
+      if(now<(p.duelGuardUntil??0)&&dist<=D.STRIKE_R){setState(d,'recover',now);toZone({t:S2C.HIT,by:p.id,target:d.def.id,kind:'duel',blocked:true,score:[...d.score]});return;}
       if (dist <= D.STRIKE_R && Math.abs(bearing(d, p.p)) < 1.0) {
         d.score[1]++;
         toZone({ t: S2C.HIT, by: def.id, target: p.id, kind: 'duel', score: [...d.score] });
@@ -147,7 +149,7 @@ function fight(d, p, now) {
       if (now - d.t >= D.STRIKE_MS) setState(d, 'recover', now);
       return;
     case 'recover':
-      if (now - d.t >= def.recover) { setState(d, 'circle', now); d.nextMove = now + think(def); }
+      if(now-d.t>=def.recover){if(def.id==='duelist_veteran'&&dist<D.CLOSE+.3&&rnd()<.35){startWindup(d,now);}else{setState(d,'circle',now);d.nextMove=now+think(def);}}
       return;
     case 'block':
       face(d, p.p);
@@ -247,4 +249,9 @@ function broadcast(now, force) {
   if (!force) return;
   sentAt = now; shown = true;
   toZone(state(now));
+}
+
+export function guard(p,now=Date.now()){
+ const d=duelOf(p);if(!d||!active()||heldItem(p)!==WEAPON||now-(p.lastDuelGuardAt??0)<1000)return false;
+ p.lastDuelGuardAt=now;p.duelGuardUntil=now+350;performAction(p,'inspect',WEAPON,{guard:true});return true;
 }

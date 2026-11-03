@@ -53,13 +53,13 @@ export function register(data) {
 }
 export function remove(id){if(staticIds.has(id))return false;defs.delete(id);delete objects[id];dirty=true;return true;}
 
-export const stateOf = (id) => objects[id];
+export const stateOf = (id) => objects[id]??defs.get(id)?.state;
 export const shared = () => sharedQuests;
 export const ownedItemIds = (holder, items) => [...defs.values()].filter(d=>d.kind==='item'&&objects[d.id]?.holder===holder
   && (items.includes(d.item)||(d.item==='barrel'&&items.includes('barrel_full')))).map(d=>d.id);
 
 export function setState(id, patch) {
-  objects[id] = { ...objects[id], ...patch };
+  objects[id] = { ...defs.get(id)?.state, ...objects[id], ...patch };
   dirty = true;
   return objects[id];
 }

@@ -28,6 +28,7 @@ export const C2S = {
   SCARE: 'scare',           // { target }
   PING: 'ping',             // { ts } — раз в 2 с; сервер сразу отвечает pong, клиент считает задержку
   CLIENT_STATS: 'client_stats', // { fps, ping, calls, chunks, pct, mem } — раз в 2 с, для админки
+  DUEL_GUARD: 'duel_guard', // timed training parry
   ATTACK: 'attack',         // { target } — удар по таино или воину на Гуанахани (docs/tz-combat.md)
 };
 

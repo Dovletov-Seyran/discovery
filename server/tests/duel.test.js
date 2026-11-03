@@ -109,3 +109,11 @@ test('leaving the batey loses the bout; a scene change or a village alarm stops 
  assert.equal(duel.attack(stranger,young.id,director.startAt()+5000),false);
  assert.equal(combat.level(),'calm','hitting a sparring warrior outside a bout is not an offence');
 });
+
+test('a timed Q guard deflects a strike, has a cooldown and requires the training weapon',()=>{
+ const {p,now}=start('parry-fixture');const time=until(now,()=>me(young.id).state==='windup');
+ const raw=duel.duelOf(p);const hitAt=raw.t+young.windup;
+ assert.equal(duel.guard(p,hitAt-200),true);assert.equal(duel.guard(p,hitAt-100),false);
+ duel.tick(hitAt);assert.deepEqual(raw.score,[0,0]);assert.equal(raw.state,'recover');
+ p.equipped='espingarda';assert.equal(duel.attack(p,young.id,hitAt+700),false);
+});

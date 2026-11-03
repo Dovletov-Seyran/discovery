@@ -1,6 +1,7 @@
 import {STAMINA} from './stamina.js';
 // Every inventory item has an explicit action. Quantities/effects are decided by the server.
 export const ITEM_RULES={
+ treasure_map:{effect:'treasure_map',cooldown:500},shovel:{effect:'dig',cooldown:1000},medallion:{effect:'cup',cooldown:500},
  cup:{effect:'cup',cooldown:500},
  compass:{effect:'compass',cooldown:400},map:{effect:'map',cooldown:400},astrolabe:{effect:'astrolabe',cooldown:400},
  wine:{effect:'drink',cooldown:1200,servings:3,drunkMs:10000,strength:.35},

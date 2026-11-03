@@ -15,7 +15,7 @@ let ship=null;
 const cache=new Map(),templates=new Map();
 const clean=obj=>obj?.traverse(o=>o.geometry?.dispose());
 function geometryFor(o){
-  if(o.kind==='item')return []; // picked/rolling items must not leave a fixed invisible obstacle
+  if(o.kind==='item'||o.kind==='treasure_chest')return []; // picked/rolling items must not leave a fixed invisible obstacle
   if(!templates.has(o.m)){
     const make=ISLAND_MODELS[o.m]??MODELS[o.m]??VEGETATION[o.m];
     if(typeof make!=='function'){templates.set(o.m,[]);return [];}
@@ -32,10 +32,10 @@ export function shipCollision(){
   for(const o of [...layout.objects??[],...layout.interact??[]])col.push(...geometryFor(o));
   ship=new Collider(col);col.forEach(g=>g.dispose());return ship;
 }
-function islandCollision(cx,cz){
-  const key=`${cx},${cz}`;
+function islandCollision(zone,cx,cz){
+  const key=`${zone}:${cx},${cz}`;
   if(cache.has(key)){const c=cache.get(key);cache.delete(key);cache.set(key,c);return c;}
-  const data=getChunk('canary',cx,cz);if(!data)return null;
+  const data=getChunk(zone,cx,cz);if(!data)return null;
   const terrain=new THREE.PlaneGeometry(32,32,32,32);terrain.rotateX(-Math.PI/2);
   const p=terrain.attributes.position;
   for(let i=0;i<p.count;i++)p.setXYZ(i,cx*32+i%33,data.h[i],cz*32+Math.floor(i/33));
@@ -48,7 +48,7 @@ function islandCollision(cx,cz){
 export function objectColliders(zone,p){
   if(zone==='ship')return [shipCollision()];
   const cx=Math.floor(p[0]/32),cz=Math.floor(p[2]/32),list=[];
-  for(let z=cz-1;z<=cz+1;z++)for(let x=cx-1;x<=cx+1;x++){const c=islandCollision(x,z);if(c)list.push(c);}
+  for(let z=cz-1;z<=cz+1;z++)for(let x=cx-1;x<=cx+1;x++){const c=islandCollision(zone,x,z);if(c)list.push(c);}
   return list;
 }
 export function contactAt(zone,p,radius,from=p){

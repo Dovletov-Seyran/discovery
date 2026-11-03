@@ -24,5 +24,11 @@ export function espingarda(){
  add('ramrod',new THREE.CylinderGeometry(.006,.006,.83,8),grain,[0,.62,.055]);
  add('butt-plate',new THREE.BoxGeometry(.087,.025,.21),brass,[0,-.38,-.025],[.12,0,0]);
  for(const y of [-.26,-.21,-.16])add('stock-carving',new THREE.BoxGeometry(.003,.008,.08),grain,[.047,y,-.005],[.15,0,0]);
+ // Rear notch, front sight, pan cover and a coiled slow match make the lock readable.
+ add('rear-sight',new THREE.BoxGeometry(.045,.018,.055),edge,[0,.30,-.035]);
+ add('front-sight',new THREE.BoxGeometry(.012,.025,.018),edge,[0,1.12,-.04]);
+ add('pan-cover',new THREE.BoxGeometry(.046,.008,.039),steel,[.059,.255,-.025],[0,0,.15]);
+ add('match-coil',new THREE.TorusGeometry(.035,.004,5,16,Math.PI*1.8),cord,[.075,.08,-.045],[0,Math.PI/2,0]);
+ for(const y of [.4,.65,.98])for(const sign of [-1,1])add('band-pin',new THREE.SphereGeometry(.005,6,4),edge,[sign*.04,y,0]);
  return {obj:root};
 }

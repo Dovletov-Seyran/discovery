@@ -1,3 +1,5 @@
+import {sword as forgedSword} from '../game/held-models.js';
+import {shovel,medallion,digSite} from './treasure-models.js';
 import * as THREE from 'three';
 import { V3, mesh, cylGeo, lenUV, boxGeo, lathe, bake } from './geom.js';
 import { person, pose, guitarist, NPC_LOOK } from './people.js';
@@ -131,6 +133,19 @@ function chest(M,w,h,d,arched){
 }
 
 export const MODELS = {
+  shovel,medallion,dig_site:digSite,
+  treasure_chest:M=>{
+    const built=chest(M,.95,.45,.55,true),contents=new THREE.Group();contents.userData.noBake=true;
+    const coin=medallion(M).obj;coin.rotation.x=-Math.PI/2;coin.position.set(.16,.07,.06);contents.add(coin);
+    const paper=new THREE.PlaneGeometry(.28,.17);paper.rotateX(-Math.PI/2);paper.translate(-.12,.061,.03);
+    contents.add(mesh(paper,M.canvas('treasure-letter',256,(ctx,n)=>{ctx.fillStyle='#dcc89e';ctx.fillRect(0,0,n,n);ctx.fillStyle='#59412a';for(let i=0;i<8;i++)ctx.fillRect(n*.1,n*(.12+i*.09),n*(i%2?.68:.79),2);})));built.obj.add(contents);
+    built.obj.userData.setLooted=v=>contents.visible=!v;return built;
+  },
+  treasure_map:M=>MODELS.map({get:n=>M.get(n),canvas:(key,size,draw,options)=>M.canvas('treasure-map',512,(ctx,n)=>{
+    ctx.fillStyle='#d5bc83';ctx.fillRect(0,0,n,n);ctx.strokeStyle='#503723';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(n*.2,n*.9);ctx.lineTo(n*.2,n*.2);ctx.lineTo(n*.7,n*.2);ctx.stroke();
+    ctx.font=`${n*.055}px serif`;ctx.fillStyle='#382a1b';ctx.fillText('N ↑',n*.75,n*.13);ctx.fillText('Колодец',n*.58,n*.25);ctx.fillText('Дома',n*.36,n*.43);ctx.fillText('Пальма',n*.12,n*.65);
+    ctx.strokeStyle='#8e3024';ctx.beginPath();ctx.moveTo(n*.19,n*.68);ctx.lineTo(n*.29,n*.78);ctx.moveTo(n*.29,n*.68);ctx.lineTo(n*.19,n*.78);ctx.stroke();ctx.fillText('На запад от колодца',n*.18,n*.9);
+  },options)}),
   cup: M=>{
     const obj=new THREE.Group();
     obj.add(mesh(lathe([[.06,0],[.075,.02],[.085,.18],[.073,.18],[.064,.03],[0,.03]],16),M.get('wood')));
@@ -263,13 +278,10 @@ export const MODELS = {
     g.add(a);
     return { obj: g };
   },
-  sword: (M) => {
-    const g = new THREE.Group();
-    g.add(mesh(boxGeo(0.82, 0.006, 0.04, 0.3, 0.012, 0), M.get('steel')));
-    g.add(mesh(boxGeo(0.025, 0.02, 0.2, -0.12, 0.015, 0), M.get('iron')));
-    g.add(mesh(cylGeo(0.016, 0.018, 0.14, 8).rotateZ(Math.PI / 2).translate(-0.2, 0.018, 0), M.get('leather')));
-    g.add(mesh(new THREE.SphereGeometry(0.025, 10, 8).translate(-0.29, 0.02, 0), M.get('brass')));
-    return { obj: g };
+  sword:()=>{
+    const model=forgedSword().obj;model.rotation.set(Math.PI/2,0,-Math.PI/2);
+    const box=new THREE.Box3().setFromObject(model);model.position.y-=box.min.y;
+    const obj=new THREE.Group();obj.add(model);return {obj};
   },
   wine: (M) => {
     const g = new THREE.Group(), bag = new THREE.SphereGeometry(0.15, 16, 12);
@@ -320,6 +332,7 @@ export function applyState(obj, state = {}) {
     obj.userData.turnSpan=(state.duration??((state.startedAt!==undefined)?state.emptyAt-state.startedAt:obj.userData.period*1000))||60000;
     obj.userData.flipAt=state.turnedBy?state.startedAt:null;
   }
+  if('looted' in state)obj.userData.setLooted?.(state.looted);
   if('open' in state){obj.userData.openTarget=state.open?1:0;obj.userData.changedAt=state.changedAt??0;}
 }
 
@@ -361,9 +374,9 @@ export function buildInteract(M, item, models = MODELS) {
   obj.traverse((o) => { if (o.userData.lamp) lamps.push(o); });
   bake(obj);
   obj.userData = { ...obj.userData, id: item.id, kind: item.kind, item: item.item, label: item.label, period: item.period, noBake: true };
-  if(item.m==='nav_chest'||item.m==='arms_chest')obj.userData.lidDef={...item,toggleType:'lid',zone:'ship'};
+  if(item.m==='nav_chest'||item.m==='arms_chest'||item.m==='treasure_chest')obj.userData.lidDef={...item,toggleType:'lid',zone:'ship'};
   if (item.state) applyState(obj, item.state);
-  return { obj, col: item.kind==='item'?[]:col ? colliderFor(col, item) : [], lamps };
+  return { obj, col: item.kind==='item'||item.kind==='treasure_chest'?[]:col ? colliderFor(col, item) : [], lamps };
 }
 
 export function buildNpc(M, n, animated = false) {

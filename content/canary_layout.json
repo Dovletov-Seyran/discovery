@@ -21,6 +21,7 @@
     { "points": [[257, 262], [266, 250], [270, 238], [265, 220], [258, 202]], "width": 2 }
   ],
   "objects": [
+    {"id":"treasure_palm","m":"palm","p":[218,304]},
     { "id": "pier", "m": "pier", "p": [256, 322], "shore": { "deck": 1.3, "from": 322 } },
     { "id": "church", "m": "church", "p": [256, 252], "r": 0 },
     { "id": "governor_house", "m": "house_governor", "p": [232, 258], "r": 0.3 },
@@ -67,6 +68,11 @@
     { "id": "farm_barrel", "m": "barrel", "p": [313.6, 243.3] }
   ],
   "interact": [
+    {"id": "treasure_map", "m": "treasure_map", "p": [232.65, 4.061, 298.25], "r": 1.57, "kind": "item", "item": "treasure_map", "label": "Карта тайника"},
+    {"id": "shovel", "m": "shovel", "p": [302, 3.15, 300], "kind": "item", "item": "shovel", "label": "Лопата"},
+    {"id": "treasure_site", "m": "dig_site", "p": [220, 306], "kind": "treasure_site", "label": "Земля у корня пальмы"},
+    {"id": "treasure_chest", "m": "treasure_chest", "p": [220, 306], "r": 0.5, "kind": "treasure_chest", "toggleType": "lid", "label": "Откопанный сундук", "state": {"visible": false}},
+
     {"id": "harbor_manifest", "m": "history_board", "p": [259, 312], "kind": "landmark", "label": "Портовые сигналы", "say": "Помоги гавани подать сигнал готовности: низкий — высокий — средний — высокий. Три сигнальных бруска стоят рядом. Нажимай E на каждом."},
     {"id": "harbor_low", "m": "signal_post", "p": [258, 315], "kind": "harbor_signal", "tone": "low", "label": "Низкий сигнал"},
     {"id": "harbor_middle", "m": "signal_post", "p": [260, 315], "kind": "harbor_signal", "tone": "middle", "label": "Средний сигнал"},

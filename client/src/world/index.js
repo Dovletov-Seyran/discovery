@@ -177,6 +177,7 @@ export const world = {
     if (!o) return;
     if ('visible' in state) { o.userData.held = !state.visible; o.visible = state.visible && !o.userData.offScene; }
     for (const field of ['paused','speaker','behavior','performance']) if (field in state) o.userData[field] = state[field];
+    if ('panicUntil' in state) o.userData.panicUntil=state.panicUntil;
     if ('down' in state) o.userData.downUntil = state.down; // житель таино лежит после ударов до этого времени (сервера)
     if ('fill' in state) o.userData.setFill?.(state.fill);
   },
@@ -246,8 +247,9 @@ export const world = {
   // Жители острова после трёх ударов лежат навзничь, потом встают (статичные фигуры — наклоном целиком)
   updateDowned() {
     const now = Date.now() + this.npcClockOffset;
-    for (const o of this.island?.interactables ?? []) {
+    for (const o of [...this.shipInteractables??[],...this.island?.interactables??[]]) {
       const u = o.userData;
+      if(u.kind==='npc'&&!u.lying)o.rotation.z=(u.panicUntil>now?Math.sin(now*.014)*.035:0);
       if (u.kind !== 'npc' || (!u.downUntil && !u.lying)) continue;
       const lying = u.downUntil > now;
       if (lying === !!u.lying) continue;

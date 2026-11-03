@@ -6,7 +6,7 @@ const TIPS = {
   circle: 'Жди его замаха — спереди он отобьёт',
   windup: 'Замах! Отступи — или успей ударить первым',
   strike: 'Удар!',
-  recover: 'Он открыт — бей!',
+  recover: 'Он открыт — бей! Q — блок ответного удара',
   block: 'Отбил. Бей на замахе, после его удара или сбоку',
   stagger: 'Попал!',
 };
@@ -24,7 +24,7 @@ export function duelView(message, me, serverNow = Date.now()) {
   }
   if (d.state === 'ready') {
     const left = Math.max(1, Math.ceil((d.startsAt - serverNow) / 1000));
-    return { tone: 'ready', html: `<p class="duel-title">Поединок · ${esc(d.name)}</p>${score}<p class="duel-count">${d.startsAt > serverNow ? left : 'Бой!'}</p><p class="duel-tip">ЛКМ — удар · до трёх очков · не выходи с батея</p>` };
+    return { tone: 'ready', html: `<p class="duel-title">Поединок · ${esc(d.name)}</p>${score}<p class="duel-count">${d.startsAt > serverNow ? left : 'Бой!'}</p><p class="duel-tip">ЛКМ — удар · Q — короткий блок · до трёх очков · не выходи с батея</p>` };
   }
   const tip = TIPS[d.state];
   return { tone: d.state === 'windup' ? 'danger' : d.state === 'recover' ? 'chance' : 'fight', html: `${score}${tip ? `<p class="duel-tip">${tip}</p>` : ''}` };

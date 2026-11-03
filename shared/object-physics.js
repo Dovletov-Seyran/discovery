@@ -5,6 +5,7 @@ export const PHYSICS_MAX_SECONDS = 8;
 export const OBJECT_LIMIT = 96;
 // Half-extents of the actual centred pickup model, not a bounding sphere used as a floor offset.
 export const OBJECT_PROFILES = {
+ treasure_map:{radius:.5,half:[.48,.025,.32],bounce:0,friction:15},shovel:{radius:.6,half:[.12,.03,.60],bounce:.02},medallion:{radius:.07,half:[.065,.012,.065],bounce:.04},
  compass:{radius:.18,half:[.15,.025,.15]},map:{radius:.5,half:[.48,.025,.32],bounce:0,friction:15},
  astrolabe:{radius:.12,half:[.12,.025,.12]},sword:{radius:.6,half:[.13,.018,.60],bounce:.02},
  espingarda:{radius:.65,half:[.09,.06,.65],bounce:.03},wine:{radius:.17,half:[.10,.17,.10],bounce:.07},
