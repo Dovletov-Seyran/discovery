@@ -13,7 +13,7 @@ import * as entities from './entities.js';
 import * as quests from './quests.js';
 import {equip} from './player-actions.js';
 import {presentation} from '../../shared/player-presentation.js';
-import {place,throwItem,toggle,syncWorld,tickObjects} from './objects.js';
+import {place,restore,throwItem,toggle,syncWorld,tickObjects} from './objects.js';
 import * as rules from './rules.js';
 import * as feast from './feast.js';
 import * as worldState from './world-state.js';
@@ -182,8 +182,9 @@ function onMove(p, msg) {
   players.save(p);
 }
 
-// Ниже этой высоты игрок «утонул»: море у корабля на -2,25 м (WATER_Y Фронта 1), у острова — на 0
-const FALL_Y = { ship: -3, canary: -2.5, guanahani: -2.5 };
+// Ниже этой высоты игрок «утонул»: море у корабля на -2,25 м (WATER_Y Фронта 1), у острова — на 0.
+// На корабле пол трюма на -2,6 м, киль на -3,2 — граница ниже них
+const FALL_Y = { ship: -3.6, canary: -2.5, guanahani: -2.5 };
 
 function onInteract(p, msg) {
   const id = typeof msg.id === 'string' ? msg.id : '';
@@ -233,6 +234,7 @@ const handlers = {
   [C2S.USE]: rules.use,
   [C2S.EQUIP]: equip,
   [C2S.PLACE]: place,
+  [C2S.RESTORE]: restore,
   [C2S.THROW]: throwItem,
   [C2S.TOGGLE]: toggle,
   [C2S.MINIGAME]: rules.minigame,

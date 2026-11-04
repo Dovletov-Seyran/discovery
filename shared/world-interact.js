@@ -9,7 +9,7 @@ export function doorSpecs(model) {
 }
 export function layoutToggles(layout,zone){
   return (layout.objects??[]).flatMap(o=>{
-    if(o.m==='nav_chest'||o.m==='arms_chest')return [{...o,zone,kind:'toggle',label:'Сундук',toggleType:'lid'}];
+    if(chestSpec(o.m))return [{...o,zone,kind:'toggle',label:o.label??'Сундук',toggleType:'lid'}];
     return doorSpecs(o.m).map((spec,i)=>{
       const [x,y,z]=spec.p,r=o.r??0,s=o.s??1;
       return {id:`${o.id}:door:${i}`,zone,kind:'toggle',toggleType:'door',label:'Дверь',
@@ -27,7 +27,12 @@ export function doorBox(d,open=false){
 export function chestSpec(model){
  if(model==='nav_chest')return {w:.95,h:.45,d:.55,arched:true};
  if(model==='arms_chest')return {w:1.3,h:.5,d:.5,arched:false};
+ if(model==='sea_chest')return {w:.8,h:.45,d:.5,arched:false};
  return null;
+}
+// The chest a layout item lies in (notes): its lid has to be open to reach it.
+export function chestAround(defs,p){
+ return defs.find(d=>chestSpec(d.m)&&Math.hypot(p[0]-d.p[0],p[2]-d.p[2])<.05&&p[1]>d.p[1]&&p[1]-d.p[1]<.2)??null;
 }
 function toLocal(v,box){
  const c=Math.cos(box.r??0),s=Math.sin(box.r??0),a=box.rx??0,ca=Math.cos(a),sa=Math.sin(a);

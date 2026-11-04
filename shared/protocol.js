@@ -10,6 +10,7 @@ export const C2S = {
   INTERACT: 'interact',     // { id }  — в лобби id: 'role:piloto'
   PICKUP: 'pickup',         // { id }
   PLACE: 'place',           // {item, p, r} — sphere centre at a surface under the crosshair
+  RESTORE: 'restore',       // {item, id} — put an item back on its own empty spot of the layout (rack, hook, chest)
   THROW: 'throw',           // {item, p, v, r?} — validated launch; server supplies id and startedAt
   TOGGLE: 'toggle',         // {id} — doors and chest lids
   EQUIP: 'equip',           // {item: itemId|null} — server validates ownership

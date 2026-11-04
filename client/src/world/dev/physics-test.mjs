@@ -6,7 +6,7 @@
 // and walks that must succeed (beach → pier → its end, plaza → every building's door).
 import * as THREE from 'three';
 import { readFileSync } from 'node:fs';
-import { buildShip } from '../ship.js';
+import { buildShip, HOLD, HOLD_LADDER, CABIN } from '../ship.js';
 import { buildLayout } from '../props.js';
 import { Collider } from '../collision.js';
 import { Island } from '../island.js';
@@ -82,10 +82,11 @@ function stuckAt(collide, p) {
 function jumpAgainst(collide, p, dir) {
   const pl = new Player(collide, p).settle();
   for (let f = 0; f < 60 || (!pl.onGround && f < 120); f++) pl.step(dir, { run: false }); // walked off a keg: land first
-  const y0 = pl.pos.y;
+  const y0 = pl.pos.y, at = pl.pos.toArray();
   let apex = y0;
   for (let f = 0; f < 40; f++) { pl.step(dir, { run: false, jump: f === 0 }); apex = Math.max(apex, pl.pos.y); }
-  return apex - y0;
+  // walked off an edge (into the hatch) instead of pressing against something: nothing to check
+  return { h: pl.pos.y < y0 - 0.3 ? Infinity : apex - y0, at };
 }
 
 let failures = 0;
@@ -97,15 +98,24 @@ if (!only || only === 'ship') {
   const ship = buildShip(M), built = buildLayout(M, layout);
   const col = new Collider([...ship.collider, ...built.col]);
   const collide = (c) => col.collide(c);
-  // every spot a player can stand on inside the bulwarks: decks and the tops of props, every 0.6 m
-  // not behind the castle bulkheads (z −7.6 and 4.9): the main deck runs on under the castles, closed off
-  const behindBulkhead = (y, z) => y < 1.4 && (z < -7.55 || z > 4.85);
+  // free height above a spot: under the decks (the hold, the cabins) a jump is only as high as the ceiling
+  const up = new THREE.Vector3(0, 1, 0);
+  const headroom = (x, y, z) => col.bvh.raycastFirst(new THREE.Ray(new THREE.Vector3(x, y + 0.05, z), up), THREE.DoubleSide)?.distance ?? Infinity;
+  // the lowest ceiling over the whole capsule (under the sloping hold ladder it is lower at the front)
+  const R2 = RADIUS + 0.05;
+  const headroomAround = (x, y, z) => Math.min(...[[0, 0], [R2, 0], [-R2, 0], [0, R2], [0, -R2]].map(([dx, dz]) => headroom(x + dx, y, z + dz)));
+  // every spot a player can stand on inside the bulwarks: decks, the hold, the cabins and the tops of props,
+  // every 0.6 m; not under the forecastle (z < −7.6), its bulkhead has no door
+  const behindBulkhead = (y, z) => y < 1.4 && y > -0.5 && z < -7.55;
+  // in the game a closed lid covers a chest; here the hollow body has no lid
+  const chests = layout.objects.filter((o) => o.m.endsWith('_chest'));
+  const inChest = (x, y, z) => chests.some((c) => Math.hypot(x - c.p[0], z - c.p[2]) < 0.7 && y < c.p[1] + 0.5);
   const inside = (x, y, z) => z > L0 + 0.5 && z < L1 - 0.2 && y < topY(z) + 1.2 && !behindBulkhead(y, z) && Math.abs(x) < xAtY(z, Math.min(y + 0.3, topY(z))) - 0.35;
   const starts = [];
   for (let x = -3.6; x <= 3.6; x += 0.6) for (let z = -11.4; z <= 10.8; z += 0.6) {
-    for (const fromY of [8, 2.6, 1.2]) {
+    for (const fromY of [8, 2.6, 1.2, -0.3]) {
       const y = col.groundHeight(x, z, fromY);
-      if (y === null || y < -0.6 || !inside(x, y, z)) continue;
+      if (y === null || y < HOLD.y - 0.1 || !inside(x, y, z) || headroom(x, y, z) < 1.75 || inChest(x, y, z)) continue;
       if (starts.some((s) => s[0] === x && s[2] === z && Math.abs(s[1] - y) < 0.3)) continue;
       // a spot where the capsule fits: standing still it does not get pushed aside
       const pl = new Player(collide, [x, y + 0.02, z]).settle();
@@ -119,8 +129,8 @@ if (!only || only === 'ship') {
       const pl = new Player(collide, s);
       for (let f = 0; f < 120; f++) pl.step(DIRS[d], { jump: true });
       runs++;
-      // overboard: outside the hull, or fallen below the main deck
-      const out = pl.pos.y < -1 || pl.pos.z < L0 - 0.3 || pl.pos.z > L1 + 0.3 || Math.abs(pl.pos.x) > xAtY(pl.pos.z, Math.max(0, Math.min(pl.pos.y, topY(pl.pos.z)))) + 0.15;
+      // overboard: outside the hull, or fallen through the hold floor
+      const out = pl.pos.y < HOLD.y - 0.3 || pl.pos.z < L0 - 0.3 || pl.pos.z > L1 + 0.3 || Math.abs(pl.pos.x) > xAtY(pl.pos.z, Math.max(HOLD.y, Math.min(pl.pos.y, topY(pl.pos.z)))) + 0.15;
       if (out) { escapes++; if (worst.length < 5) worst.push([...s.map((v) => +v.toFixed(1)), d]); }
     }
   }
@@ -129,10 +139,33 @@ if (!only || only === 'ship') {
   let wallRuns = 0;
   for (const st of starts.filter((p, i) => i % 3 === 0)) for (const dir of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
     wallRuns++;
-    const h = jumpAgainst(collide, st, dir);
-    if (h < 0.3) walls.push([...st.map((v) => +v.toFixed(1)), dir.join(','), +h.toFixed(2)]);
+    const { h: jh, at } = jumpAgainst(collide, st, dir), h = jh, need = Math.min(0.3, headroomAround(...at) - 1.78);
+    if (h < need - 0.02) walls.push([...st.map((v) => +v.toFixed(1)), dir.join(','), +h.toFixed(2)]);
   }
   report(walls.length === 0, `корабль: прыжок, упёршись в борт или реквизит — ${wallRuns} попыток${walls.length ? `, не прыгнул ${walls.length}: ${JSON.stringify(walls.slice(0, 4))}` : ''}`);
+  // walks below decks: down the hatch ladder to the hold and back up, through both cabin doors
+  const walk = (from, to, frames = 400) => {
+    const pl = new Player(collide, from).settle();
+    for (let f = 0; f < frames; f++) {
+      const dx = to[0] - pl.pos.x, dz = to[2] - pl.pos.z, d = Math.hypot(dx, dz);
+      if (d < 0.25 && Math.abs(pl.pos.y - to[1]) < 0.3) return true;
+      pl.step([dx / d, dz / d], { run: false });
+    }
+    return false;
+  };
+  const L = HOLD_LADDER, H = HOLD.y, door = (CABIN.door[0] + CABIN.door[1]) / 2;
+  const routes = [
+    ['палуба → трап → средний трюм', [[L.x, 0, L.z1 + 0.6], [L.x, 0, L.z1 - 0.3], [L.x, H, L.z0 - 0.3], [0.9, H, -1.0]]],
+    ['средний трюм → носовой', [[0.9, H, -1.0], [0, H, -2.0], [0, H, -3.3], [0.2, H, -4.5]]],
+    ['средний трюм → кормовой', [[0.75, H, -1.0], [0.75, H, 3.9], [0, H, 4.1], [0, H, 4.8], [0, H, 5.8]]],
+    ['носовой трюм → трап → палуба', [[0.2, H, -4.5], [0, H, -3.3], [0, H, -2.0], [L.x, H, -1.3], [L.x, H, L.z0 - 0.4], [L.x, 0, L.z1 + 0.5]]],
+    ['палуба → каюта → каюта адмирала', [[door, 0, 3.8], [door, 0, 5.4], [0, 0, 7.2], [0, 0, 8.3], [0.3, 0, 9.4]]],
+  ];
+  for (const [name, pts] of routes) {
+    let ok = true;
+    for (let i = 1; i < pts.length && ok; i++) ok = walk(pts[i - 1], pts[i]);
+    report(ok, `корабль: проход ${name}`);
+  }
   const stuck = starts.filter((s, i) => i % 2 === 0 && stuckAt(collide, s));
   report(stuck.length === 0, `корабль: застреваний ${stuck.length} из ${Math.ceil(starts.length / 2)} проверенных точек${stuck.length ? ` ${JSON.stringify(stuck.slice(0, 5).map((p) => p.map((v) => +v.toFixed(1))))}` : ''}`);
   console.log(`  (${((Date.now() - t0) / 1000).toFixed(1)} с)`);

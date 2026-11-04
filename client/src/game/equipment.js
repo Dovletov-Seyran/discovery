@@ -3,7 +3,7 @@ import {swordMotion} from '../../../shared/sword-motion.js';
 import {MODELS} from '../world/props.js';
 import {ISLAND_MODELS} from '../world/islandModels.js';
 
-import {HELD_MODELS,hand,releaseModel} from './held-models.js';
+import {HELD_MODELS,NOTES,hand,releaseModel} from './held-models.js';
 
 const aliases={barrel_full:'barrel',planks:'planks',tar:'tar_bucket'};
 const builder=id=>HELD_MODELS[id]||MODELS[aliases[id]||id]||ISLAND_MODELS[aliases[id]||id];
@@ -44,6 +44,8 @@ export const HOLD_POSES={
  meat:{size:.40,rotation:[.15,.20,0],depth:.75},
  biscuit:{size:.30,rotation:[.35,.10,0],depth:.72},
 };
+// a sheet is held up to the eyes, the writing toward the reader
+for(const id of NOTES)HOLD_POSES[id]={size:.34,rotation:[1.32,0,-.05],depth:.64};
 
 export class Equipment {
  constructor(world){

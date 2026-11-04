@@ -1,7 +1,9 @@
 import * as THREE from 'three';
-import { V3, mesh, cylGeo, lenUV, boxGeo, lathe, bake } from './geom.js';
+import { V3, mesh, cylGeo, lenUV, boxGeo, lathe, bake, between } from './geom.js';
 import { person, pose, guitarist, NPC_LOOK } from './people.js';
 import {espingarda} from './espingarda.js';
+import {chestSpec} from '../../../shared/world-interact.js';
+import {HELD_MODELS} from '../game/held-models.js';
 
 // Builders for every model id (`m`) that content/ship_layout.json may use.
 // Each returns { obj, col?: BufferGeometry[] (local space) }.
@@ -36,7 +38,73 @@ function ropeCoil(M, r1 = 0.42, turns = 4.5) {
   return mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 300, 0.034, 7), M.get('rope'));
 }
 
-function lanternHead(M) {
+// --- below decks: stores, arms, cabins -------------------------------------------------------
+
+// A tied sack standing on its base, about 0.6 m tall.
+function sackGeo(s = 1) {
+  const g = lathe([[0, 0], [0.2, 0.01], [0.26, 0.1], [0.25, 0.32], [0.17, 0.48], [0.06, 0.56], [0.08, 0.62], [0, 0.63]], 12);
+  g.scale(s, s, s);
+  return g;
+}
+
+function stack(geos) {
+  const g = new THREE.Group();
+  for (const [geo, mat] of geos) g.add(mesh(geo, mat));
+  return g;
+}
+
+// Clay oil jar (botija), narrow neck, round belly.
+function jarGeo() {
+  return lathe([[0.05, 0], [0.12, 0.03], [0.2, 0.2], [0.2, 0.34], [0.12, 0.5], [0.05, 0.56], [0.06, 0.62], [0.045, 0.63]], 14);
+}
+
+function crossbow(M) {
+  const g = new THREE.Group();
+  g.add(mesh(boxGeo(0.06, 0.06, 0.72, 0, 0, 0.1), M.get('trim')));
+  const pts = [];
+  for (let i = 0; i <= 12; i++) { const t = i / 12 - 0.5; pts.push(new V3(t * 0.66, 0, -0.24 + 0.16 * (1 - 4 * t * t))); }
+  g.add(mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.018, 5), M.get('iron')));
+  g.add(mesh(between(pts[0], new V3(0, 0, 0.08), 0.004, 0.004, 3), M.get('rope')), mesh(between(pts[12], new V3(0, 0, 0.08), 0.004, 0.004, 3), M.get('rope')));
+  g.add(mesh(boxGeo(0.02, 0.08, 0.02, 0, -0.06, 0.3), M.get('iron')));
+  return g;
+}
+
+// Round shield (rodela): leather over wood, an iron boss.
+function shield(M, r = 0.27) {
+  const g = new THREE.Group(), d = cylGeo(r, r, 0.04, 20); d.rotateX(Math.PI / 2);
+  g.add(mesh(d, M.get('leather')));
+  const rim = new THREE.TorusGeometry(r, 0.012, 5, 24); g.add(mesh(rim, M.get('iron')));
+  const boss = new THREE.SphereGeometry(0.06, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2); boss.rotateX(Math.PI / 2); boss.translate(0, 0, 0.02);
+  g.add(mesh(boss, M.get('iron')));
+  return g;
+}
+
+function book(M, mat, w, h, t) {
+  const g = new THREE.Group();
+  g.add(mesh(boxGeo(t, h, w, 0, h / 2, 0), M.get(mat)), mesh(boxGeo(t - 0.01, h - 0.02, w - 0.02, 0.006, h / 2, 0.006), M.get('cotton')));
+  return g;
+}
+
+// Wall chart, the same portolan as on the chart table.
+function chartPlane(M, w, h) {
+  const p = new THREE.PlaneGeometry(w, h);
+  return mesh(p, M.canvas('chart', 1024, seaChart, { side: THREE.DoubleSide, rough: 0.85 }));
+}
+
+function bunk(M, w = 0.85, l = 1.95) {
+  const g = new THREE.Group();
+  for (const s of [-1, 1]) g.add(mesh(boxGeo(0.06, 0.42, l, s * (w / 2 - 0.03), 0.21, 0), M.get('trim')));
+  for (const s of [-1, 1]) g.add(mesh(boxGeo(w, 0.5, 0.06, 0, 0.25, s * (l / 2 - 0.03)), M.get('trim')));
+  g.add(mesh(boxGeo(w - 0.12, 0.05, l - 0.12, 0, 0.2, 0), M.get('wood')));
+  g.add(mesh(boxGeo(w - 0.14, 0.12, l - 0.14, 0, 0.28, 0), M.get('sail')));
+  const blanket = boxGeo(w - 0.1, 0.05, l * 0.55, 0, 0.36, 0.18 * l); g.add(mesh(blanket, M.get('parrotRed')));
+  const pillow = new THREE.SphereGeometry(0.2, 10, 6); pillow.scale(1.4, 0.35, 0.8); pillow.translate(0, 0.37, -l / 2 + 0.25);
+  g.add(mesh(pillow, M.get('cotton')));
+  return g;
+}
+
+// always: a lamp below decks, lit day and night (it stays in the shaders, no recompile at dusk)
+function lanternHead(M, always = false) {
   const g = new THREE.Group();
   g.add(mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.05, 6), M.get('iron')));
   const gl = new THREE.CylinderGeometry(0.13, 0.11, 0.3, 6, 1, true); gl.translate(0, 0.18, 0);
@@ -44,8 +112,8 @@ function lanternHead(M) {
   const cap = new THREE.ConeGeometry(0.17, 0.16, 6); cap.translate(0, 0.41, 0); g.add(mesh(cap, M.get('iron')));
   for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3, b = new THREE.BoxGeometry(0.02, 0.32, 0.02); b.translate(Math.cos(a) * 0.125, 0.18, Math.sin(a) * 0.125); g.add(mesh(b, M.get('iron'))); }
   const ring = new THREE.TorusGeometry(0.05, 0.01, 4, 10); ring.translate(0, 0.53, 0); g.add(mesh(ring, M.get('iron')));
-  const light = new THREE.PointLight(0xffb45a, 0, 12, 2);
-  light.position.y = 0.2; light.userData.lamp = true;
+  const light = new THREE.PointLight(0xffb45a, 0, always ? 7 : 12, 2);
+  light.position.y = 0.2; light.userData.lamp = true; light.userData.always = always;
   g.add(light);
   return g;
 }
@@ -190,6 +258,205 @@ export const MODELS = {
     g.add(mesh(boxGeo(1.1, 0.05, 0.05, 0, 0.25, 0.35), M.get('trim')), mesh(boxGeo(1.1, 0.05, 0.05, 0, 0.25, -0.35), M.get('trim')));
     return { obj: g, col: [boxGeo(1.25, 0.9, 0.85, 0, 0.45, 0)] };
   },
+
+  // --- below decks ---------------------------------------------------------------------------
+  sacks: (M) => {
+    const geos = [];
+    for (const [x, z, s, a] of [[-0.42, -0.2, 1, 0], [0.05, -0.25, 1.05, 0.6], [0.48, -0.15, 0.95, 1.1], [-0.25, 0.28, 0.95, 2], [0.3, 0.3, 1, 2.6]]) {
+      const g = sackGeo(s); g.rotateY(a); g.translate(x, 0, z); geos.push([g, M.get('sack')]);
+    }
+    // two more laid across the top
+    for (const [x, z, a] of [[-0.18, 0, 0.3], [0.32, 0.05, -0.2]]) {
+      const g = sackGeo(0.9); g.rotateZ(Math.PI / 2); g.rotateY(a); g.translate(x + 0.28, 0.62, z); geos.push([g, M.get('sack')]);
+    }
+    const obj = stack(geos);
+    obj.add(mesh(new THREE.TorusGeometry(0.06, 0.012, 4, 10).rotateX(Math.PI / 2).translate(-0.42, 0.56, -0.2), M.get('rope')));
+    return { obj, col: [boxGeo(1.3, 0.62, 0.95, 0.03, 0.31, 0.05)] };
+  },
+  cheese_shelf: (M) => {
+    const g = new THREE.Group(), w = 1.4, d = 0.45;
+    for (const x of [-w / 2 + 0.04, w / 2 - 0.04]) for (const z of [-d / 2 + 0.04, d / 2 - 0.04]) g.add(mesh(boxGeo(0.06, 1.3, 0.06, x, 0.65, z), M.get('trim')));
+    // the cheeses and biscuit loaves on it are pickups (cheese_wheel, loaf)
+    for (const y of [0.35, 0.8, 1.25]) g.add(mesh(boxGeo(w, 0.04, d, 0, y, 0), M.get('wood')));
+    return { obj: g, col: [boxGeo(w, 1.3, d, 0, 0.65, 0)] };
+  },
+  // A rod under the deck beams (origin at the rod); hams and strings of garlic hang from it as pickups.
+  hanging_rod: (M) => ({ obj: stack([[between(new V3(-0.8, 0, 0), new V3(0.8, 0, 0), 0.025, 0.025, 6), M.get('trim')]]) }),
+  // pickups below decks, as they hang or lie in place (dropped, they use the held models)
+  ham: (M) => {
+    const g = new THREE.Group();
+    g.add(mesh(between(new V3(0, 0, 0), new V3(0, -0.2, 0), 0.006, 0.006, 3), M.get('rope')));
+    const ham = new THREE.SphereGeometry(0.12, 10, 8); ham.scale(1, 1.9, 0.85); ham.translate(0, -0.4, 0);
+    g.add(mesh(ham, M.get('gumboBark')));
+    return { obj: g };
+  },
+  garlic_string: (M) => {
+    const g = new THREE.Group();
+    g.add(mesh(between(new V3(0, 0, 0), new V3(0, -0.55, 0), 0.008, 0.008, 3), M.get('rope')));
+    for (let i = 0; i < 6; i++) { const b = new THREE.SphereGeometry(0.045, 7, 5); b.translate(i % 2 ? 0.035 : -0.035, -0.1 - i * 0.08, 0); g.add(mesh(b, M.get('cotton'))); }
+    return { obj: g };
+  },
+  cheese_wheel: (M) => ({ obj: stack([[cylGeo(0.15, 0.15, 0.12, 16).translate(0, 0.06, 0), M.get('cheese')]]) }),
+  loaf: (M) => { const b = new THREE.SphereGeometry(0.09, 8, 5); b.scale(1.2, 0.45, 1); b.translate(0, 0.04, 0); return { obj: stack([[b, M.get('rye')]]) }; },
+  crossbow_hung: (M) => { const g = new THREE.Group(), c = crossbow(M); c.rotation.x = -Math.PI / 2 + 0.1; g.add(c); return { obj: g }; },
+  shield_hung: (M) => ({ obj: shield(M) }),
+  sword_hung: (M) => { const g = new THREE.Group(), sw = MODELS.sword(M).obj; sw.rotation.set(0, Math.PI / 2, Math.PI / 2); g.add(sw); return { obj: g }; },
+  jars: (M) => {
+    const g = new THREE.Group();
+    g.add(mesh(boxGeo(1.0, 0.2, 0.62, 0, 0.1, 0), M.get('trim')));
+    for (const [x, z] of [[-0.3, -0.13], [0.05, -0.15], [0.35, -0.12], [-0.15, 0.17], [0.22, 0.16]]) {
+      const j = jarGeo(); j.translate(x, 0.04, z); g.add(mesh(j, M.get('clay')));
+    }
+    return { obj: g, col: [boxGeo(1.0, 0.67, 0.62, 0, 0.335, 0)] };
+  },
+  firewood: (M) => {
+    const g = new THREE.Group(), logs = [];
+    for (let row = 0; row < 4; row++) for (let i = 0; i < 6 - row; i++) {
+      const c = cylGeo(0.06, 0.07, 0.6, 7); c.rotateX(Math.PI / 2); c.translate(-0.33 + i * 0.13 + row * 0.065, 0.07 + row * 0.115, (i * 37 % 5) * 0.012);
+      logs.push(c);
+    }
+    for (const c of logs) g.add(mesh(c, M.get('wood')));
+    return { obj: g, col: [boxGeo(0.8, 0.5, 0.62, 0, 0.25, 0)] };
+  },
+  // Rack against a bulkhead for espingardas (they stand in it as pickups, grips at y 0.52).
+  gun_rack: (M) => {
+    const g = new THREE.Group(), w = 1.7;
+    g.add(mesh(boxGeo(w, 0.06, 0.3, 0, 0.12, 0), M.get('trim')), mesh(boxGeo(w, 0.06, 0.12, 0, 1.25, -0.1), M.get('trim')));
+    for (const x of [-w / 2 + 0.04, w / 2 - 0.04]) g.add(mesh(boxGeo(0.07, 1.6, 0.07, x, 0.8, -0.12), M.get('trim')));
+    return { obj: g, col: [boxGeo(w, 1.6, 0.32, 0, 0.8, -0.02)] };
+  },
+  // Pikes leaning in a rack; swords stand in it as pickups (sword_hung).
+  blade_rack: (M) => {
+    const g = new THREE.Group(), w = 1.3;
+    g.add(mesh(boxGeo(w, 0.06, 0.28, 0, 0.1, 0), M.get('trim')), mesh(boxGeo(w, 0.06, 0.1, 0, 1.3, -0.1), M.get('trim')));
+    for (let i = 0; i < 4; i++) {
+      const x = -0.5 + i * 0.16;
+      g.add(mesh(between(new V3(x, 0.1, 0.04), new V3(x, 1.72, -0.1), 0.02, 0.018, 6), M.get('wood')));
+      const head = new THREE.ConeGeometry(0.03, 0.18, 4); head.translate(x, 1.8, -0.11); g.add(mesh(head, M.get('steel')));
+    }
+    return { obj: g, col: [boxGeo(w, 1.7, 0.3, 0, 0.85, -0.02)] };
+  },
+  // Lombard (bombarda): a barrel of iron staves and hoops on a wooden sledge, its powder chamber
+  // (recámara) wedged in behind. Muzzle toward −z.
+  lombard: (M) => {
+    const g = new THREE.Group();
+    g.add(mesh(boxGeo(0.5, 0.22, 2.1, 0, 0.11, 0), M.get('trim')));
+    for (const z of [-0.85, 0.85]) g.add(mesh(boxGeo(0.62, 0.08, 0.12, 0, 0.04, z), M.get('trim')));
+    const barrel = cylGeo(0.13, 0.15, 1.5, 16); barrel.rotateX(Math.PI / 2); barrel.translate(0, 0.4, -0.25); g.add(mesh(barrel, M.get('iron')));
+    for (let z = -0.95; z <= 0.45; z += 0.2) { const h = new THREE.TorusGeometry(0.155, 0.022, 5, 18); h.translate(0, 0.4, z); g.add(mesh(h, M.get('iron'))); }
+    const mouth = new THREE.TorusGeometry(0.13, 0.035, 6, 18); mouth.translate(0, 0.4, -1.0); g.add(mesh(mouth, M.get('iron')));
+    const bore = new THREE.CircleGeometry(0.1, 14); bore.rotateY(Math.PI); bore.translate(0, 0.4, -0.99); g.add(mesh(bore, M.get('black')));
+    const chamber = cylGeo(0.11, 0.11, 0.42, 14); chamber.rotateX(Math.PI / 2); chamber.translate(0, 0.38, 0.72); g.add(mesh(chamber, M.get('iron')));
+    g.add(mesh(new THREE.TorusGeometry(0.06, 0.012, 4, 10).translate(0, 0.52, 0.72), M.get('iron')));
+    g.add(mesh(boxGeo(0.34, 0.3, 0.1, 0, 0.36, 1.0), M.get('wood')));
+    for (const s of [-1, 1]) g.add(mesh(boxGeo(0.06, 0.32, 1.6, s * 0.22, 0.36, -0.1), M.get('trim')));
+    return { obj: g, col: [boxGeo(0.62, 0.58, 2.1, 0, 0.29, 0)] };
+  },
+  // Lombard on the main deck: in 1492 there were no gunports in the hull yet, the guns stood on the deck and
+  // fired over the bulwark. A raised wooden bed puts the bore (y 1.32) above the rail; the muzzle (local −z,
+  // z −0.95) sticks out past it. The collider covers only the part inboard of the bulwark.
+  deck_lombard: (M) => {
+    const g = new THREE.Group(), y = 1.32;
+    for (const z of [-0.35, 0.55]) g.add(mesh(boxGeo(0.5, 1.05, 0.15, 0, 0.525, z), M.get('trim')));
+    g.add(mesh(boxGeo(0.5, 0.12, 1.2, 0, 1.11, 0.1), M.get('trim')));
+    for (const s of [-1, 1]) g.add(mesh(boxGeo(0.06, 0.2, 1.1, s * 0.2, 1.24, 0.15), M.get('trim')));
+    const barrel = cylGeo(0.12, 0.14, 1.3, 16); barrel.rotateX(Math.PI / 2); barrel.translate(0, y, -0.3); g.add(mesh(barrel, M.get('iron')));
+    for (let z = -0.85; z <= 0.3; z += 0.19) { const h = new THREE.TorusGeometry(0.145, 0.02, 5, 18); h.translate(0, y, z); g.add(mesh(h, M.get('iron'))); }
+    const mouth = new THREE.TorusGeometry(0.12, 0.03, 6, 18); mouth.translate(0, y, -0.95); g.add(mesh(mouth, M.get('iron')));
+    const bore = new THREE.CircleGeometry(0.09, 14); bore.rotateY(Math.PI); bore.translate(0, y, -0.94); g.add(mesh(bore, M.get('black')));
+    const chamber = cylGeo(0.1, 0.1, 0.36, 14); chamber.rotateX(Math.PI / 2); chamber.translate(0, y - 0.02, 0.53); g.add(mesh(chamber, M.get('iron')));
+    g.add(mesh(new THREE.TorusGeometry(0.05, 0.011, 4, 10).translate(0, y + 0.12, 0.53), M.get('iron')));
+    g.add(mesh(boxGeo(0.3, 0.26, 0.08, 0, y - 0.02, 0.75), M.get('wood')));
+    return { obj: g, col: [boxGeo(0.55, 1.45, 1.2, 0, 0.725, 0.15)] };
+  },
+  // Stone balls for the lombards, piled in a pyramid in a low frame; the top one is a pickup (stone_ball at y 0.28).
+  stone_balls: (M) => {
+    const g = new THREE.Group(), r = 0.085, balls = [];
+    for (let l = 0; l < 2; l++) for (let i = 0; i < 3 - l; i++) for (let j = 0; j < 3 - l; j++) {
+      const b = new THREE.IcosahedronGeometry(r, 1); b.translate((i - (2 - l) / 2) * 2 * r, r + 0.04 + l * r * 1.42, (j - (2 - l) / 2) * 2 * r); balls.push(b);
+    }
+    for (const b of balls) g.add(mesh(b, M.get('limestone')));
+    for (const s of [-1, 1]) g.add(mesh(boxGeo(0.6, 0.08, 0.04, 0, 0.04, s * 0.3), M.get('trim')), mesh(boxGeo(0.04, 0.08, 0.6, s * 0.3, 0.04, 0), M.get('trim')));
+    return { obj: g, col: [boxGeo(0.62, 0.35, 0.62, 0, 0.175, 0)] };
+  },
+  powder_keg: (M) => {
+    const b = barrelBody(M); b.scale.set(0.7, 0.55, 0.7);
+    const g = new THREE.Group(); g.add(b);
+    g.add(mesh(cylGeo(0.235, 0.235, 0.08, 18, true).translate(0, 0.3, 0), M.get('black')));
+    return { obj: g, col: [boxGeo(0.5, 0.52, 0.5, 0, 0.26, 0)] };
+  },
+  bunk: (M) => ({ obj: bunk(M), col: [boxGeo(0.85, 0.5, 1.95, 0, 0.25, 0)] }),
+  // The admiral's bed: wider, posts and a canopy rail, a curtain drawn at the head.
+  admiral_bed: (M) => {
+    const g = bunk(M, 1.1, 2.0), h = 1.72;
+    for (const x of [-0.52, 0.52]) for (const z of [-0.97, 0.97]) g.add(mesh(boxGeo(0.07, h, 0.07, x, h / 2, z), M.get('trim')));
+    for (const x of [-0.52, 0.52]) g.add(mesh(boxGeo(0.05, 0.06, 2.0, x, h, 0), M.get('trim')));
+    for (const z of [-0.97, 0.97]) g.add(mesh(boxGeo(1.1, 0.06, 0.05, 0, h, z), M.get('trim')));
+    const curtain = new THREE.PlaneGeometry(0.75, h - 0.15, 10, 1), cp = curtain.attributes.position;
+    for (let i = 0; i < cp.count; i++) cp.setZ(i, 0.04 * Math.sin(cp.getX(i) * 26));
+    curtain.computeVertexNormals(); curtain.rotateY(Math.PI / 2); curtain.translate(0.52, (h - 0.15) / 2 + 0.1, -0.55);
+    g.add(mesh(curtain, M.get('cotton')));
+    return { obj: g, col: [boxGeo(1.1, 0.5, 2.0, 0, 0.25, 0), ...[-0.52, 0.52].flatMap((x) => [-0.97, 0.97].map((z) => boxGeo(0.08, h, 0.08, x, h / 2, z)))] };
+  },
+  // Table with papers, a candlestick, books and an inkwell.
+  cabin_table: (M) => {
+    const g = MODELS.map_table(M).obj;
+    const papers = new THREE.PlaneGeometry(0.5, 0.36); papers.rotateX(-Math.PI / 2); papers.rotateY(0.25); papers.translate(-0.15, 0.895, 0.05);
+    g.add(mesh(papers, M.canvas('chart', 1024, seaChart, { side: THREE.DoubleSide, rough: 0.85 })));
+    g.add(mesh(lathe([[0.05, 0], [0.05, 0.015], [0.015, 0.03], [0.012, 0.13], [0.03, 0.14], [0.03, 0.15]], 12).translate(0.42, 0.89, -0.22), M.get('brass')));
+    g.add(mesh(cylGeo(0.012, 0.012, 0.09, 8).translate(0.42, 1.08, -0.22), M.get('cotton')));
+    g.add(mesh(new THREE.ConeGeometry(0.012, 0.035, 6).translate(0.42, 1.14, -0.22), M.get('flame'), false));
+    g.add(mesh(cylGeo(0.03, 0.035, 0.05, 10).translate(0.15, 0.915, -0.25), M.get('black')));
+    g.add(mesh(between(new V3(0.15, 0.93, -0.25), new V3(0.08, 1.12, -0.3), 0.004, 0.012, 5), M.get('cotton')));
+    return { obj: g, col: [boxGeo(1.25, 0.9, 0.85, 0, 0.45, 0)] };
+  },
+  chair: (M) => {
+    const g = new THREE.Group();
+    g.add(mesh(boxGeo(0.46, 0.05, 0.44, 0, 0.46, 0), M.get('wood')));
+    for (const x of [-0.2, 0.2]) for (const z of [-0.19, 0.19]) g.add(mesh(boxGeo(0.045, 0.46, 0.045, x, 0.23, z), M.get('trim')));
+    for (const x of [-0.2, 0.2]) g.add(mesh(boxGeo(0.05, 0.6, 0.05, x, 0.78, 0.2), M.get('trim')));
+    g.add(mesh(boxGeo(0.46, 0.3, 0.03, 0, 0.88, 0.21), M.get('leather')));
+    return { obj: g, col: [boxGeo(0.46, 0.48, 0.44, 0, 0.24, 0)] };
+  },
+  stool: (M) => {
+    const g = new THREE.Group();
+    g.add(mesh(cylGeo(0.18, 0.18, 0.05, 12).translate(0, 0.45, 0), M.get('wood')));
+    for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3; g.add(mesh(between(new V3(Math.cos(a) * 0.1, 0.43, Math.sin(a) * 0.1), new V3(Math.cos(a) * 0.17, 0, Math.sin(a) * 0.17), 0.02, 0.02, 5), M.get('trim'))); }
+    return { obj: g, col: [boxGeo(0.36, 0.47, 0.36, 0, 0.235, 0)] };
+  },
+  // Wall shelf of books and rolled charts; its back sits on the origin's −z side.
+  bookshelf: (M) => {
+    const g = new THREE.Group(), w = 1.1, d = 0.28;
+    for (const x of [-w / 2, w / 2]) g.add(mesh(boxGeo(0.04, 0.8, d, x, 1.1, 0), M.get('trim')));
+    for (const y of [0.72, 1.1, 1.48]) g.add(mesh(boxGeo(w, 0.03, d, 0, y, 0), M.get('trim')));
+    const mats = ['leather', 'parrotRed', 'black', 'leather', 'gumboBark', 'trim'];
+    let x = -w / 2 + 0.06;
+    for (let i = 0; x < w / 2 - 0.08; i++) {
+      const t = 0.04 + (i * 7 % 3) * 0.015, h = 0.24 + (i * 5 % 4) * 0.03;
+      const b = book(M, mats[i % mats.length], 0.18, h, t); b.position.set(x + t / 2, 1.115, 0); g.add(b);
+      x += t + 0.006;
+    }
+    for (let i = 0; i < 4; i++) { const r = cylGeo(0.035, 0.035, 0.5, 10); r.rotateZ(Math.PI / 2); r.translate(-0.2 + i * 0.03, 0.78 + i * 0.05, (i % 2) * 0.07 - 0.03); g.add(mesh(r, M.get('cotton'))); }
+    return { obj: g, col: [boxGeo(w, 0.8, d, 0, 1.1, 0)] };
+  },
+  crucifix: (M) => {
+    const g = new THREE.Group();
+    g.add(mesh(boxGeo(0.05, 0.42, 0.03, 0, 1.45, 0), M.get('trim')), mesh(boxGeo(0.26, 0.05, 0.03, 0, 1.55, 0), M.get('trim')));
+    return { obj: g };
+  },
+  wall_chart: (M) => {
+    const g = new THREE.Group(), c = chartPlane(M, 0.9, 0.62); c.position.set(0, 1.3, 0); g.add(c);
+    for (const y of [1.0, 1.6]) g.add(mesh(cylGeo(0.02, 0.02, 0.96, 8).rotateZ(Math.PI / 2).translate(0, y, 0.01), M.get('trim')));
+    return { obj: g };
+  },
+  // A lantern on a short chain from the deck above; origin at the attachment point. Always lit.
+  hanging_lantern: (M) => {
+    const g = new THREE.Group(), l = lanternHead(M, true);
+    g.add(mesh(between(new V3(0, 0, 0), new V3(0, -0.25, 0), 0.008, 0.008, 4), M.get('iron')));
+    l.position.y = -0.8; g.add(l);
+    return { obj: g };
+  },
+  sea_chest: (M) => chest(M, .8, .45, .5, false),
 
   // interactables
   hourglass: (M) => {
@@ -341,7 +608,7 @@ export function colliderFor(local, item) {
 
 // One interactable object; `models` lets the island pass its own model set.
 export function buildInteract(M, item, models = MODELS) {
-  const make = models[item.m] ?? MODELS[item.m];
+  const make = models[item.m] ?? MODELS[item.m] ?? HELD_MODELS[item.m];
   if (!make) { console.warn('[world] unknown model', item.m); return null; }
   const { obj, col } = make(M);
   place(obj, item);
@@ -349,7 +616,7 @@ export function buildInteract(M, item, models = MODELS) {
   obj.traverse((o) => { if (o.userData.lamp) lamps.push(o); });
   bake(obj);
   obj.userData = { ...obj.userData, id: item.id, kind: item.kind, item: item.item, label: item.label, period: item.period, noBake: true };
-  if(item.m==='nav_chest'||item.m==='arms_chest')obj.userData.lidDef={...item,toggleType:'lid',zone:'ship'};
+  if(chestSpec(item.m))obj.userData.lidDef={...item,toggleType:'lid',zone:'ship'};
   if (item.state) applyState(obj, item.state);
   return { obj, col: item.kind==='item'?[]:col ? colliderFor(col, item) : [], lamps };
 }
@@ -372,8 +639,8 @@ export function buildLayout(M, layout) {
   for (const item of layout.objects) {
     const make = MODELS[item.m];
     if (!make) { console.warn('[world] unknown model', item.m); continue; }
-    if(item.m==='nav_chest'||item.m==='arms_chest'){
-      const built=buildInteract(M,{...item,kind:'toggle',label:'Сундук'});
+    if(chestSpec(item.m)){
+      const built=buildInteract(M,{...item,kind:'toggle',label:item.label??'Сундук'});
       interactables.push(built.obj);col.push(...built.col);continue;
     }
     const { obj, col: c } = make(M);

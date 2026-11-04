@@ -8,7 +8,8 @@ const director=await import('../game/director.js');
 const entities=await import('../game/entities.js');
 const objects=await import('../game/objects.js');
 const rules=await import('../game/rules.js');
-const {clearObjectColliders}=await import('../world/object-collision.js');
+const {clearObjectColliders,surfaceAt}=await import('../world/object-collision.js');
+const {supportHeight}=await import('../../shared/object-physics.js');
 seedWorld();
 director.setHooks({isSceneComplete:()=>false});
 const messages=[],second=[];
@@ -104,4 +105,49 @@ test('removed item types cannot be spawned or restored from old world saves',()=
  assert.equal(objects.spawnWorldItem(old),null);assert.equal(entities.register(old),null);
  const saved=entities.snapshot();saved.dynamic.push(old);saved.objects[old.id]={holder:null};entities.load(saved);
  assert.equal(entities.def(old.id),undefined);assert.equal(entities.stateOf(old.id),undefined);
+});
+test('в трюме предмет остаётся там, куда положен: пол ниже −2 м — это не «за бортом»',()=>{
+ reset();p.p=[0,-2.6,-1];const now=Date.now();
+ objects.place(p,{item:'sword',p:[0,-2.6+.06,-1.9],r:0});
+ assert.equal(drops().length,1);const id=drops()[0].id;
+ for(let t=now;t<=now+6000;t+=100)objects.tickObjects(t);
+ const rest=entities.stateOf(id).p;assert.ok(rest[1]<-2.4,`упал не на пол: ${rest}`);assert.ok(Math.abs(rest[2]+1.9)<.3,`перенесён к ногам: ${rest}`);
+});
+test('предмет возвращается на своё пустое место: ружьё в стойку, из выброшенного тоже',()=>{
+ reset();p.inventory=[];p.p=[-.65,-2.6,6.3];
+ rules.pickup(p,{id:'hold_gun_1'});assert.ok(p.inventory.includes('espingarda'));assert.equal(entities.stateOf('hold_gun_1').holder,p.id);
+ objects.restore(p,{item:'sword',id:'hold_gun_1'});assert.ok(p.inventory.includes('espingarda'),'чужое место');
+ objects.restore(p,{item:'espingarda',id:'hold_gun_2'});assert.ok(p.inventory.includes('espingarda'),'занятое место');
+ objects.restore(p,{item:'espingarda',id:'hold_gun_1'});
+ assert.equal(p.inventory.includes('espingarda'),false);assert.equal(entities.stateOf('hold_gun_1').holder,null);assert.equal(drops().length,0);
+ assert.ok(messages.some(m=>m.t==='world_patch'&&m.ops.some(op=>op.id==='hold_gun_1'&&op.state.holder===null)));
+ // выбросил, поднял с пола, повесил обратно: на полу копии не остаётся
+ p.lastObjectAction=0;rules.pickup(p,{id:'hold_sword_1'});
+ objects.place(p,{item:'sword',p:[.2,-2.6+supportHeight('sword')+.015,5.2],r:0});assert.equal(drops().length,1);assert.equal(entities.stateOf('hold_sword_1').holder,'placed');
+ p.lastObjectAction=0;rules.pickup(p,{id:drops()[0].id});
+ objects.restore(p,{item:'sword',id:'hold_sword_1'});
+ assert.equal(p.inventory.includes('sword'),false);assert.equal(drops().length,0);assert.equal(entities.stateOf('hold_sword_1').holder,null);
+ // издалека и сквозь палубу нельзя
+ p.lastObjectAction=0;rules.pickup(p,{id:'hold_gun_3'});p.p=[-1.05,0,7.2];
+ objects.restore(p,{item:'espingarda',id:'hold_gun_3'});assert.ok(p.inventory.includes('espingarda'),'сквозь палубу');
+});
+test('записка возвращается в сундук, только когда он открыт',()=>{
+ reset();p.inventory=[];p.p=[-.3,-2.6,-5.85];
+ objects.toggle(p,{id:'hold_stores'});assert.equal(entities.stateOf('hold_stores').open,true);
+ rules.pickup(p,{id:'hold_note_stores'});assert.ok(p.inventory.includes('note_stores'));
+ entities.setState('hold_stores',{open:false,changedAt:0});
+ objects.restore(p,{item:'note_stores',id:'hold_note_stores'});assert.ok(p.inventory.includes('note_stores'),'сквозь закрытую крышку');
+ entities.setState('hold_stores',{open:true,changedAt:0});
+ objects.restore(p,{item:'note_stores',id:'hold_note_stores'});
+ assert.equal(p.inventory.includes('note_stores'),false);assert.equal(entities.stateOf('hold_note_stores').holder,null);
+});
+test('листок, положенный в открытый сундук в трюме, остаётся в нём',()=>{
+ reset();p.inventory=['note_stores'];p.p=[-.7,-2.6,-5.85];
+ objects.toggle(p,{id:'hold_stores'});
+ const eye=[p.p[0],p.p[1]+1.6,p.p[2]],aim=[-1.25,-2.5,-5.85],len=Math.hypot(...aim.map((x,i)=>x-eye[i]));
+ const hit=surfaceAt('ship',eye,aim.map((x,i)=>(x-eye[i])/len),3.5);assert.ok(hit&&hit.point.y<-2.3,`луч не в дно сундука: ${hit?.point.y}`);
+ const now=Date.now();objects.place(p,{item:'note_stores',p:[hit.point.x,hit.point.y+.015+supportHeight('note_stores'),hit.point.z],r:0});
+ assert.equal(drops().length,1);const id=drops()[0].id;
+ for(let t=now;t<=now+6000;t+=100)objects.tickObjects(t);
+ const rest=entities.stateOf(id).p;assert.ok(rest[1]<-2.3&&Math.abs(rest[0]+1.25)<.5&&Math.abs(rest[2]+5.85)<.5,`не в сундуке: ${rest}`);
 });

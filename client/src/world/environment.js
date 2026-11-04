@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { Water } from 'three/addons/objects/Water.js';
 import { buildShip, furlSails, slackSails } from './ship.js';
-import { WATER_Y } from './hullShape.js';
+import { WATER_Y, L0, L1, xAtY } from './hullShape.js';
 
 // Time-of-day keys (F1.3). Everything in between is interpolated.
 // el/az: sun; lel/laz: the shadow-casting light (the moon once the sun is down).
@@ -50,20 +50,35 @@ const SHALLOW = /* glsl */ `
     }
   }`;
 
+// The hold floor lies below the waterline: inside the hull the sea is cut away (only in the 'ship' zone, where
+// the player's ship stands at the origin). hullW: the hull's half-width at the waterline, HULL_N steps from bow to stern.
+const HULL_N = 64;
+const HULL_MASK = /* glsl */ `
+  if (hullMask > 0.5) {
+    float hz = (worldPosition.z - ${L0.toFixed(2)}) / ${(L1 - L0).toFixed(2)} * ${HULL_N - 1}.0;
+    if (hz > 0.0 && hz < ${HULL_N - 1}.0) {
+      int hi = int(floor(hz));
+      if (abs(worldPosition.x) < mix(hullW[hi], hullW[hi + 1], fract(hz)) + 0.03) discard;
+    }
+  }`;
+
 function patchWater(water) {
   const u = water.material.uniforms;
+  u.hullMask = { value: 1 };
+  u.hullW = { value: Array.from({ length: HULL_N }, (_, i) => xAtY(L0 + (L1 - L0) * i / (HULL_N - 1), WATER_Y)) };
   u.flow = { value: new THREE.Vector2() };
   u.shoreMap = { value: null }; u.shoreRect = { value: new THREE.Vector4() };
   u.shallowDeep = { value: new THREE.Color(0x1aa39b) }; u.shallowEdge = { value: new THREE.Color(0x9fd6c4) };
   const before = water.material.fragmentShader;
   water.material.fragmentShader = before
-    .replace('varying vec4 worldPosition;', 'varying vec4 worldPosition;\nuniform vec2 flow;\nuniform sampler2D shoreMap;\nuniform vec4 shoreRect;\nuniform vec3 shallowDeep, shallowEdge;')
+    .replace('varying vec4 worldPosition;', `varying vec4 worldPosition;\nuniform vec2 flow;\nuniform sampler2D shoreMap;\nuniform vec4 shoreRect;\nuniform vec3 shallowDeep, shallowEdge;\nuniform float hullMask;\nuniform float hullW[${HULL_N}];`)
+    .replace('void main() {', 'void main() {' + HULL_MASK)
     .replace('vec3 outgoingLight = albedo;', 'vec3 outgoingLight = albedo;' + SHALLOW)
     .replace('getNoise( worldPosition.xz * size )', 'getNoise( ( worldPosition.xz + flow ) * size )')
     // the stock diffuse term greys the sea out; tint it with the water colour instead
     .replace('( sunColor * diffuseLight * 0.3 + scatter )', '( waterColor * diffuseLight * 0.45 + scatter )')
     .replace('reflectionSample + specularLight, reflectance', 'reflectionSample * 0.55 + specularLight, reflectance');
-  if (water.material.fragmentShader.split('flow').length < 3 || !water.material.fragmentShader.includes('shoreRect.z')) console.warn('[world] Water shader patch did not apply');
+  if (water.material.fragmentShader.split('flow').length < 3 || !water.material.fragmentShader.includes('shoreRect.z') || !water.material.fragmentShader.includes('hullW[hi]')) console.warn('[world] Water shader patch did not apply');
 }
 
 // Sky, sea, light, fog, the other two ships and the rocking of the horizon.
@@ -76,6 +91,7 @@ export class Environment {
     this.t = 0.4; this.target = 0.4; this.time = 0; this.flowPos = new THREE.Vector2();
     this.sunDir = new THREE.Vector3(); this.lightDir = new THREE.Vector3();
     this.p = sample(0.4);
+    this.indoor = 0; this.indoorTarget = 0; // the camera below decks or in a cabin (world/index.js)
     this.lamps = [];
     this.sails = [];
     this.fleetIn = {};
@@ -154,6 +170,7 @@ export class Environment {
     this.zone = zone;
     const sea = zone === 'ship', waterY = sea ? WATER_Y : 0;
     this.water.position.y = waterY;
+    this.water.material.uniforms.hullMask.value = sea ? 1 : 0;
     for (const f of this.fleet) {
       const u = f.userData, at = sea ? u.sea : zone === 'canary' ? u.bay : this.fleetIn[zone] ? u[zone] : null;
       f.visible = !!at;
@@ -226,6 +243,7 @@ export class Environment {
     };
     this.water.rotation.x = -Math.PI / 2;
     this.water.position.y = this.zone === 'ship' ? WATER_Y : 0;
+    this.water.material.uniforms.hullMask.value = this.zone === 'ship' ? 1 : 0;
     this.water.material.uniforms.size.value = 1.3;
     this.root.add(this.water);
     this.light.castShadow = q !== 'low';
@@ -251,7 +269,10 @@ export class Environment {
     su.skyRot.value.setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(q.clone().invert()));
     su.cloudCoverage.value = p.cloud;
     this.light.position.copy(this.light.target.position).addScaledVector(this.lightDir, 50);
-    this.light.color.copy(p.light); this.light.intensity = p.li;
+    // sky light below decks is cut where the surface is (interior-light.js); the sun is stopped by the decks' shadows,
+    // but without shadows («низкое» качество) it would light the hold through them: dimmed while the camera is inside
+    const sunK = this.light.castShadow ? 1 : 1 - 0.85 * this.indoor;
+    this.light.color.copy(p.light); this.light.intensity = p.li * sunK;
     this.renderer.toneMappingExposure = p.exp;
     // on the island a light coastal haze; the far side is the coarse island (islandLod.js), not an edge to hide
     // fogOverride — туман ночной истории (world_patch, world-patches.js) или катсцены (редеет, чтобы показать остров сверху)
@@ -285,6 +306,7 @@ export class Environment {
   // focus: where the player is — on the island the shadow map follows it
   update(dt, focus) {
     this.time += dt;
+    this.indoor += (this.indoorTarget - this.indoor) * Math.min(1, dt * 2.5);
     if (Math.abs(this.target - this.t) > 1e-4) this.t += (this.target - this.t) * Math.min(1, dt / 2);
     if (this.zone !== 'ship' && focus) {
       // snapped to half a metre so the shadow edges do not crawl
@@ -319,7 +341,8 @@ export class Environment {
     // lampPatch — фонари, зажжённые или притушенные агентом (world_patch, world-patches.js)
     this.lamps.forEach((l, i) => {
       const k = this.lampScale ? this.lampScale[i] ?? 1 : 1, o = this.lampPatch?.get(l);
-      const on = o?.lit === true ? Math.max(this.p.lamps, 1) : o?.lit === false ? 0 : this.p.lamps;
+      const lamps = l.userData.always ? 1 : this.p.lamps;
+      const on = o?.lit === true ? Math.max(lamps, 1) : o?.lit === false ? 0 : lamps;
       l.visible = on > 0.01; l.intensity = on * k * 4 * flick * (o?.brightness ?? 1);
     });
     this.apply();

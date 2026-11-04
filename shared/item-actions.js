@@ -27,5 +27,10 @@ export const ITEM_RULES={
  macana:{effect:'swing',cooldown:550}, // дубинка воина: выдают на поединок (server/game/duel.js), после — забирают
  parrot:{effect:'show',cooldown:800},gift_cotton:{effect:'show',cooldown:800},
  bell:{effect:'show',cooldown:800},beads:{effect:'show',cooldown:800},red_cap:{effect:'show',cooldown:800},
+ // Под палубой «Санта-Марии»: оружие и запасы, записки из сундуков читают по ЛКМ
+ crossbow:{effect:'show',cooldown:800},shield:{effect:'show',cooldown:800},stone_ball:{effect:'show',cooldown:800},
+ garlic:{effect:'food',cooldown:1000,servings:1,energy:10},
+ book:{effect:'read',cooldown:400},
+ ...Object.fromEntries(['note_stores','note_trade','note_old','note_arms','note_cosa','note_torres','note_logs','note_letters'].map(id=>[id,{effect:'read',cooldown:400}])),
 };
 export const freshVitals=()=>({stamina:STAMINA.max,staminaMax:STAMINA.max,drunkUntil:0,drunkStrength:0});
