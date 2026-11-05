@@ -91,9 +91,42 @@ function taino(id){
   }
   return {obj:g};
 }
+// Below decks on the Santa María (content/ship_layout.json): arms, stores and the papers in the chests.
+function stores(id){
+  const g=new THREE.Group();
+  switch(id){
+    case 'crossbow':{
+      const wood=own(0x5a3a22,.8),iron=own(0x3a3836,.5,.6),cord=own(0xb49b6b,.95);
+      part(g,new THREE.BoxGeometry(.06,.06,.72),wood,[0,0,.1]);
+      const pts=[];for(let i=0;i<=12;i++){const t=i/12-.5;pts.push(new THREE.Vector3(t*.66,0,-.24+.16*(1-4*t*t)));}
+      part(g,new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),16,.018,5),iron);
+      for(const end of [pts[0],pts[12]])part(g,new THREE.TubeGeometry(new THREE.LineCurve3(end,new THREE.Vector3(0,0,.08)),1,.004,3),cord);
+      part(g,new THREE.BoxGeometry(.02,.08,.02),iron,[0,-.06,.3]);break;}
+    case 'shield':{
+      const iron=own(0x3a3836,.5,.6);
+      part(g,new THREE.CylinderGeometry(.27,.27,.04,24),own(0x5a3820,.7),[0,.02,0]);
+      part(g,new THREE.TorusGeometry(.27,.012,5,24),iron,[0,.02,0],[Math.PI/2,0,0]);
+      part(g,new THREE.SphereGeometry(.06,10,6,0,Math.PI*2,0,Math.PI/2),iron,[0,.04,0]);break;}
+    case 'garlic':{
+      part(g,new THREE.CylinderGeometry(.006,.006,.5,4),own(0xb49b6b,.95),[0,.25,0]);
+      for(let i=0;i<6;i++)part(g,new THREE.SphereGeometry(.045,8,6),own(0xeee6d4,.8),[i%2?.035:-.035,.06+i*.075,0]);break;}
+    case 'stone_ball':part(g,new THREE.IcosahedronGeometry(.085,1),own(0xa39c8b,.95),[0,.085,0]);break;
+    case 'book':
+      part(g,new THREE.BoxGeometry(.24,.05,.17),own(0x5a3820,.7),[0,.025,0]);
+      part(g,new THREE.BoxGeometry(.23,.04,.155),own(0xeee8da,.95),[.006,.025,0]);break;
+    default:{ // a written sheet (note_*)
+      part(g,new THREE.BoxGeometry(.22,.004,.3),own(0xe9dcb8,.95),[0,.002,0]);
+      const ink=own(0x3a2a1a,.9);
+      for(let i=0;i<8;i++)part(g,new THREE.BoxGeometry(i%3===2?.1:.16,.001,.006),ink,[i%3===2?-.03:0,.0045,-.11+i*.03]);
+    }
+  }
+  return {obj:g};
+}
+export const NOTES=['note_stores','note_trade','note_old','note_arms','note_cosa','note_torres','note_logs','note_letters'];
+const STORE_ITEMS=['crossbow','shield','garlic','stone_ball','book','note',...NOTES];
 const TAINO_ITEMS=['spear','fish','conch','cassava','cassava_grated','cassava_pulp','casabe','cotton','hammock_gift','firewood','torch','parrot','gift_cotton','bell','beads','red_cap'];
 export const HELD_MODELS={sword,espingarda,macana,purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit'),
-  ...Object.fromEntries(TAINO_ITEMS.map(id=>[id,()=>taino(id)]))};
+  ...Object.fromEntries(TAINO_ITEMS.map(id=>[id,()=>taino(id)])),...Object.fromEntries(STORE_ITEMS.map(id=>[id,()=>stores(id)]))};
 
 export function releaseModel(obj){
   const geometries=new Set(),materials=new Set();

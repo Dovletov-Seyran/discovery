@@ -12,7 +12,8 @@
 import * as THREE from 'three';
 import { Warriors } from './warriors.js';
 import { generateTextures, Materials } from './materials.js';
-import { buildShip } from './ship.js';
+import { buildShip, interior } from './ship.js';
+import { INTERIOR, installInteriorLight } from './interior-light.js';
 import {WorldObjects} from './objects.js';
 import { buildLayout, applyState, animateProp, MODELS } from './props.js';
 import { Island } from './island.js';
@@ -59,6 +60,7 @@ export const world = {
     this.camera.position.set(0.5, 3.6, 8);
     this.scene.add(this.camera);
 
+    installInteriorLight();
     const tex = await generateTextures(quality, Math.min(4, r.capabilities.getMaxAnisotropy()));
     this.M = new Materials(tex);
     this.env = new Environment(this.scene, r, this.M, tex, quality);
@@ -66,6 +68,8 @@ export const world = {
     const ship = buildShip(this.M);
     this.ship = ship.group;
     this.shipCollider = ship.collider;
+    // decks and the walls between rooms: interaction rays stop at them (game/interact.js)
+    this.barrier = new Collider(ship.barrier);
     this.env.addSails(ship.sails);
     this.scene.add(this.ship);
     this.zoneRoot = new THREE.Group();
@@ -262,6 +266,8 @@ export const world = {
   frame(dt) {
     dt = Math.min(dt, 0.1);
     this.cutscene.update?.(dt); // takes the camera while a cutscene runs
+    INTERIOR.on.value = this.env.zone === 'ship' ? 1 : 0; // sky light stays out of the hold and the cabins
+    this.env.indoorTarget = this.env.zone === 'ship' && !this.cutscene.active ? interior(this.camera.position) : 0;
     this.env.update(dt, this.cutscene.shadowFocus ?? this.camera.position);
     this.chunks.drain?.();
     this.island?.refresh();

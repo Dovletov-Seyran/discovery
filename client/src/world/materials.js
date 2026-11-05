@@ -40,6 +40,7 @@ const DEF = {
   sail: { tex: 'sail', sail: true },
   sailCross: { tex: 'sailCross', sail: true },
   sand: { color: 0xe3c07a, rough: 0.9 },
+  rye: { color: 0x6a4428, rough: 0.92 }, // the loaves in the stores
   black: { color: 0x1d1813, rough: 0.8 },
   leather: { color: 0x5a3820, rough: 0.7 },
   steel: { color: 0xb8bcc0, rough: 0.25, metal: 1.0 },

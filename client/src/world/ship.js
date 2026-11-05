@@ -10,6 +10,24 @@ export const LADDERS = [
 ];
 const QUARTER_RAIL = { z: 4.95, h: 0.95, gap: [-2.85, -1.85] };
 const FORE_RAIL = { z: -7.55, h: 0.85, gap: [-1.4, -0.6] };
+// Below decks. The hold lies under the main deck, its floor 2.6 m down (below the waterline: the sea is
+// masked inside the hull, see environment.js), reached by a steep open ladder from the hatch, as on ships of
+// the time (it runs down from the hatch's aft end, off to port, leaving the middle of the hold free). Two bulkheads with doorways split it into three: stores forward, the middle hold under
+// the hatch, the gunner's store aft. Under the quarterdeck: the main deck runs on to the transom, the
+// bulkhead at z 4.9 has a doorway, a partition at z 7.6 separates the admiral's cabin aft.
+export const HOLD = { y: -2.6, z0: -7.0, z1: 7.5, walls: [-2.6, 4.4], door: [-0.5, 0.5], doorH: 2.0 };
+export const HATCH = { x0: -1.2, x1: -0.3, z0: 1.45, z1: 3.75 };
+export const HOLD_LADDER = { x: -0.75, w: 0.78, z0: 1.15, z1: 3.75, y0: HOLD.y, y1: 0 };
+export const CABIN = { z0: 4.97, wall: 7.6, z1: L1 - 0.02, door: [0.725, 1.675], inner: [-0.45, 0.45], doorH: 1.85 };
+const BULKHEAD_Z = 4.9;
+const DECK_T = 0.12; // main deck planking, top at 0
+
+// 1 when the point (ship coordinates) is in the hold or under the quarterdeck: daylight is dimmed there (environment.js)
+export function interior({ x, y, z }) {
+  if (z < L0 || z > L1 || Math.abs(x) > xAtY(z, Math.min(y, 0))) return 0;
+  if (y < -0.25) return 1;
+  return y > 0.05 && y < DECKS.quarter.y - 0.05 && z > CABIN.z0 ? 1 : 0;
+}
 
 function hullGeometry(NZ = 80, NU = 24) {
   const cols = 2 * NU + 1, pos = [], uv = [], idx = [];
@@ -41,13 +59,19 @@ function edgeCurve(u, off, side, z0 = L0 + 0.2, z1 = L1) {
   return new THREE.CatmullRomCurve3(pts);
 }
 
-export function deckGeo(z0, z1, y, inset = 0.03) {
+// holes: openings [{ x0, x1, z0, z1 }]
+export function deckGeo(z0, z1, y, inset = 0.03, holes = []) {
   const pts = [];
   for (let i = 0; i <= 40; i++) { const z = lerp(z0, z1, i / 40); pts.push([z, Math.max(0.05, xAtY(z, y) - inset)]); }
   const shape = new THREE.Shape();
   shape.moveTo(pts[0][0], pts[0][1]);
   for (const [z, x] of pts) shape.lineTo(z, x);
   for (let i = pts.length - 1; i >= 0; i--) shape.lineTo(pts[i][0], -pts[i][1]);
+  for (const h of holes) {
+    const path = new THREE.Path();
+    path.moveTo(h.z0, h.x0); path.lineTo(h.z1, h.x0); path.lineTo(h.z1, h.x1); path.lineTo(h.z0, h.x1);
+    shape.holes.push(path);
+  }
   const g = new THREE.ShapeGeometry(shape);
   const p = g.attributes.position, uv = g.attributes.uv;
   for (let i = 0; i < p.count; i++) { const sx = p.getX(i), sy = p.getY(i); p.setXYZ(i, sy, y, sx); uv.setXY(i, sx / 4, sy / 4); }
@@ -58,6 +82,50 @@ export function deckGeo(z0, z1, y, inset = 0.03) {
     g.computeVertexNormals();
   }
   return g;
+}
+
+// The same deck seen from below (a ceiling): faces down, so it also casts the shadow the deck itself does not.
+function underside(g) {
+  const ix = g.index.array;
+  for (let i = 0; i < ix.length; i += 3) { const t = ix[i]; ix[i] = ix[i + 1]; ix[i + 1] = t; }
+  g.computeVertexNormals();
+  return g;
+}
+
+// Bulkhead across the hull at z between y0 and y1, following the planking; door: [x0, x1, height] from y0.
+function bulkheadGeo(z, y0, y1, door = null, n = 10) {
+  const sh = new THREE.Shape();
+  for (let i = 0; i <= n; i++) { const y = lerp(y0, y1, i / n), x = xAtY(z, y) - 0.02; i ? sh.lineTo(-x, y) : sh.moveTo(-x, y); }
+  for (let i = n; i >= 0; i--) { const y = lerp(y0, y1, i / n); sh.lineTo(xAtY(z, y) - 0.02, y); }
+  if (door) { const [a, b, h] = door; sh.lineTo(b, y0); sh.lineTo(b, y0 + h); sh.lineTo(a, y0 + h); sh.lineTo(a, y0); }
+  const g = boxUV(new THREE.ShapeGeometry(sh)); g.translate(0, 0, z);
+  return g;
+}
+
+// Straight lining along one side of the hold (side ±1): vertical, standing on the floor's edge and reaching the
+// deck above. It hides the curved hull and the sea outside — the ship rocks, and right at the planking the
+// waterline wanders by a few centimetres, more than the sea mask in environment.js can follow.
+function sideWallGeo(side, z0, z1, y0, y1, n = 40) {
+  const pos = [], idx = [];
+  for (let i = 0; i <= n; i++) {
+    const z = lerp(z0, z1, i / n), x = side * (xAtY(z, y0) - 0.03);
+    pos.push(x, y0, z, x, y1, z);
+    if (i) side > 0 ? idx.push(2 * i - 2, 2 * i, 2 * i - 1, 2 * i - 1, 2 * i, 2 * i + 1) : idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(pos.length / 3 * 2).fill(0), 2));
+  g.setIndex(idx); g.computeVertexNormals();
+  return boxUV(g);
+}
+
+// Wall across the ship at z from x = -half to half, with a doorway [d0, d1] of height h; the rest reaches y1.
+function doorWall(z, y0, y1, half, [d0, d1], h, t = 0.12) {
+  return [
+    boxGeo(d0 + half, y1 - y0, t, (d0 - half) / 2, (y0 + y1) / 2, z),
+    boxGeo(half - d1, y1 - y0, t, (d1 + half) / 2, (y0 + y1) / 2, z),
+    boxGeo(d1 - d0, y1 - y0 - h, t, (d0 + d1) / 2, (y0 + h + y1) / 2, z),
+  ];
 }
 
 function sailGeo(topW, botW, h, belly, n = 28) {
@@ -103,7 +171,7 @@ function railRow(M, x0, x1, z, y0, h, gap) {
 }
 
 function ladder(M, { x, w, z0, z1, y0, y1 }) {
-  const g = new THREE.Group(), n = 8;
+  const g = new THREE.Group(), n = Math.round((y1 - y0) / 0.24);
   for (const s of [-1, 1]) g.add(mesh(between(new V3(x + s * w / 2, y0, z0), new V3(x + s * w / 2, y1 + 0.1, z1), 0.05, 0.05, 4), M.get('trim')));
   for (let i = 1; i <= n; i++) {
     const t = i / (n + 1);
@@ -112,18 +180,75 @@ function ladder(M, { x, w, z0, z1, y0, y1 }) {
   return g;
 }
 
-function rampGeo({ x, w, z0, z1, y0, y1 }) {
-  const dz = z1 - z0, dy = y1 - y0, len = Math.hypot(dz, dy);
-  const g = new THREE.BoxGeometry(w, 0.08, len);
+// sink: the low end runs on under the floor by this much, so a steep ramp has no edge to trip on
+function rampGeo({ x, w, z0, z1, y0, y1 }, sink = 0) {
+  const dz = z1 - z0, dy = y1 - y0, len = Math.hypot(dz, dy), k = sink / len;
+  const g = new THREE.BoxGeometry(w, 0.08, len + sink);
   g.rotateX(-Math.atan2(dy, dz));
-  g.translate(x, (y0 + y1) / 2 - 0.04, (z0 + z1) / 2);
+  g.translate(x, (y0 + y1 - dy * k) / 2 - 0.04, (z0 + z1 - dz * k) / 2);
   return g;
 }
 
+// Hold, hatch and cabins: everything the player's ship has under its decks.
+// barrier: floors and walls between rooms — nothing is picked up through them (game/interact.js).
+function belowDecks(M, add, col, barrier) {
+  const solid = (g, m) => { add(mesh(g, M.get(m))); col.push(g); barrier.push(g); };
+  // hold floor, its end bulkheads and the two between the holds, the undersides of the decks above
+  solid(deckGeo(HOLD.z0, HOLD.z1, HOLD.y), 'deck');
+  solid(bulkheadGeo(HOLD.z0, HOLD.y, 0), 'wallDouble');
+  solid(bulkheadGeo(HOLD.z1, HOLD.y, 0), 'wallDouble');
+  for (const side of [-1, 1]) {
+    solid(sideWallGeo(side, HOLD.z0, HOLD.z1, HOLD.y, 0), 'wallDouble');
+    // frames (ribs) along the lining
+    // (they stop under the deck beams: a top face level with the deck planks would flicker through them)
+    for (let z = HOLD.z0 + 0.6; z < HOLD.z1 - 0.3; z += 0.9) add(mesh(boxGeo(0.08, -0.2 - HOLD.y, 0.12, side * (xAtY(z, HOLD.y) - 0.07), (HOLD.y - 0.2) / 2, z), M.get('trim')));
+  }
+  for (const z of HOLD.walls) {
+    solid(bulkheadGeo(z, HOLD.y, 0, [...HOLD.door, HOLD.doorH]), 'wallDouble');
+    const [a, b] = HOLD.door;
+    for (const x of [a, b]) add(mesh(boxGeo(0.1, HOLD.doorH, 0.16, x, HOLD.y + HOLD.doorH / 2, z), M.get('trim')));
+    add(mesh(boxGeo(b - a + 0.2, 0.1, 0.16, (a + b) / 2, HOLD.y + HOLD.doorH, z), M.get('trim')));
+  }
+  // the planking is thick: a dancing sailor's feet sink a little below the deck and must not show from the hold
+  add(mesh(underside(deckGeo(DECKS.main.z0, CABIN.z1, -DECK_T, 0.03, [HATCH])), M.get('deck')));
+  add(mesh(underside(deckGeo(DECKS.quarter.z0, DECKS.quarter.z1, DECKS.quarter.y - 0.07)), M.get('deck')));
+  // deck beams: under the main deck (not across the hatch) and under the quarterdeck
+  for (let z = -6.4; z < HOLD.z1; z += 1.3) {
+    if (z > HATCH.z0 - 0.2 && z < HATCH.z1 + 0.2) continue;
+    add(mesh(boxGeo(2 * xAtY(z, -0.22), 0.16, 0.2, 0, -DECK_T - 0.09, z), M.get('trim')));
+  }
+  for (let z = 5.6; z < CABIN.z1 - 0.3; z += 1.25) add(mesh(boxGeo(2 * xAtY(z, 1.8), 0.12, 0.18, 0, 1.8, z), M.get('trim')));
+  // the hatch: a coaming on three sides (open aft, where the ladder starts), low enough to step over
+  const { x0, x1, z0, z1 } = HATCH, e = 0.1, low = -DECK_T - 0.02; // the frame hangs below the planking: level with it, it would flicker
+  for (const [w, d, x, z] of [[e, z1 - z0 + 2 * e, x0 - e / 2, (z0 + z1) / 2], [e, z1 - z0 + 2 * e, x1 + e / 2, (z0 + z1) / 2], [x1 - x0, e, (x0 + x1) / 2, z0 - e / 2]]) {
+    add(mesh(boxGeo(w, 0.22 - low, d, x, (0.22 + low) / 2, z), M.get('trim')));
+    col.push(boxGeo(w, 0.12, d, x, 0.06, z));
+  }
+  const edge = -0.005; // the aft edge of the opening, under the deck planks (the way down is open here)
+  add(mesh(boxGeo(x1 - x0, edge - low, e, (x0 + x1) / 2, (edge + low) / 2, z1 + e / 2), M.get('trim')));
+  add(ladder(M, HOLD_LADDER)); col.push(rampGeo(HOLD_LADDER, 0.3));
+  // cabins: the partition between the officers' cabin and the admiral's, door frames and an open door leaf
+  const half = Math.min(xAtY(CABIN.wall, 0), xAtY(CABIN.wall, 1.95)) - 0.03;
+  // tops just under the quarterdeck: level with its planks they would flicker through
+  for (const g of doorWall(CABIN.wall, 0, 1.93, half, CABIN.inner, CABIN.doorH)) solid(g, 'wall');
+  for (const [z, [a, b], t] of [[BULKHEAD_Z, CABIN.door, 0.2], [CABIN.wall, CABIN.inner, 0.16]]) {
+    for (const x of [a, b]) add(mesh(boxGeo(0.08, CABIN.doorH, t, x, CABIN.doorH / 2, z), M.get('trim')));
+    add(mesh(boxGeo(b - a + 0.16, 0.08, t, (a + b) / 2, CABIN.doorH, z), M.get('trim')));
+  }
+  const [d0, d1] = CABIN.door, leaf = new THREE.Group();
+  leaf.add(mesh(boxGeo(d1 - d0 - 0.04, CABIN.doorH - 0.04, 0.05, (d1 - d0) / 2, CABIN.doorH / 2, 0), M.get('trim')));
+  for (const y of [0.35, 1.5]) leaf.add(mesh(boxGeo(d1 - d0 - 0.1, 0.06, 0.02, (d1 - d0) / 2, y, 0.035), M.get('iron')));
+  leaf.add(mesh(boxGeo(0.05, 0.05, 0.06, 0.12, 1.0, 0.05), M.get('iron')));
+  // hinged at the starboard post, swung right round against the inside of the bulkhead
+  leaf.position.set(d1 + 0.02, 0, BULKHEAD_Z + 0.12);
+  add(leaf);
+}
+
 // Ship model. `far` skips interior details for the two ships in the distance.
-// Returns { group, collider: BufferGeometry[], sails } — the collider only for the player's ship.
+// Returns { group, collider: BufferGeometry[], barrier: BufferGeometry[], sails } — colliders only for the
+// player's ship; barrier — its decks and the walls between rooms (a subset of the collider).
 export function buildShip(M, { far = false, lateen = false } = {}) {
-  const ship = new THREE.Group(), col = [];
+  const ship = new THREE.Group(), col = [], barrier = [];
   const add = (o) => (ship.add(o), o);
   // Sails stay separate meshes (not baked) so they can change shape: furled to the yards (a cutscene, furlSails)
   // and slack when the wind dies (slackSails, driven by the time of day). yard: the lateen yard [A, B] and its
@@ -172,14 +297,21 @@ export function buildShip(M, { far = false, lateen = false } = {}) {
     add(mesh(new THREE.TubeGeometry(edgeCurve(0.3, 0.05, side, L0 + 0.6, L1 - 0.1), 90, 0.1, 8), M.get('trim')));
     add(mesh(new THREE.TubeGeometry(edgeCurve(0.43, 0.05, side, L0 + 0.9, L1 - 0.2), 90, 0.1, 8), M.get('trim')));
   }
-  for (const d of Object.values(DECKS)) { const g = deckGeo(d.z0, d.z1, d.y); add(mesh(g, M.get('deck'))); col.push(g); }
+  for (const [key, d] of Object.entries(DECKS)) {
+    // the main deck has the hatch and runs on under the quarterdeck as the cabins' floor
+    const main = key === 'main' && !far;
+    const g = main ? deckGeo(d.z0, CABIN.z1, d.y, 0.03, [HATCH]) : deckGeo(d.z0, d.z1, d.y);
+    add(mesh(g, M.get('deck'))); col.push(g); barrier.push(g);
+  }
   // castle bulkheads
   {
     const w = 2 * Math.min(xAtY(-7.6, 0), xAtY(-7.6, 1.6)) - 0.06;
     const a = boxGeo(w, 1.6, 0.14, 0, 0.8, -7.6); add(mesh(a, M.get('wall'))); col.push(a);
-    const w2 = 2 * Math.min(xAtY(4.9, 0), xAtY(4.9, 1.95)) - 0.06;
-    const b = boxGeo(w2, 1.95, 0.14, 0, 0.975, 4.9); add(mesh(b, M.get('wall'))); col.push(b);
+    const w2 = 2 * Math.min(xAtY(BULKHEAD_Z, 0), xAtY(BULKHEAD_Z, 1.95)) - 0.06;
+    const walls = far ? [boxGeo(w2, 1.95, 0.14, 0, 0.975, BULKHEAD_Z)] : doorWall(BULKHEAD_Z, 0, 1.93, w2 / 2, CABIN.door, CABIN.doorH, 0.14);
+    for (const b of walls) { add(mesh(b, M.get('wall'))); col.push(b); barrier.push(b); }
   }
+  if (!far) belowDecks(M, add, col, barrier);
   // masts, tops, yards
   const mast = (r0, r1, y0, y1, z) => { const g = cylGeo(r0, r1, y1 - y0, 16); g.translate(0, (y0 + y1) / 2, z); add(mesh(g, M.get('wood'))); if (!far) col.push(g); };
   const yard = (len, y, z, r = 0.2) => { for (const s of [-1, 1]) add(mesh(between(new V3(0, y, z), new V3(s * len / 2, y, z), r, r * 0.42, 10), M.get('wood'))); };
@@ -197,7 +329,7 @@ export function buildShip(M, { far = false, lateen = false } = {}) {
   };
 
   if (!lateen) {
-    mast(0.34, 0.24, -0.2, 15.6, MAINZ); top(1.15, 15.0, MAINZ); mast(0.18, 0.1, 14.8, 24.6, MAINZ);
+    mast(0.34, 0.24, far ? -0.2 : HOLD.y, 15.6, MAINZ); top(1.15, 15.0, MAINZ); mast(0.18, 0.1, 14.8, 24.6, MAINZ);
     mast(0.27, 0.18, 1.6, 12.6, FOREZ); top(0.75, 11.7, FOREZ);
     yard(15, 13.7, MAINZ - 0.42); yard(8, 21.6, MAINZ - 0.3, 0.13); yard(10, 11.0, FOREZ - 0.36, 0.16);
     add(mesh(between(new V3(0, 2.4, -10.6), new V3(0, 5.5, -17.6), 0.2, 0.09, 16), M.get('wood')));
@@ -205,7 +337,7 @@ export function buildShip(M, { far = false, lateen = false } = {}) {
     const s2 = sail(mesh(sailGeo(7.2, 9.6, 6.0, 0.9), M.get('sail'))); s2.position.set(0, 21.45, MAINZ - 0.45);
     const s3 = sail(mesh(sailGeo(9.6, 10.4, 7.2, 1.2), M.get('sail'))); s3.position.set(0, 10.85, FOREZ - 0.5);
     // mizzen with a lateen sail, above the heads of people on the quarterdeck
-    mast(0.2, 0.13, DECKS.quarter.y, 13.5, MIZZENZ);
+    mast(0.2, 0.13, far ? DECKS.quarter.y : 0, 13.5, MIZZENZ);
     {
       const A = new V3(0.35, 4.5, MIZZENZ - 3.6), B = new V3(0.35, 14.2, MIZZENZ + 3.4), C = new V3(0.45, 4.6, MIZZENZ + 3.9);
       add(mesh(between(A, B, 0.11, 0.07, 10), M.get('wood')));
@@ -269,7 +401,6 @@ export function buildShip(M, { far = false, lateen = false } = {}) {
     for (const l of LADDERS) { add(ladder(M, l)); col.push(rampGeo(l)); }
     add(mesh(boxGeo(0.85, 1.3, 0.05, 0.75, 0.65, -7.5), M.get('trim')));
     add(mesh(boxGeo(0.06, 0.06, 0.06, 0.45, 0.65, -7.46), M.get('iron')));
-    add(mesh(boxGeo(0.85, 1.4, 0.05, 1.2, 0.7, 4.82), M.get('trim')));
     // Invisible fence above the bulwarks so nobody gets overboard: 4.5 m high, more than a jump from the
     // top of stacked barrels or crates; closed at the bow and the stern.
     const FENCE = 4.5;
@@ -289,7 +420,7 @@ export function buildShip(M, { far = false, lateen = false } = {}) {
     col.push(boxGeo(2 * secX(bowZ, 0)[0] + 0.2, FENCE + 0.2, 0.1, 0, topY(bowZ) - 0.2 + (FENCE + 0.2) / 2, bowZ));
   }
   bake(ship);
-  return { group: ship, collider: col, sails };
+  return { group: ship, collider: col, barrier, sails };
 }
 
 // k: 0 — sails set, 1 — furled to the yards

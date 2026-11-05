@@ -17,6 +17,13 @@ const DEFAULT_POS = [0, 1.6, 0];
 // Точку можно задать как [x, y, z] или { p: [x, y, z], r } (r — поворот как у камеры: 0 — лицом к носу)
 const point = (v) => (Array.isArray(v) ? { p: v, r: 0 } : v?.p ? { p: v.p, r: v.r ?? 0 } : null);
 const isRoleMap = (m) => m && ROLES.some((r) => r in m);
+// Часть 1 — моряки (корабль, Гомера), часть 2 — жители Гуанахани. Сменил сторону (по сюжету, /scene из админки,
+// вход после пропущенных сцен) — пришёл с пустыми руками: таино не носят шпаг, моряки — макан и касабе.
+const side = (zone) => (zone === 'guanahani' ? 'taino' : zone ? 'crew' : null);
+function enterZone(p, zone) {
+  if (side(p.zone) && side(zone) && side(p.zone) !== side(zone)) { p.inventory = []; p.money = 0; p.equipped = null; }
+  p.zone = zone;
+}
 
 // На корабле точки появления и места у фонаря берём из content/ship_layout.json (его ведёт Фронт 1):
 //   spawns: { grumete: P, piloto: P, lengua: P }            — для всех игровых сцен на корабле
@@ -190,7 +197,9 @@ export function setScene(id) {
     p.ready = false;
     p.scene = sceneKey();
     if (p.zone !== state.zone) p.chunks?.clear();
-    p.zone = state.zone;
+    const had = p.inventory.length;
+    enterZone(p, state.zone);
+    if (had && !p.inventory.length) players.sendInventory(p);
     const pos = s.seats ? seatAt(s, i) : spawnFor(s, p.role);
     p.seat = s.seats ? [...pos.p] : null;
     p.a = s.seats ? 'sit' : 'idle';
@@ -383,7 +392,7 @@ export function placeOnJoin(p) {
   p.r = spawn?.r ?? 0;
   if (spawn) p.p = [...spawn.p];
   else if (p.zone !== state.zone || !p.p) p.p = [...DEFAULT_POS];
-  p.zone = state.zone;
+  enterZone(p, state.zone);
   p.scene = sceneKey();
 }
 

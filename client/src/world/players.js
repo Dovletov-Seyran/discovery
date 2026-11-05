@@ -29,6 +29,11 @@ export class Players {
       old.removeFromParent(); old.traverse((o) => { if (o !== p.label && !o.isSprite) o.geometry?.dispose(); });
       this.group.add(rig.root);
       p.rig = rig;
+      // the held item hangs on the old figure's forearm: move it to the new one
+      const was = p.equipment; was.dispose();
+      p.equipment = new RemoteEquipment(rig, this.M);
+      p.equipment.setEquipment(was.equipped, was.equipmentRev);
+      p.equipment.action = was.action; p.equipment.lastSeq = was.lastSeq;
       p.label.draw(p.name, LOOKS[kind][1][p.role] ?? '');
     }
   }

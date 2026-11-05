@@ -176,3 +176,11 @@ test('a completed presentation checkpoint stays available when revisited; the ne
  director.tick(director.startAt()+20000);assert.equal(director.scene().id,'ship_day');assert.equal(director.isTransitioning(),false);
  director.setScene('cut_canary');assert.equal(director.scene().id,'cut_canary');assert.ok(director.sceneMessage(p).duration>0);
 });
+
+test('сменил сторону (моряк ↔ таино) — вещи прежней стороны не остаются',()=>{
+  director.setScene('ship_day');p.inventory=['sword','compass'];p.equipped='sword';p.money=5;
+  director.setScene('p2_day');
+  assert.deepEqual(p.inventory,[]);assert.equal(p.money,0);assert.equal(p.equipped,null);
+  p.inventory=['macana'];director.setScene('p2_evening');assert.deepEqual(p.inventory,['macana']); // та же сторона — вещи при себе
+  director.setScene('ship_evening');assert.deepEqual(p.inventory,[]);
+});

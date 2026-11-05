@@ -15,9 +15,17 @@ const paths={
  meat:'<path d="M22 52c-30-26 29-54 43-30 12 22-14 47-34 38l-12 12-8-8z"/><ellipse cx="45" cy="36" rx="12" ry="8" transform="rotate(-35 45 36)"/>',
  biscuit:'<path d="M13 25l12-12 40 10 4 35-15 12-39-8zM13 25l40 10 12-12M53 35l1 35"/><path d="M25 37v2m14 5v2m-12 7v2m34-7v2"/>',
 };
+paths.crossbow='<path d="M14 26c18-14 34-14 52 0M40 15v55M14 26l26 10 26-10M34 62h12"/>';
+paths.shield='<circle cx="40" cy="40" r="28"/><circle cx="40" cy="40" r="7"/><path d="M40 12v21m0 14v21M12 40h21m14 0h21"/>';
+paths.garlic='<path d="M40 8v14M28 30c-14 6-12 34 12 34s26-28 12-34c-6-3-18-3-24 0zM40 26v38M31 34c-4 10-2 22 6 28m12-28c4 10 2 22-6 28"/>';
+paths.stone_ball='<circle cx="40" cy="42" r="24"/><path d="M26 34l8 4 10-6m-6 18l8 4"/>';
+paths.book='<path d="M14 20h22c3 0 4 2 4 4v42c0-3-2-4-4-4H14zM66 20H44c-3 0-4 2-4 4v42c0-3 2-4 4-4h22zM20 30h12m-12 8h12m16-8h12m-12 8h12"/>';
+paths.note='<path d="M20 10h30l12 12v48H20zM50 10v12h12M28 32h26M28 41h26M28 50h20M28 59h14"/>';
 paths.barrel_full=paths.barrel+'<path d="M34 38q6-14 12 0a6 6 0 01-12 0z"/>';
-export const itemIcon=id=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" stroke="#d6c7a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[id]||paths.purse}</svg>`);
+export const itemIcon=id=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" stroke="#d6c7a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[id]||(id.startsWith('note_')?paths.note:paths.purse)}</svg>`);
 // Подпись действия с учётом места: колодец есть только на Канарах, на корабле бочонок не наполнить
 export const itemAction=(item,zone)=>item==='barrel'&&zone!=='canary'?'Пустой · воду наберём на Канарах':ITEM_ACTIONS[item];
 export const ITEM_ACTIONS={cup:'Рассмотреть кружку',compass:'Направление на север',astrolabe:'Измерить высоту Солнца',wine:'Выпить',sword:'Взмахнуть',map:'Рассмотреть карту',barrel:'Наполнить у колодца',barrel_full:'Пить воду / передать у шлюпки',tar:'Отнести плотнику',planks:'Отнести плотнику',purse:'Открыть кошель',cheese:'Съесть · +35 сил',meat:'Съесть · +50 сил',biscuit:'Съесть · +20 сил',espingarda:'Выстрелить',macana:'Удар — по воину в поединке',
- spear:'Бить рыбу на отмели',fish:'Отнести касику',conch:'Отнести касику',cassava:'Натереть на тёрке',cassava_grated:'Отжать в жгуте',cassava_pulp:'Испечь на бурене',casabe:'Отнести касику',cotton:'Сплести гамак',hammock_gift:'Отнести касику',firewood:'Подбросить в костёр',torch:'Посветить',parrot:'Показать',gift_cotton:'Показать',bell:'Позвенеть',beads:'Рассмотреть',red_cap:'Рассмотреть' };
+ spear:'Бить рыбу на отмели',fish:'Отнести касику',conch:'Отнести касику',cassava:'Натереть на тёрке',cassava_grated:'Отжать в жгуте',cassava_pulp:'Испечь на бурене',casabe:'Отнести касику',cotton:'Сплести гамак',hammock_gift:'Отнести касику',firewood:'Подбросить в костёр',torch:'Посветить',parrot:'Показать',gift_cotton:'Показать',bell:'Позвенеть',beads:'Рассмотреть',red_cap:'Рассмотреть',
+ crossbow:'Рассмотреть',shield:'Рассмотреть',stone_ball:'Рассмотреть',garlic:'Съесть · +10 сил',book:'Почитать',
+ note_stores:'Прочитать',note_trade:'Прочитать',note_old:'Прочитать',note_arms:'Прочитать',note_cosa:'Прочитать',note_torres:'Прочитать',note_logs:'Прочитать',note_letters:'Прочитать' };

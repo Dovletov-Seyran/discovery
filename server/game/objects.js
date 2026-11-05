@@ -8,7 +8,9 @@ import * as director from './director.js';
 import {S2C} from '../../shared/protocol.js';
 import {ITEM_RULES} from '../../shared/item-actions.js';
 import {createBody,advanceBody,objectProfile,supportHeight,resolveBody,finiteVec,PHYSICS_STEP,PHYSICS_MAX_SECONDS} from '../../shared/object-physics.js';
-import {boxContact,doorBox,interactionBoxes} from '../../shared/world-interact.js';
+import {boxContact,chestAround,doorBox,interactionBoxes} from '../../shared/world-interact.js';
+import {HOLD} from '../../client/src/world/ship.js';
+import {L0,L1,xAtY} from '../../client/src/world/hullShape.js';
 import {contactAt,surfaceAt} from '../world/object-collision.js';
 import {emitWorldEvent} from './world-events.js';
 const items=new Map(loadContent('items.json',[]).map(i=>[i.id,i]));
@@ -18,6 +20,9 @@ let epoch=entities.generation();
 const notice=(p,text)=>players.send(p,{t:S2C.NOTICE,text});
 const playable=()=>director.acceptsMove()&&!director.isTransitioning();
 const distance=(a,b)=>Math.hypot(...a.map((x,i)=>x-b[i]));
+// Overboard: below the hull's rail outside it; inside the hull the hold's floor is lower than that
+const inHold=p=>p[2]>L0&&p[2]<L1&&Math.abs(p[0])<xAtY(p[2],HOLD.y);
+const lost=(zone,p)=>p[1]<(zone==='ship'?(inHold(p)?HOLD.y-.5:-2):0);
 
 export function contactWithDoors(zone,p,radius,from=p){
   p=contactAt(zone,p,radius,from);
@@ -77,6 +82,26 @@ export function place(p,msg){
   if(distance(resolved,msg.p)>.08)return notice(p,'Здесь предмет не поместится.');
   const now=Date.now(),body=createBody({p:msg.p,item:msg.item,startedAt:now,roll:p.zone==='ship'&&!!objectProfile(msg.item).roll,r:msg.r??0});
   if(put(p,msg,body))performAction(p,'place',msg.item);
+}
+// Back on its own empty spot of the ship's layout: the static pickup returns as it was (a gun in its rack, a note in its chest).
+export function restore(p,{item,id}={}){
+  const d=entities.def(id),st=entities.stateOf(id);
+  if(!playable()||!p.p||Date.now()-(p.lastObjectAction??0)<350)return;
+  if(d?.kind!=='item'||d.dynamic||d.loose||d.zone!=='ship'||d.zone!==p.zone||d.item!==item||!p.inventory.includes(item))return;
+  if(st?.holder!=='placed'&&st?.holder!==p.id)return notice(p,'Это место уже занято.');
+  const origin=[p.p[0],p.p[1]+1.6,p.p[2]],length=distance(origin,d.p);
+  if(length>4)return notice(p,'Слишком далеко.');
+  const chest=chestAround(entities.allDefs().filter(x=>x.toggleType==='lid'),d.p);
+  if(chest&&!entities.stateOf(chest.id)?.open)return notice(p,'Сначала открой сундук.');
+  // Racks and chest rims stand right at the spot; a wall or a deck in the way is further off
+  const hit=surfaceAt(p.zone,origin,d.p.map((x,i)=>(x-origin[i])/length),length);
+  if(hit&&hit.distance<length-.5)return notice(p,'Между тобой и этим местом препятствие.');
+  equipForUse(p,item);
+  const uses=removeFromHand(p,item);
+  entities.setState(id,{holder:null,...(uses!==undefined?{uses}:{})});
+  p.lastObjectAction=Date.now();
+  performAction(p,'place',item);
+  players.sendInventory(p);players.save(p,{now:true});director.persistNow();syncAll();
 }
 export function throwItem(p,msg){
   if(!allowed(p,msg)||!finiteVec(msg.v))return;
@@ -165,7 +190,7 @@ export function tickObjects(now=Date.now()){
     const target=Math.min(now,body.startedAt+(body.step+36)*PHYSICS_STEP*1000);
     advanceBody(body,target,(pos,r,from)=>contactWithDoors(entry.zone,pos,r,from),{inertia});
     let final=body.sleeping||(!inertia&&body.step>=PHYSICS_MAX_SECONDS/PHYSICS_STEP);
-    if(body.p[1]<(entry.zone==='ship'?-2:0)||body.p.some(n=>!Number.isFinite(n))){
+    if(lost(entry.zone,body.p)||body.p.some(n=>!Number.isFinite(n))){
       const safe=entry.safeP,hit=surfaceAt(entry.zone,[safe[0],safe[1]+2,safe[2]],[0,-1,0],5);
       body.p=[safe[0],(hit?.point.y??safe[1])+supportHeight(body.item)+.02,safe[2]];final=true;
     }

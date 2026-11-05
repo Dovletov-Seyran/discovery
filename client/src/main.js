@@ -2,7 +2,7 @@ import {sceneShortcut} from './game/scene-shortcuts.js';
 import {STAMINA} from '../../shared/stamina.js';
 import './ui/style.css';
 import {FeastUI} from './ui/feast-games.js';
-import {placement,launch} from './game/object-actions.js';
+import {placement,launch,homeSlot} from './game/object-actions.js';
 import {drawLocalMap,unlockItemAudio,playShot} from './ui/item-feedback.js';
 import {ITEM_RULES,freshVitals} from '../../shared/item-actions.js';
 import {sceneProgressView} from './ui/scene-progress.js';
@@ -46,7 +46,7 @@ let throwMode=false;
 let equipped=null, selectedItem=null, pictures={}, dialogueId=null, requestId=null, dialogueHeartbeat;
 let screen='login', modal='', connected=false, chatOpen=false;
 let you={}, scene={id:'lobby',type:'lobby'}, players=[], inventory=[], quests={};
-let savedPosition, savedYaw=0, currentTarget, activeNpc;
+let savedPosition, savedYaw=0, currentTarget, currentHome, activeNpc;
 let noticeTimer, npcAudio, waitingForReply=false, frameCount=0, fpsAt=0, dialogueTimer;
 let sceneProgress=null,serverOffset=0,vitals=freshVitals(),itemUses={},money=0,pendingUnequip=null;
 const itemCooldowns=new Map();
@@ -77,8 +77,11 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
     send:(type,data)=>net?.send(type,data)??false,
     onTarget:target=>{
       currentTarget=target;
-      $('#prompt').hidden=!target;
-      $('#prompt').textContent=target?(target.speaker&&target.speaker.id!==you.id?`${target.label} · разговаривает с ${target.speaker.name}`:`E  ${target.label||'Взаимодействовать'}`):'';
+      currentHome=equipped&&runtime?.mode==='play'&&world?homeSlot(world,equipped,you?.id):null;
+      const text=target?(target.speaker&&target.speaker.id!==you.id?`${target.label} · разговаривает с ${target.speaker.name}`:`E  ${target.label||'Взаимодействовать'}`):'';
+      const back=currentHome?(currentHome.closed?'Открой сундук, чтобы вернуть на место':'G  Вернуть на место'):'';
+      $('#prompt').hidden=!text&&!back;
+      $('#prompt').textContent=text&&back?`${text} · ${back}`:text||back;
       $('#crosshair').classList.toggle('active',!!target);
     },
   });
@@ -125,11 +128,11 @@ function syncInput(){
   if($('#control-hint'))$('#control-hint').hidden=!!blocked;
   $('#crosshair').hidden=blocked||!runtime||!isPlay(scene);
   if(blocked&&throwMode){throwMode=false;renderEquipment();}
-  if(blocked){$('#prompt').hidden=true;currentTarget=null;}
+  if(blocked){$('#prompt').hidden=true;currentTarget=null;currentHome=null;}
 }
 function notify(text){
   $('#notice').textContent=text;$('#notice').hidden=false;
-  clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('#notice').hidden=true,3000);
+  clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('#notice').hidden=true,Math.max(3000,text.length*65));
 }
 function connectionStatus(status){
   connected=status==='online'||status==='demo';
@@ -328,9 +331,9 @@ function closeModal(){feastUI?.closing(modal);endDialogue();clearTimeout(dialogu
   // окно закрыли кликом — сразу вернуть мышь в игру, без лишнего клика по экрану
   if(screen==='game'&&isPlay(scene))runtime?.controller?.lock?.();}
 function closeButton(){return '<button class="close-button" data-close aria-label="Закрыть">×</button>';}
-function openKnowledge(id){
+function openKnowledge(id,overline='ПРЕДМЕТ ПОЛУЧЕН'){
   const data=ITEMS[id]||{name:id,text:''};
-  showModal('knowledge',`<section class="menu-panel knowledge">${closeButton()}<span class="overline">ПРЕДМЕТ ПОЛУЧЕН</span><h2>${escape(data.name)}</h2>${data.text?`<p>${escape(data.text)}</p>`:''}<button class="primary" data-close>Продолжить</button></section>`);
+  showModal('knowledge',`<section class="menu-panel knowledge">${closeButton()}<span class="overline">${overline}</span><h2>${escape(data.name)}</h2>${data.text?`<p>${escape(data.text)}</p>`:''}<button class="primary" data-close>Продолжить</button></section>`);
 }
 function picture(id){return pictures[id]||itemIcon(id);}
 function equipItem(id,{sync=true}={}){throwMode=false;pendingUnequip=null;equipped=id;equipment?.equip(id);renderEquipment();if(sync&&connected&&screen==='game')net?.send('equip',{item:id});}
@@ -389,6 +392,7 @@ function receiveItemUse(message){
   if(message.effect==='water')notify('Глоток воды.');
   if(message.effect==='shot'){equipment?.fire();playShot();notify('Выстрел · перезарядка 2,5 с');}
   if(message.effect==='map')openMap();
+  if(message.effect==='read')openKnowledge(message.item,'ЧИТАЕШЬ');
   if(message.effect==='astrolabe')openAstrolabe();
   if(message.effect==='compass')notify('Север — 0°. Курс указан на приборе.');
   if(message.effect==='wallet')showModal('wallet',`<section class="menu-panel">${closeButton()}<h2>Кошель</h2><p>${message.money} мараведи</p><small>Припасы можно купить у торговца на Канарах.</small></section>`);
@@ -585,11 +589,12 @@ window.addEventListener('keydown',event=>{
   if(event.code==='F3'){event.preventDefault();$('#debug').hidden=!$('#debug').hidden;if(!runtime)$('#debug').textContent='Мир не подключён';return;}
   if(event.code==='Tab'){event.preventDefault();if(modal==='inventory')closeModal();else if(!modal)openInventory();return;}
   if(event.code==='KeyJ'&&!event.repeat){event.preventDefault();if(modal==='journal')closeModal();else if(!modal)openJournal();return;}
-  if(/^Digit[1-9]$/.test(event.code)&&!modal&&!chatOpen){const id=inventory[Number(event.code.slice(5))-1];if(id)equipItem(itemId(id));return;}
+  if(/^Digit[1-9]$/.test(event.code)&&!modal&&!chatOpen){const id=inventory[Number(event.code.slice(5))-1];const item=id?itemId(id):null;if(item!==equipped)equipItem(item);return;}
   if(!modal&&!chatOpen&&connected&&isPlay(scene)&&equipped&&!event.repeat){
     if(event.code==='KeyF'){event.preventDefault();throwMode=!throwMode;renderEquipment();return;}
     if(event.code==='KeyG'){
       event.preventDefault();if(sceneProgress?.phase==='departing')return;
+      if(currentHome&&!currentHome.closed){net.send('restore',{item:equipped,id:currentHome.id});return;}
       const data=world&&placement(world,equipped);
       if(data)net.send('place',data);else notify('Посмотри на свободное место рядом.');return;
     }

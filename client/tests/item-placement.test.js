@@ -75,6 +75,10 @@ test('navigation tools are supported by the table, clear one another and no pick
  const {buildLayout}=await import('../src/world/props.js'),built=buildLayout(M,{objects:[],npcs:[],interact:layout.interact.filter(x=>['map','astrolabe'].includes(x.id))});
  const boxes=built.interactables.map(o=>new Box3().setFromObject(o,true));assert.equal(boxes[0].intersectsBox(boxes[1]),false);
  for(const b of boxes){assert.ok(b.min.x>=.625&&b.max.x<=1.875);assert.ok(b.min.z>=8.275&&b.max.z<=9.125);assert.ok(b.min.y>=2.84-1e-6&&b.min.y<2.86);}
- for(const item of layout.interact.filter(x=>x.kind==='item'))for(const chest of layout.objects.filter(x=>x.m.endsWith('_chest')))assert.ok(Math.hypot(item.p[0]-chest.p[0],item.p[2]-chest.p[2])>.65);
+ // A note lying inside a chest (below its rim) and pickups on another deck do not sit on a lid.
+ for(const item of layout.interact.filter(x=>x.kind==='item'))for(const chest of layout.objects.filter(x=>x.m.endsWith('_chest'))){
+  const dy=item.p[1]-chest.p[1],inside=Math.hypot(item.p[0]-chest.p[0],item.p[2]-chest.p[2])<.05&&dy>0&&dy<.2;
+  if(!inside&&Math.abs(dy)<1)assert.ok(Math.hypot(item.p[0]-chest.p[0],item.p[2]-chest.p[2])>.65,`${item.id} over ${chest.id}`);
+ }
  for(const obj of built.interactables)releaseModel(obj);
 });
