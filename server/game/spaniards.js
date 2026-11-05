@@ -8,8 +8,11 @@
 // batey: true — точка у края батея, через неё он идёт на поединок и возвращается обратно.
 export const SPANIARDS = [
   {
+    // стрелок: держится в 3,8–6,5 м, целится 1,4 с (последние 0,5 с ствол уже не ведёт за тобой — шагни
+    // вбок), стреляет холостым, перезаряжает 3,2 с — тогда беги и бей; вплотную бьёт прикладом
     id: 'es_diego', crew: 'sailor_1', name: 'Диего', log: 'duel_es_diego', weapon: 'espingarda',
-    windup: 950, recover: 1200, speed: 2.6, think: [1000, 1900], feint: 0, walk: 1.25,
+    windup: 950, recover: 1200, speed: 2.6, think: [1300, 2300], feint: 0, walk: 1.25,
+    aimMs: 1400, lockMs: 500, reloadMs: 3200, keep: [3.8, 6.5],
     route: [
       { p: [114.5, 256.6], act: 'guard', wait: 16, face: [130, 255], doing: 'стережёт лодки', say: '¡Quietos, quietos!' },
       { p: [128, 254.4] }, { p: [146, 254.7] },

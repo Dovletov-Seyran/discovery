@@ -15,6 +15,7 @@ import * as director from './director.js';
 import * as quests from './quests.js';
 import * as combat from './combat.js';
 import { performAction, equipForUse } from './player-actions.js';
+import { worldEvent } from './world-events.js';
 import { SPANIARDS, GREETINGS, SP, pathToBatey } from './spaniards.js';
 
 const ZONE = 'guanahani';
@@ -29,7 +30,10 @@ export const D = {
   WIN: 3, READY_MS: 3000, LIMIT_MS: 120000, RESULT_MS: 4000,
   LAG: 0.5, CHALLENGE_R: 3.5, EXIT: 1.5, START: 1.6,
   CIRCLE: 2.4, CLOSE: 1.6, STRIKE_MS: 350, BLOCK_MS: 350, STAGGER_MS: 600, FLANK: 1.2,
+  DODGE_MS: 2600, // от стрелы спереди уворачивается не чаще
+  FIRE_MS: 300, SHOT_RANGE: 16, SHOT_WIDTH: 0.75, // выстрел: вспышка, дальность, насколько надо уйти с линии ствола
 };
+const OPEN = new Set(['windup', 'recover', 'aim', 'fire', 'reload']); // тут любой удар засчитывается
 export const DUELISTS = [
   { id: 'duelist_young', kind: 'warrior', name: 'Юный воин', log: 'duel_young', weapon: 'macana', scenes: ['p2_day', 'p2_evening'],
     home: [160.5, 255], r: -Math.PI / 2, windup: 850, recover: 1100, speed: 2.4, think: [900, 1800], feint: 0 },
@@ -37,7 +41,7 @@ export const DUELISTS = [
     home: [175.5, 255], r: Math.PI / 2, windup: 650, recover: 800, speed: 3.0, think: [600, 1300], feint: 0.3 },
   ...SPANIARDS.map((s) => ({ ...s, kind: 'spaniard', scenes: ['p2_landing'], home: s.route[0].p, r: 0 })),
 ];
-const FIGHT = new Set(['approach', 'circle', 'close', 'windup', 'strike', 'recover', 'block', 'dodge', 'stagger']);
+const FIGHT = new Set(['approach', 'circle', 'close', 'back', 'windup', 'strike', 'recover', 'block', 'dodge', 'stagger', 'aim', 'fire', 'reload']);
 const FREE = new Set(['walk', 'act', 'greet']); // испанец свободен — можно вызвать
 
 let rnd = Math.random;
@@ -108,15 +112,18 @@ function begin(d, p, now) {
   Object.assign(d, { p: him, r: side > 0 ? -Math.PI / 2 : Math.PI / 2, state: 'ready', player: p.id, score: [0, 0], t: now,
     startsAt: now + D.READY_MS, until: now + D.READY_MS + D.LIMIT_MS, result: null, lastPlayer: p.id, resultAt: 0, blocks: 0, side: 1, gave, playerWeapon: weapon });
   const tip = { macana: 'Отступай на его замахе и бей, пока он открыт', war_spear: 'Копьё достаёт дальше: встречай его на подходе и бей на замахе',
-    bow: 'Спереди он увернётся от стрелы: стреляй на его замахе или когда он открыт — издалека, не подходя под удар' }[weapon];
-  notice(p, `Поединок с ${d.def.kind === 'spaniard' ? 'чужаком' : 'воином'}: до ${D.WIN} очков. ${tip}`);
+    bow: 'От первой стрелы спереди он увернётся, от второй подряд — уже нет; на замахе и когда он открыт попадёшь всегда' }[weapon];
+  const his = d.def.weapon === 'espingarda' ? ' Он стреляет: целится — шагни вбок, перезаряжает — беги к нему.' : '';
+  notice(p, `Поединок с ${d.def.kind === 'spaniard' ? 'чужаком' : 'воином'}: до ${D.WIN} очков.${his} ${tip}`);
   console.log(`[duel] ${p.name} — ${d.def.name} (${weapon})`);
   broadcast(now);
 }
 
 // --- удар игрока ---
 
-export function attack(p, id, now = Date.now()) {
+// yaw — куда игрок смотрел в момент удара (клиент шлёт вместе с attack: последний move мог уйти раньше
+// поворота мыши); нет — берём из move
+export function attack(p, id, now = Date.now(), yaw = null) {
   const d = duels.get(id);
   if (!d) return false;
   if (d.player !== p.id) return notice(p, d.def.kind === 'spaniard' ? `Вызови ${d.def.name} на бой: подойди и нажми E` : 'Вызови воина на поединок: подойди и нажми E'), false;
@@ -124,27 +131,31 @@ export function attack(p, id, now = Date.now()) {
   const item = weaponOf(p), w = WEAPONS[item];
   if (now - (p.lastDuelAttackAt ?? 0) < w.cooldown) return false;
   p.lastDuelAttackAt = now;
+  if (Number.isFinite(yaw)) p.r = yaw;
   performAction(p, w.action, heldItem(p));
-  const dist = flat(p.p, d.p), aim = Math.abs(aimOff(p, d.p));
-  if (dist > w.reach + D.LAG || aim > w.aim + (w.kind === 'ranged' ? 0.6 / Math.max(dist, 1) : 0)) {
-    if (w.kind === 'ranged') toZone({ t: S2C.HIT, by: p.id, target: d.def.id, kind: 'duel', weapon: item, missed: true, score: [...d.score] });
+  const dist = flat(p.p, d.p), aim = Math.abs(aimOff(p, d.p)), ranged = w.kind === 'ranged';
+  if (dist > w.reach + D.LAG || aim > w.aim + (ranged ? 0.6 / Math.max(dist, 1) : 0)) {
+    if (ranged) toZone({ t: S2C.HIT, by: p.id, target: d.def.id, kind: 'duel', weapon: item, missed: true, score: [...d.score] });
     return false; // промах: удар или стрела мимо
   }
   if (d.state === 'stagger') return false;
-  // засчитывается: сбил замах, ударил, пока он открыт после своего удара, или сбоку / сзади (стрелой —
-  // так же, но с любого расстояния); копьё ещё и встречает его на подходе
-  const open = d.state === 'windup' || d.state === 'recover', flank = Math.abs(bearing(d, p.p)) > D.FLANK;
+  // засчитывается: сбил замах или прицел, ударил, пока он открыт (после удара, перезаряжает), сбоку / сзади;
+  // копьё ещё и встречает его на подходе. Стрелу спереди он видит и уворачивается — но не чаще раза в
+  // DODGE_MS и не тогда, когда сам бросился в атаку: следующая стрела попадёт
+  const open = OPEN.has(d.state), flank = Math.abs(bearing(d, p.p)) > D.FLANK;
   const spear = w.kind === 'thrust' && d.state === 'close' && dist > 1.9;
-  if (open || flank || spear) {
+  const dodge = ranged && d.state !== 'close' && now - (d.dodgedAt ?? -Infinity) > D.DODGE_MS;
+  if (open || flank || spear || (ranged && !dodge)) {
     d.score[0]++; d.blocks = 0;
     setState(d, 'stagger', now);
-    shove(d, p.p, 0.6);
+    shove(d, p.p, ranged ? 0.3 : 0.6);
     toZone({ t: S2C.HIT, by: p.id, target: d.def.id, kind: 'duel', weapon: item, score: [...d.score] });
     if (d.score[0] >= D.WIN) end(d, 'player', now);
   } else {
-    d.blocks++;
-    setState(d, w.kind === 'ranged' ? 'dodge' : 'block', now);
-    toZone({ t: S2C.HIT, by: p.id, target: d.def.id, kind: 'duel', weapon: item, blocked: true, score: [...d.score] });
+    if (dodge) d.dodgedAt = now; else d.blocks++;
+    setState(d, dodge ? 'dodge' : 'block', now);
+    if (dodge) sidestep(d, p.p);
+    toZone({ t: S2C.HIT, by: p.id, target: d.def.id, kind: 'duel', weapon: item, blocked: true, ...(dodge ? { dodged: true } : {}), against: d.def.weapon, score: [...d.score] });
   }
   broadcast(now);
   return true;
@@ -206,13 +217,24 @@ function fight(d, p, now, dt) {
     case 'block': case 'dodge':
       face(d, p.p);
       if (now - d.t < D.BLOCK_MS) return;
-      // два отбитых подряд — сразу ответный замах (стрела издалека — нет, он идёт ближе)
-      if (d.blocks >= 2 && dist <= D.CIRCLE + 0.5) { d.blocks = 0; startWindup(d, now); } else { setState(d, 'circle', now); d.nextMove = Math.min(d.nextMove, now + 400); }
+      // два отбитых подряд — сразу ответный замах; увернулся от стрелы — сразу идёт на лучника
+      if (d.blocks >= 2 && dist <= D.CIRCLE + 0.5) { d.blocks = 0; startWindup(d, now); } else { setState(d, 'circle', now); d.nextMove = Math.min(d.nextMove, now + (d.state === 'dodge' ? 150 : 400)); }
       return;
     case 'stagger':
       if (now - d.t >= D.STAGGER_MS) { setState(d, 'circle', now); d.nextMove = now + think(def); }
       return;
-    default: { // approach / circle / close: держит дистанцию, кружит, по сигналу идёт в атаку
+    // стрелок: целится (сначала ведёт стволом за игроком, последние lockMs держит), выстрел, перезарядка
+    case 'aim':
+      if (now - d.t < def.aimMs - def.lockMs) { face(d, p.p); d.lockR = d.r; }
+      if (now - d.t >= def.aimMs) fire(d, p, now);
+      return;
+    case 'fire':
+      if (now - d.t >= D.FIRE_MS) setState(d, 'reload', now);
+      return;
+    case 'reload':
+      if (now - d.t >= def.reloadMs) { setState(d, 'circle', now); d.nextMove = now + think(def); }
+      return;
+    default: if (def.weapon === 'espingarda') { keepRange(d, p, now, dt, dist); return; } { // approach / circle / close: держит дистанцию, кружит, по сигналу идёт в атаку
       const reach = Math.max(D.CLOSE, strikeR - 0.35);
       if (now >= d.nextMove) {
         d.state = 'close';
@@ -235,6 +257,48 @@ function fight(d, p, now, dt) {
 function startWindup(d, now) {
   setState(d, 'windup', now);
   d.feinting = rnd() < d.def.feint;
+}
+
+// Стрелок держится на расстоянии: ближе keep[0] — пятится, дальше keep[1] — подходит, между — обходит
+// по кругу. По сигналу целится; вплотную — бьёт прикладом
+function keepRange(d, p, now, dt, dist) {
+  const def = d.def, [near, far] = def.keep;
+  if (now >= d.nextMove) {
+    if (dist <= 2.3) { startWindup(d, now); return; }
+    setState(d, 'aim', now); face(d, p.p); d.lockR = d.r; d.feinting = false;
+    return;
+  }
+  if (dist < near) {
+    d.state = 'back';
+    const away = [d.p[0] + (d.p[0] - p.p[0]) / dist, 0, d.p[2] + (d.p[2] - p.p[2]) / dist];
+    if (inRing(d.ring, away, -0.6)) step(d, away, def.speed * 0.75, dt, 0); else circleAround(d, p, dt, dist);
+  } else if (dist > far) { d.state = 'approach'; step(d, p.p, def.speed, dt, (near + far) / 2); }
+  else { d.state = 'circle'; circleAround(d, p, dt, dist); }
+  face(d, p.p);
+}
+function circleAround(d, p, dt, radius) {
+  const a = Math.atan2(d.p[2] - p.p[2], d.p[0] - p.p[0]) + d.side * d.def.speed * 0.4 * dt / Math.max(radius, 1);
+  const to = [p.p[0] + Math.cos(a) * radius, 0, p.p[2] + Math.sin(a) * radius];
+  if (!inRing(d.ring, to, -0.8)) d.side = -d.side;
+  else step(d, to, d.def.speed, dt, 0.02);
+}
+
+// Выстрел холостым зарядом туда, куда держал ствол: попал, если игрок не ушёл с линии
+function fire(d, p, now) {
+  setState(d, 'fire', now);
+  const dir = [-Math.sin(d.lockR), -Math.cos(d.lockR)], v = [p.p[0] - d.p[0], p.p[2] - d.p[2]];
+  const along = v[0] * dir[0] + v[1] * dir[1], aside = Math.abs(v[0] * dir[1] - v[1] * dir[0]);
+  const hit = along > 0 && along < D.SHOT_RANGE && aside < D.SHOT_WIDTH;
+  worldEvent({ id: d.def.id, p: d.p, zone: ZONE, connected: true }, 'scare', { shot: true }, now); // грохот: птицы и звери разбегаются
+  if (hit) d.score[1]++;
+  toZone({ t: S2C.HIT, by: d.def.id, target: p.id, kind: 'duel', weapon: d.def.weapon, shot: true, ...(hit ? {} : { missed: true }), score: [...d.score] });
+  if (hit && d.score[1] >= D.WIN) end(d, 'warrior', now);
+}
+// увернулся от стрелы — шаг вбок
+function sidestep(d, from) {
+  const dx = d.p[0] - from[0], dz = d.p[2] - from[2], dist = Math.hypot(dx, dz) || 1, s = rnd() < 0.5 ? -1 : 1;
+  const to = [d.p[0] - (dz / dist) * 0.7 * s, 0, d.p[2] + (dx / dist) * 0.7 * s];
+  if (inRing(d.ring, to)) { d.p = to; d.p[1] = ground(to[0], to[2]); }
 }
 const think = (def) => def.think[0] + rnd() * (def.think[1] - def.think[0]);
 function setState(d, state, now) { d.state = state; d.t = now; }
@@ -358,7 +422,7 @@ function aimOff(p, to) { const a = Math.atan2(p.p[0] - to[0], p.p[2] - to[2]) - 
 // --- рассылка ---
 
 const toZone = (msg) => players.broadcast(msg, (x) => x.zone === ZONE);
-const STATE_OUT = { close: 'approach' }; // dodge — увернулся от стрелы
+const STATE_OUT = { close: 'approach', back: 'circle' }; // dodge — увернулся от стрелы
 export function state(now = Date.now()) {
   return {
     t: S2C.DUEL, serverNow: now,

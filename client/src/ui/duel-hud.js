@@ -8,17 +8,21 @@ const TIPS = {
   strike: 'Удар!',
   recover: 'Он открыт — бей!',
   block: 'Отбил. Бей на замахе, после его удара или сбоку',
-  dodge: 'Увернулся: спереди стрелу видно. Стреляй на его замахе или когда он открыт',
+  dodge: 'Увернулся — вторую стрелу подряд не успеет! Стреляй ещё',
   stagger: 'Попал!',
+  aim: 'Целится! Шагни вбок — с линии ствола',
+  fire: 'Выстрел!',
+  reload: 'Перезаряжает — беги и бей!',
 };
+const TONES = { windup: 'danger', aim: 'danger', recover: 'chance', reload: 'chance' };
 const WEAPON_TIPS = {
   war_spear: { approach: 'Идёт на тебя — встречай копьём!', circle: 'Держи его на длине копья' },
-  bow: { approach: 'Держись подальше и жди его замаха', circle: 'Отходи: стреляй на его замахе или когда он открыт', recover: 'Он открыт — стреляй!' },
+  bow: { approach: 'Бежит на тебя — стреляй, пока не добежал', circle: 'Стреляй: от первой стрелы увернётся, от второй — нет', recover: 'Он открыт — стреляй!', windup: 'Замах! Стреляй — или отбеги', reload: 'Перезаряжает — стреляй!' },
 };
 const START = {
   macana: 'ЛКМ — удар',
   war_spear: 'ЛКМ — выпад копьём, достаёт дальше',
-  bow: 'ЛКМ — выстрел, целься в него',
+  bow: 'ЛКМ — выстрел, целься в него; стреляй по две подряд',
 };
 const RESULTS = { player: 'Победа', warrior: 'Поражение', draw: 'Ничья' };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -38,8 +42,8 @@ export function duelView(message, me, serverNow = Date.now()) {
   const weapon = d.playerWeapon ?? 'macana', where = 'не выходи за круг на земле';
   if (d.state === 'ready') {
     const left = Math.max(1, Math.ceil((d.startsAt - serverNow) / 1000));
-    return { tone: 'ready', html: `<p class="duel-title">Поединок · ${esc(d.name)}</p>${score}<p class="duel-count">${d.startsAt > serverNow ? left : 'Бой!'}</p><p class="duel-tip">${START[weapon] ?? START.macana} · до трёх очков · ${where}</p>` };
+    return { tone: 'ready', html: `<p class="duel-title">Поединок · ${esc(d.name)}</p>${score}<p class="duel-count">${d.startsAt > serverNow ? left : 'Бой!'}</p><p class="duel-tip">${START[weapon] ?? START.macana} · до трёх очков · ${where}</p>${d.weapon === 'espingarda' ? '<p class="duel-tip">Он стреляет: целится — шагни вбок, перезаряжает — беги к нему</p>' : ''}` };
   }
   const tip = WEAPON_TIPS[weapon]?.[d.state] ?? TIPS[d.state];
-  return { tone: d.state === 'windup' ? 'danger' : d.state === 'recover' ? 'chance' : 'fight', html: `${score}${tip ? `<p class="duel-tip">${tip}</p>` : ''}` };
+  return { tone: TONES[d.state] ?? 'fight', html: `${score}${tip ? `<p class="duel-tip">${tip}</p>` : ''}` };
 }

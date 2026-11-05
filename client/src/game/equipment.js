@@ -87,6 +87,8 @@ export class Equipment {
  use(){if(this.action>0)return false;this.action=ACTION_S[this.item]??0.9;return true;}
  drink(until,strength=.35,serverNow=Date.now()){this.drunkUntil=Date.now()+Math.max(0,until-serverNow);this.drunkStrength=strength;}
  fire(){this.flashUntil=Date.now()+120;}
+ // пропустил удар: камера вздрагивает (крен и кивок), сила 0..1
+ hurt(strength=1){this.kickAt=Date.now();this.kickStrength=strength;}
  update(dt,time,visible){
   this.root.visible=visible&&!!this.object;
   this.action=Math.max(0,this.action-dt);
@@ -117,6 +119,8 @@ export class Equipment {
   if(this.item==='compass'&&this.heldModel)this.heldModel.rotation.y=-this.world.camera.rotation.y;
   const left=Math.max(0,(this.drunkUntil-Date.now())/1000),sway=this.drunkStrength*Math.min(1,left/4);
   this.world.camera.rotation.z=Math.sin(time*1.7)*.055*sway;
+  const kick=this.kickAt?(Date.now()-this.kickAt)/1000:9;
+  if(kick<.4){const k=(1-kick/.4)**2*(this.kickStrength??1);this.world.camera.rotation.z+=Math.sin(kick*38)*.045*k;this.root.position.y-=.05*k;}
 
  }
  render(){

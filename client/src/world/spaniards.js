@@ -9,8 +9,9 @@ import { Warriors, inFist } from './warriors.js';
 import { sword } from '../game/held-models.js';
 import { espingarda } from './espingarda.js';
 
-const FIGHT = new Set(['ready', 'approach', 'circle', 'windup', 'strike', 'recover', 'block', 'dodge', 'stagger']);
-const own = (color, roughness = 0.8, metalness = 0) => { const m = new THREE.MeshStandardMaterial({ color, roughness, metalness }); m.userData.equipmentOwned = true; return m; };
+const FIGHT = new Set(['ready', 'approach', 'circle', 'windup', 'strike', 'recover', 'block', 'dodge', 'stagger', 'aim', 'fire', 'reload']);
+const glow = (color, opacity = 1) => { const m = new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 }); m.userData.equipmentOwned = true; return m; };
+const own =(color, roughness = 0.8, metalness = 0) => { const m = new THREE.MeshStandardMaterial({ color, roughness, metalness }); m.userData.equipmentOwned = true; return m; };
 
 // Подпись: свободен — вызвать, ведёт / бьётся с тобой — идти / бить, с другим — счёт; ниже — что он делает
 // или что говорит
@@ -52,6 +53,12 @@ export class Spaniards extends Warriors {
     x.label.position.y = 2.3; x.label.draw(w.name, 'чужак с большой лодки'); rig.root.add(x.label);
     if (w.weapon === 'espingarda') {
       x.gun = espingarda().obj; x.gun.name = 'espingarda'; x.gun.scale.setScalar(0.95);
+      // фитиль в курке тлеет, пока целится; вспышка у дула — при выстреле
+      const ember = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), glow(0xff6a1a)); ember.position.set(0.045, 0.06, 0); ember.visible = false; x.gun.add(ember); x.ember = ember;
+      const flash = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), glow(0xffd27a, 0.95)); flash.position.fromArray(x.gun.userData.muzzle ?? [0, 1.18, 0]); flash.position.y += 0.08; flash.visible = false; x.gun.add(flash); x.flash = flash;
+      // шомпол — в другой руке, только пока перезаряжает
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.85, 5), own(0x5a3a22, 0.8)); rod.position.y = -0.62; rod.visible = false;
+      rig.arms.find((a) => a !== arm).fa.add(rod); x.rod = rod;
     } else {
       x.blade = inFist(sword().obj); x.blade.name = 'sword';
       x.sheath = scabbard(); x.sheath.position.set(-arm.s * 0.21, 0.02, 0.04); x.sheath.rotation.set(0.85, 0, -arm.s * 0.15); rig.hip.add(x.sheath); // наискосок, концом назад
@@ -81,6 +88,64 @@ export class Spaniards extends Warriors {
     }
   }
 
+  // эспингарда в бою: прицел и выстрел — дулом на соперника, перезарядка — стоймя, удар прикладом — прикладом
+  // вперёд; фитиль тлеет при прицеле, вспышка и дым — при выстреле
+  gunner(x, k, t) {
+    if (!x.armed) { x.ember.visible = x.flash.visible = x.rod.visible = false; return; }
+    const aiming = x.state === 'aim' || x.state === 'fire', reloading = x.state === 'reload';
+    if (aiming) x.gun.rotation.set(Math.PI, 0, 0);
+    else if (reloading) x.gun.rotation.set(Math.PI / 2, 0, 0);
+    else x.gun.rotation.set(0, 0, 0);
+    x.ember.visible = x.state === 'aim' && Math.sin(t * 18) > -0.3;
+    x.flash.visible = x.state === 'fire' && k < 0.12;
+    x.flash.scale.setScalar(1 + k * 6);
+    x.rod.visible = reloading && k > 0.4 && k < 2.8;
+    if (x.state === 'fire' && !x.smoked) { x.smoked = true; this.smoke(x.gun); }
+    if (x.state !== 'fire') x.smoked = false;
+  }
+
+  // ствол точно туда, куда он смотрит (то есть на соперника), что бы ни делали руки; lift — пока поднимает
+  // ружьё к плечу, up — подброс ствола отдачей
+  aimGun(x, lift = 1, up = 0) {
+    const root = x.rig.root, parent = x.gun.parent;
+    root.updateMatrixWorld(true);
+    const fwd = new THREE.Vector3(0, Math.sin(up), Math.cos(up)).applyQuaternion(root.getWorldQuaternion(new THREE.Quaternion()));
+    const want = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), fwd.normalize());
+    const local = parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(want);
+    x.gun.quaternion.slerp(local, lift);
+  }
+
+  // клуб порохового дыма у дула: несколько шаров расходятся, поднимаются и тают
+  smoke(gun) {
+    gun.updateMatrixWorld(true);
+    const at = gun.localToWorld(new THREE.Vector3().fromArray(gun.userData.muzzle ?? [0, 1.18, 0]));
+    const dir = gun.localToWorld(new THREE.Vector3(0, 2, 0)).sub(at).normalize();
+    this.puffs ??= [];
+    for (let i = 0; i < 9; i++) {
+      const m = new THREE.MeshBasicMaterial({ color: i < 3 ? 0xd8d2c4 : 0xbab4a8, transparent: true, opacity: 0.55, depthWrite: false });
+      m.userData.equipmentOwned = true;
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), m);
+      puff.position.copy(at);
+      const v = dir.clone().multiplyScalar(0.5 + i * 0.18).add(new THREE.Vector3((Math.random() - 0.5) * 0.5, 0.2 + Math.random() * 0.3, (Math.random() - 0.5) * 0.5));
+      this.group.add(puff);
+      this.puffs.push({ puff, v, age: 0, life: 1.6 + Math.random() * 0.9 });
+    }
+  }
+
+  update(dt) {
+    super.update(dt);
+    if (!this.puffs?.length) return;
+    dt = Math.min(dt, 0.1); // вкладка была в фоне — дым не исчезает рывком
+    for (const s of this.puffs) {
+      s.age += dt; s.v.multiplyScalar(Math.max(0, 1 - dt * 2.2)); s.v.y += dt * 0.25;
+      s.puff.position.addScaledVector(s.v, dt);
+      s.puff.scale.setScalar(1 + s.age * 4.5);
+      s.puff.material.opacity = 0.55 * Math.max(0, 1 - s.age / s.life);
+    }
+    for (const s of this.puffs.filter((x) => x.age >= x.life)) { s.puff.removeFromParent(); s.puff.geometry.dispose(); s.puff.material.dispose(); }
+    this.puffs = this.puffs.filter((x) => x.age < x.life);
+  }
+
   carry(x) {
     const { arm, rig } = x, left = rig.arms.find((a) => a !== arm);
     if (x.gun && !x.armed && x.state !== 'walk' && x.state !== 'return' && x.state !== 'lead') { arm.ua.rotation.set(0.15, 0, arm.s * 0.5); arm.fa.rotation.set(0, 0, -arm.s * 1.6); } // стоит, рука на поясе
@@ -102,7 +167,35 @@ export class Spaniards extends Warriors {
     rig.root.rotation.x = 0; rig.hip.position.y = 0.95;
     this.arm(x, FIGHT.has(x.state) || x.state === 'await');
     x.trinket.visible = false;
+    if (x.gun) this.gunner(x, k, t);
     if (x.state === 'walk') { x.phase += dt * 6.2; pose(rig, 'walk', x.phase); this.carry(x); return; }
+    if (x.gun && x.armed && x.state === 'aim') { // целится: приклад к плечу, ствол на соперника, левая рука под цевьём
+      pose(rig, 'stand');
+      const lift = Math.min(1, k / 0.35);
+      arm.ua.rotation.set(-1.5 * lift, 0, -arm.s * 0.2 * lift); arm.fa.rotation.set(-0.05, 0, arm.s * 0.1 * lift);
+      left.ua.rotation.set(-1.55 * lift, 0, -left.s * 0.45 * lift); left.fa.rotation.set(-0.1, 0, 0);
+      rig.head.rotation.set(0.12 * lift, -arm.s * 0.2 * lift, 0); rig.torso.rotation.set(0, arm.s * 0.1 * lift, 0);
+      rig.legs[0].th.rotation.x = -0.25; rig.legs[1].th.rotation.x = 0.2;
+      this.aimGun(x, lift);
+      return;
+    }
+    if (x.gun && x.armed && x.state === 'fire') { // отдача: ствол вверх, корпус назад
+      pose(rig, 'stand');
+      const kick = Math.max(0, 1 - k / 0.3);
+      arm.ua.rotation.set(-1.5 - 0.35 * kick, 0, -arm.s * 0.2); arm.fa.rotation.set(-0.05, 0, arm.s * 0.25);
+      left.ua.rotation.set(-1.55 - 0.3 * kick, 0, -left.s * 0.45); left.fa.rotation.set(-0.1, 0, 0);
+      rig.torso.rotation.set(-0.18 * kick, arm.s * 0.1, 0); rig.head.rotation.set(0.12, -arm.s * 0.2, 0);
+      this.aimGun(x, 1, 0.35 * kick);
+      return;
+    }
+    if (x.gun && x.armed && x.state === 'reload') { // перезаряжает: ружьё стоймя, забивает заряд шомполом
+      pose(rig, 'stand');
+      arm.ua.rotation.set(-0.55, 0, -arm.s * 0.2); arm.fa.rotation.set(-0.75, 0, 0);
+      const ram = k > 0.6 && k < 2.6 ? Math.abs(Math.sin((k - 0.6) * 4.2)) : 0;
+      left.ua.rotation.set(-2.45 + ram * 0.35, 0, -left.s * 0.35); left.fa.rotation.set(-0.35 + ram * 0.2, 0, 0);
+      rig.torso.rotation.set(0.12, 0, 0); rig.head.rotation.set(0.35, 0, 0);
+      return;
+    }
     if (x.gun && x.armed && x.state === 'strike') { // удар прикладом: выпад обеими руками
       pose(rig, 'stand');
       arm.ua.rotation.set(-1.3, 0, -arm.s * 0.3); arm.fa.rotation.set(-0.3, 0, 0); left.ua.rotation.set(-1.4, 0, -left.s * 0.2); left.fa.rotation.set(-0.2, 0, 0);

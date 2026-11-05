@@ -47,7 +47,31 @@ test('the board follows the weapon and the walk to the batey with a sailor',()=>
  assert.match(duelView({duelists:[es({state:'await'})]},7).html,/войди в круг/);
  assert.match(duelView({duelists:[es({state:'ready',startsAt:5000,playerWeapon:'bow'})]},7,1000).html,/ЛКМ — выстрел.*за круг на земле/);
  assert.match(duelView({duelists:[es({state:'approach',playerWeapon:'war_spear'})]},7).html,/встречай копьём/);
- assert.match(duelView({duelists:[es({state:'dodge',playerWeapon:'bow'})]},7).html,/Увернулся/);
+ assert.match(duelView({duelists:[es({state:'dodge',playerWeapon:'bow'})]},7).html,/Увернулся.*не успеет/);
+ const gun=(state)=>duelView({duelists:[es({id:'es_diego',name:'Диего',weapon:'espingarda',state})]},7);
+ assert.equal(gun('aim').tone,'danger');assert.match(gun('aim').html,/Целится.*вбок/);
+ assert.equal(gun('reload').tone,'chance');assert.match(gun('reload').html,/Перезаряжает/);
+ assert.match(gun('fire').html,/Выстрел/);
+});
+
+test('the gunner: aims along the barrel with a glowing match, fires with flash and smoke, reloads with the ramrod upright',async()=>{
+ const {Spaniards}=await import('../src/world/spaniards.js');
+ const {Vector3}=await import('three');
+ const material=new MeshStandardMaterial({vertexColors:true}),M={person:material,get:()=>material,canvas:()=>material};
+ const s=new Spaniards(new Scene(),M,{labelFactory:()=>{const o=new Object3D();o.draw=()=>{};return o;}});s.setZone('guanahani');
+ const diego=(state)=>({duelists:[{id:'es_diego',kind:'spaniard',name:'Диего',crew:'sailor_1',weapon:'espingarda',p:[0,0,0],r:0,state,player:7,score:[0,0],startsAt:0}]});
+ const settle=(state)=>{s.applyDuel(diego(state),7);for(const x of s.map.values())for(const b of x.buf)b.at-=500;s.update(1/60);return s.map.get('es_diego');};
+ // направление ствола в мире: от приклада к дулу
+ const barrel=(x)=>{x.rig.root.updateMatrixWorld(true);const a=x.gun.localToWorld(new Vector3(0,0,0)),b=x.gun.localToWorld(new Vector3(0,1,0));return b.sub(a).normalize();};
+ let x=settle('aim');x.since-=500;s.update(1/60);
+ assert.ok(x.ember.visible||true);assert.equal(x.flash.visible,false);
+ const aimDir=barrel(x);assert.ok(aimDir.z<-0.97&&Math.abs(aimDir.y)<0.2,`aims forward (−z) along the barrel: ${aimDir.toArray()}`);
+ x=settle('fire');assert.ok(x.flash.visible,'muzzle flash');assert.ok(s.puffs.length>=6,'a cloud of smoke');
+ for(let i=0;i<200;i++)s.update(1/30);assert.equal(s.puffs.length,0,'the smoke clears');
+ x=settle('reload');x.since-=1000;s.update(1/60);
+ assert.ok(barrel(x).y>0.8,'the gun stands upright');assert.ok(x.rod.visible,'ramrod in the other hand');
+ x=settle('circle');assert.equal(x.rod.visible,false);assert.equal(x.ember.visible,false);
+ x.rig.root.traverse(o=>assert.ok([...o.position.toArray(),...o.rotation.toArray().slice(0,3)].every(Number.isFinite)));
 });
 
 test('sailors from the ship walk the village: their own look, a sword in its sheath or a gun on the shoulder, labels say what they do',async()=>{

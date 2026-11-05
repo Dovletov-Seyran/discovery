@@ -2,6 +2,7 @@
 // Файлы — client/public/audio/{amb,sfx}, список и длительности — /audio/sounds-manifest.json
 // (скачивает scripts/fetch-sounds.mjs, авторы — docs/credits-audio.md).
 import {SONGS} from '../../../shared/npc-performance.js';
+import {CombatSounds} from './combat-sounds.js';
 // Голоса NPC и рассказчика сюда не входят: их играет Фронт 2, фон под них приглушается.
 
 // Громкость слоёв фона по сценам (0..1). Сцены, которых нет, — тишина.
@@ -72,10 +73,86 @@ export class WorldAudio {
     events.on('entity', (message) => this.onEntity(message));
     events.on('chunk',message=>{for(const npc of message.data?.npcs??[])if(npc.id==='musician'&&npc.state&&'performance' in npc.state)this.onPerformance(npc.state.performance);});
     events.on('scared', () => this.play('sfx_scream', { volume: 1 }));
-    // бой на Гуанахани: глухой удар на каждое попадание, крик — когда деревня поднимает тревогу
-    events.on('hit', (m) => this.play('sfx_hull_thud', { volume: m.kind === 'player' ? 1 : 0.6 }));
+    // бой (docs/tz-combat.md): звуки синтезирует combat-sounds.js, громкость и сторона — по расстоянию
+    // до слушателя (attach из main.js); крик — когда деревня поднимает тревогу
+    this.combat = new CombatSounds(() => this.context(), () => this.sfxBus);
+    this.duelSeen = new Map(); // id → { state, result, p } — что было в прошлом `duel`
+    this.combatTimers = new Set();
+    events.on('auth_ok', (m) => { this.me = m.you?.id ?? null; });
+    events.on('hit', (m) => this.onHit(m));
+    events.on('duel', (m) => this.onDuel(m));
+    events.on('combat', (m) => this.onCombat(m));
+    events.on('player_action', (m) => this.onAction(m));
     events.on('world_event', (m) => { if (m.type === 'alarm') this.play('sfx_scream', { volume: 0.55 }); });
     events.on('logout', () => { clearTimeout(this.performanceEnd);this.performanceKey=null;this.setAmbience({}); this.setMusic(null); this.inventory = null; this.doneQuests.clear(); });
+  }
+
+  // main.js: listener() → { p: [x, y, z], yaw } — где камера; locate(id) → [x, y, z] игрока или null
+  attach({ listener, locate }) { this.listener = listener; this.locate = locate; }
+
+  // громкость и сторона звука в точке p: ближе — громче, справа — в правом ухе
+  spatial(p) {
+    const l = this.listener?.();
+    if (!p || !l?.p) return { gain: 1, pan: 0 };
+    const dx = p[0] - l.p[0], dz = p[2] - l.p[2], d = Math.hypot(dx, dz);
+    if (d < 0.5) return { gain: 1, pan: 0 };
+    return { gain: 1 / (1 + (d / 8) ** 2), pan: ((dx * Math.cos(l.yaw) - dz * Math.sin(l.yaw)) / d) * 0.75 };
+  }
+  where(id) { return this.duelSeen.get(id)?.p ?? this.locate?.(id) ?? null; }
+  sfx(kind, p, louder = 1) { const s = this.spatial(p); return this.combat.play(kind, { gain: Math.min(1, s.gain * louder), pan: s.pan }); }
+  later(ms, fn) { const t = setTimeout(() => { this.combatTimers.delete(t); fn(); }, ms); this.combatTimers.add(t); }
+
+  // взмах, выпад, выстрел — у всех игроков (и у себя: сервер шлёт действие и тому, кто ударил)
+  onAction(m) {
+    const a = m.action;
+    if (!a) return;
+    const p = this.locate?.(m.id);
+    if (a.kind === 'swing') this.sfx(a.item === 'sword' ? 'swing_sword' : a.item === 'war_spear' ? 'thrust' : 'swing', p);
+    else if (a.kind === 'shot') this.sfx(a.item === 'bow' ? 'bow' : 'gunshot', p, a.item === 'bow' ? 1 : 2.5);
+  }
+
+  // попадание, блок, уворот
+  onHit(m) {
+    const p = this.where(m.target), mine = m.target === this.me;
+    if (m.kind !== 'duel') { this.sfx(mine ? 'hurt' : 'body', p); return; }
+    if (m.missed) return; // мимо: свист стрелы или грохот выстрела уже прозвучали
+    if (m.dodged) { this.sfx('dodge', p); return; }
+    if (m.blocked) { this.sfx(m.weapon === 'sword' || m.against === 'sword' ? 'block_steel' : 'block_wood', p); return; }
+    if (m.weapon === 'bow') this.sfx('arrow_hit', p);
+    this.sfx(mine ? 'hurt' : 'body', p);
+  }
+
+  // смена позы соперника в `duel`: удар, прицел, выстрел, перезарядка; свой бой — барабан отсчёта и итога
+  onDuel(m) {
+    const seen = new Set();
+    for (const d of m.duelists ?? []) {
+      seen.add(d.id);
+      const prev = this.duelSeen.get(d.id), p = d.p;
+      this.duelSeen.set(d.id, { state: d.state, result: d.result ?? null, p });
+      if (!prev) continue;
+      if (prev.state !== d.state) {
+        if (d.state === 'strike') this.sfx(d.weapon === 'sword' ? 'swing_sword' : d.weapon === 'war_spear' ? 'thrust' : 'swing', p);
+        else if (d.state === 'aim') this.sfx('match', p);
+        else if (d.state === 'fire') this.sfx('gunshot', p, 3);
+        else if (d.state === 'reload') this.later(700, () => this.sfx('ramrod', this.where(d.id)));
+        else if (d.state === 'ready' && d.player === this.me) {
+          const left = d.startsAt - (m.serverNow ?? Date.now());
+          for (let i = 3; i >= 1; i--) if (left - i * 1000 >= 0) this.later(left - i * 1000, () => this.combat.play('drum', { gain: 0.8 }));
+          this.later(Math.max(0, left), () => this.combat.play('drum_go', { gain: 0.9 }));
+        }
+      }
+      if (d.result && !prev.result && d.lastPlayer === this.me) this.combat.play(d.result === 'player' ? 'win' : 'lose', { gain: 0.9 });
+    }
+    for (const id of this.duelSeen.keys()) if (!seen.has(id)) this.duelSeen.delete(id);
+  }
+
+  // стража деревни: выпад копьём
+  onCombat(m) {
+    for (const w of m.warriors ?? []) {
+      const prev = this.duelSeen.get(w.id);
+      this.duelSeen.set(w.id, { state: w.state, result: null, p: w.p });
+      if (prev && prev.state !== w.state && w.state === 'strike') this.sfx('thrust', w.p);
+    }
   }
 
   // Контекст создаётся при первом звуке; браузер запустит его после клика (audio_unlock)

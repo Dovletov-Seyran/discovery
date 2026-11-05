@@ -124,24 +124,31 @@ test('your own spear: kept after the bout, reaches further and meets him as he c
  assert.equal(me(young.id).result,'player');assert.ok(p.inventory.includes('war_spear'),'your spear stays yours');
 });
 
-test('a bow: dodged from afar, scores up close or when he is open; aim matters more',()=>{
+test('a bow: the first arrow from the front is dodged, the next one is not; on his wind-up it always hits',()=>{
  let {p,now}=start('archer',young,['bow']);
  now=until(now,()=>me(young.id).state==='circle');
- // отбежать: издалека спереди уворачивается
+ // отбежать: издалека спереди уворачивается — шаг вбок
  p.p=at(me(young.id).p[0]+(me(young.id).p[0]>RING.c[0]?-11:11),RING.c[1]);
  now=until(now,()=>['approach','circle'].includes(me(young.id).state)&&Math.hypot(me(young.id).p[0]-p.p[0],me(young.id).p[2]-p.p[2])>7);
- assert.equal(hit(p,young.id,now),true);assert.deepEqual(me(young.id).score,[0,0]);
- assert.ok(p.msgs.some(m=>m.t==='hit'&&m.weapon==='bow'&&m.blocked),'he dodged the arrow');
- aim(p,young.id);p.r+=0.4;now+=WEAPONS.bow.cooldown;
+ const before=me(young.id).p;
+ assert.equal(hit(p,young.id,now),true);assert.deepEqual(me(young.id).score,[0,0]);assert.equal(me(young.id).state,'dodge');
+ assert.ok(p.msgs.some(m=>m.t==='hit'&&m.weapon==='bow'&&m.dodged),'he dodged the arrow');
+ assert.ok(Math.hypot(me(young.id).p[0]-before[0],me(young.id).p[2]-before[2])>0.5,'with a step aside');
+ aim(p,young.id);p.r+=0.5;now+=WEAPONS.bow.cooldown;
  assert.equal(duel.attack(p,young.id,now),false,'aimed past him');assert.ok(p.msgs.some(m=>m.t==='hit'&&m.missed));
- // спереди и вблизи — тоже увернётся, если не замахнулся
- now=until(now+WEAPONS.bow.cooldown,()=>me(young.id).state==='circle',15000);
- hit(p,young.id,now);assert.deepEqual(me(young.id).score,[0,0],'dodged up close too');
+ // вторую подряд — не успевает (не прошло DODGE_MS)
+ now+=WEAPONS.bow.cooldown;aim(p,young.id);
+duel.attack(p,young.id,now);assert.deepEqual(me(young.id).score,[1,0],'the second arrow hits');
  // на его замахе — попал, хоть и отступив на 4 м
  now=until(now+WEAPONS.bow.cooldown,()=>me(young.id).state==='windup',15000);
- front(p,young.id,4);hit(p,young.id,now);assert.deepEqual(me(young.id).score,[1,0],'an arrow while he winds up');
+ front(p,young.id,4);hit(p,young.id,now);assert.deepEqual(me(young.id).score,[2,0],'an arrow while he winds up');
+ // yaw из самого удара важнее последнего move
+ now=until(now+WEAPONS.bow.cooldown,()=>me(young.id).state==='windup',15000);
+ front(p,young.id,4);const d=me(young.id);p.r+=2;
+ duel.attack(p,young.id,now,Math.atan2(p.p[0]-d.p[0],p.p[2]-d.p[2]));assert.deepEqual(me(young.id).score,[3,0]);
  assert.ok(WEAPONS.bow.reach>WEAPONS.war_spear.reach);
 });
+
 
 test('leaving the batey loses the bout; a scene change or a village alarm stops it; no alarm for sparring',()=>{
  let {p,now}=start('runner');
@@ -253,4 +260,35 @@ test('two bouts at once on the two halves of the batey; a third waits; walking a
  // смена сцены — все расходятся
  director.setScene('p2_departure');duel.tick(now+100);assert.equal(duel.state().duelists.length,0);
  assert.ok(!c.inventory.includes('macana'));
+});
+
+test('Diego with the espingarda keeps his distance, aims, fires a blank and reloads: step aside, then rush him',()=>{
+ let now=landing();duel.tick(now);
+ const p=player('vs-gunner','grumete',at(0,0));beside(p,'es_diego');
+ assert.equal(duel.challenge(p,'es_diego',now),true);
+ now=until(now,()=>{const d=me('es_diego');if(d.state==='lead')p.p=at(d.p[0]+Math.sin(d.r)*2,d.p[2]+Math.cos(d.r)*2);return d.state==='ready';},120000);
+ now+=D.READY_MS+10;
+ // держит дистанцию: подходишь — пятится
+ const d0=me('es_diego');p.p=at(d0.p[0]-Math.sin(d0.r)*2.6,d0.p[2]-Math.cos(d0.r)*2.6);
+ now=run(now,600);assert.ok(Math.hypot(me('es_diego').p[0]-p.p[0],me('es_diego').p[2]-p.p[2])>2.9,'backs away');
+ // стоишь на линии ствола — попадает
+ now=until(now,()=>me('es_diego').state==='aim',15000);
+ now=until(now,()=>me('es_diego').state==='fire',3000);
+ assert.deepEqual(me('es_diego').score,[0,1],'shot when you stood still');
+ assert.ok(p.msgs.some(m=>m.t==='hit'&&m.shot&&m.target===p.id&&!m.missed));
+ assert.ok(p.msgs.some(m=>m.t==='world_event'&&m.type==='scare'&&m.who==='es_diego'),'the bang scares the birds');
+ now=until(now,()=>me('es_diego').state==='reload',1000);
+ // перезаряжает — открыт: удар спереди засчитан
+ front(p,'es_diego',1.8);hit(p,'es_diego',now);assert.deepEqual(me('es_diego').score,[1,1],'hit while he reloads');
+ // целится — после фиксации ствола шаг вбок: мимо
+ now=until(now+CD,()=>me('es_diego').state==='aim',20000);
+ now=run(now,diego.aimMs-diego.lockMs+100);
+ { const d=me('es_diego');p.p=at(p.p[0]+Math.cos(d.r)*1.6,p.p[2]-Math.sin(d.r)*1.6); }
+ now=until(now,()=>me('es_diego').state==='fire',3000);
+ assert.deepEqual(me('es_diego').score,[1,1],'stepped off the line of the barrel');
+ assert.ok(p.msgs.some(m=>m.t==='hit'&&m.shot&&m.missed));
+ // удар во время прицела тоже сбивает
+ now=until(now,()=>me('es_diego').state==='aim',20000);
+ front(p,'es_diego',1.8);hit(p,'es_diego',now);assert.deepEqual(me('es_diego').score,[2,1]);
+ assert.ok(duel.state(now).duelists.every(x=>x.p.every(Number.isFinite)));
 });

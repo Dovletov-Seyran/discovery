@@ -416,6 +416,15 @@ body[data-scene-type="cutscene"] .scene-progress { top:20px; left:20px; }
 .duel[data-tone="danger"] .duel-tip {color:#f08a70;}
 .duel[data-tone="chance"] {border-color:#7fb07a;}
 .duel[data-tone="chance"] .duel-tip {color:#a8d8a0;}
+.duel[data-tone="danger"] {animation:duel-pulse .5s ease-in-out infinite alternate;}
+@keyframes duel-pulse {from{box-shadow:0 0 0 #c8503c00}to{box-shadow:0 0 18px #c8503c99}}
+/* отметка у прицела после своего удара: попал — светлая, отбил / мимо — серая */
+.hitmark {position:fixed;left:50%;top:calc(50% + 26px);transform:translateX(-50%);z-index:31;pointer-events:none;opacity:0;
+  font-size:18px;letter-spacing:1px;color:#f6ead2;text-shadow:0 1px 3px #000c;white-space:nowrap;}
+.hitmark[data-tone="miss"] {color:#c9c2b2;font-size:15px;}
+.hitmark[data-tone="dodge"] {color:#a8d8a0;}
+.hitmark.show {animation:hitmark .8s ease-out;}
+@keyframes hitmark {0%{opacity:1;transform:translate(-50%,0) scale(1.15)}70%{opacity:1}100%{opacity:0;transform:translate(-50%,-14px) scale(1)}}
 .duel[data-tone="win"] .duel-title {color:#c8e6a8;}
 .duel[data-tone="lose"] .duel-title {color:#f0a08a;}
 .map-panel {width:min(640px,95vw);}
