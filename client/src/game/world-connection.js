@@ -74,6 +74,7 @@ export class WorldConnection {
       // набрали воду у колодца — у всех, и у самого игрока, крутится ворот и едет ведро (world/props.js)
       if(message.action?.kind==='fill'&&message.action.target){const well=this.world?.entity?.(message.action.target);if(well?.userData.winch)well.userData.winchAt=Date.now();}
       if(message.id===this.you?.id)return;
+      if(message.action?.kind==='shot'&&message.action.item==='bow')this.world?.arrowFromPlayer?.(message.id); // стрела другого игрока
       const p=this.remotePlayers.get(message.id);if(p)this.remotePlayers.set(message.id,{...p,action:message.action});
       this.world?.players?.action?.(message);
     });

@@ -386,7 +386,7 @@ function renderVitals(){
 function receiveItemUse(message){
   const left=Math.max(0,message.cooldownUntil-message.serverNow);itemCooldowns.set(message.item,Date.now()+left);
   if(message.vitals)applyVitals(message.vitals,message.serverNow);
-  if(equipped===message.item)equipment?.use();
+  if(equipped===message.item&&equipment?.use()&&message.effect==='loose')shootOwnArrow();
   if(message.effect==='drink')notify('Глоток вина.');
   if(message.effect==='food')notify(`Запас сил: ${Math.round(vitals.stamina)} / ${STAMINA.max}`);
   if(message.effect==='water')notify('Глоток воды.');
@@ -405,13 +405,25 @@ function openMap(){
 // Бой на Гуанахани (docs/tz-combat.md): ЛКМ по таино или воину — удар. Только когда мышь уже в игре
 // или в руке предмет: первый щелчок, которым захватывают мышь, никого не бьёт.
 const TAINO_TARGETS=new Set(['cacique','elder','villager_1','villager_2','villager_3']);
+const BOUT=new Set(['ready','approach','circle','windup','strike','recover','block','dodge','stagger']);
+let lastDuel=null;
 function attackTarget(){
+  if(scene.zone!=='guanahani'||!isPlay(scene)||!connected||modal||chatOpen)return null;
+  // в поединке ЛКМ всегда по своему сопернику: попал ли (дальность, куда смотришь) — решает сервер; так лук бьёт издалека
+  const bout=lastDuel?.duelists?.find(d=>d.player===you.id&&BOUT.has(d.state));
+  if(bout&&document.pointerLockElement===canvas)return bout.id;
   const t=currentTarget;
-  if(!t||scene.zone!=='guanahani'||!isPlay(scene)||!connected||modal||chatOpen)return null;
-  if(t.kind==='duelist')return t.mine?t.id:null; // воин на батее: бить можно только своего соперника в поединке
+  if(!t)return null;
+  if(t.kind==='duelist'||t.kind==='spaniard')return t.fighting?t.id:null; // воин касика или испанец: только свой соперник в поединке
   if(t.kind!=='warrior'&&!TAINO_TARGETS.has(t.id))return null;
   return document.pointerLockElement===canvas||equipped?t.id:null;
 }
+// Свой удар сразу виден: взмах / выпад / выстрел из лука от первого лица, стрела летит от глаз
+function swingLocally(){
+  if(!equipped||!equipment?.use())return;
+  if(equipped==='bow')shootOwnArrow();
+}
+const shootOwnArrow=()=>world?.shootArrowFromCamera?.();
 // Попадание по мне — красная вспышка; оглушили — затемнение, пока сервер переносит на берег
 function onHit(message){
   if(message.target!==you.id)return;
@@ -421,6 +433,7 @@ function onHit(message){
 }
 // Табло поединка на батее: счёт, отсчёт, подсказка по замаху воина (ui/duel-hud.js)
 function renderDuel(message){
+  lastDuel=message;
   const view=duelView(message,you.id,Date.now()+serverOffset);
   const el=$('#duel')??document.body.appendChild(Object.assign(document.createElement('div'),{id:'duel',className:'duel'}));
   el.hidden=!view;if(!view)return;
@@ -578,7 +591,7 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
   if(type==='astrolabe')openAstrolabe();
   if(type==='quest')net.emit('quest',{id:'q_astrolabe',title:'Определить широту',step:'Измерьте высоту Солнца.',status:'active',progress:0,total:1});
 });
-canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){const target=attackTarget();if(target)net.send('attack',{target});else useEquipped();runtime?.controller.lock();}});
+canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){const target=attackTarget();if(target){if(net.send('attack',{target}))swingLocally();}else useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   if(feastUI?.handleKey(event))return;

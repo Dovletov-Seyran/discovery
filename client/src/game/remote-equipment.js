@@ -9,7 +9,7 @@ import {ITEM_RULES} from '../../../shared/item-actions.js';
 import {PLAYER_ACTION_MS} from '../../../shared/player-presentation.js';
 
 const aliases={barrel_full:'barrel',tar:'tar_bucket'};
-const sizes={sword:1.2,espingarda:1.2,macana:.95,map:.65,compass:.32,astrolabe:.3,wine:.35,barrel:.52,barrel_full:.52,planks:.8,tar:.4,purse:.25,cheese:.26,meat:.3,biscuit:.2,cup:.22};
+const sizes={sword:1.2,espingarda:1.2,macana:.95,war_spear:2.3,bow:1.48,map:.65,compass:.32,astrolabe:.3,wine:.35,barrel:.52,barrel_full:.52,planks:.8,tar:.4,purse:.25,cheese:.26,meat:.3,biscuit:.2,cup:.22};
 const temporaryItem=new Set(['swing','shot','drink','eat','inspect','fill']);
 
 // Third-person presentation only. Inventory/cooldowns/actions are all decided by the server.
@@ -21,6 +21,8 @@ export class RemoteEquipment {
     this.grip=new THREE.Group();this.grip.position.set(0,-.3,0);this.right.fa.add(this.grip);
     // The espingarda is shouldered, not held in the fist: its place follows the torso and the arms reach for it
     this.shoulder=new THREE.Group();this.shoulder.position.set(this.right.s*.12,.47,0);rig.torso.add(this.shoulder);
+    // The bow is held in the left fist, limbs up, string toward the archer
+    this.leftGrip=new THREE.Group();this.leftGrip.position.set(0,-.3,0);this.leftGrip.rotation.set(Math.PI/2,0,0);this.left.fa.add(this.leftGrip);
   }
   setEquipment(item,rev){
     if(Number.isFinite(rev)&&rev<this.equipmentRev)return;
@@ -53,9 +55,10 @@ export class RemoteEquipment {
       this.flash=new THREE.Mesh(new THREE.SphereGeometry(.1/scale,8,6),material);this.flash.position.fromArray(model.userData.muzzle??[0,1.18,0]);this.flash.visible=false;model.add(this.flash);
       return;
     }
-    if(item==='sword'||item==='macana')model.position.set(0,0,0); // the blade's origin is the grip
+    if(item==='bow'){model.position.set(0,0,0);this.leftGrip.add(model);return;}
+    if(['sword','macana','war_spear'].includes(item))model.position.set(0,0,0); // the blade's origin is the grip
     else model.position.copy(center).multiplyScalar(-scale);
-    this.grip.rotation.set(Math.PI/2,0,0);
+    this.grip.rotation.set(item==='war_spear'?Math.PI:Math.PI/2,0,0); // the spear points where the fist points
     this.grip.add(model);
   }
   update(now,pitch=0){
@@ -71,6 +74,13 @@ export class RemoteEquipment {
       if(['map','espingarda','planks','barrel','barrel_full'].includes(item)){
         left.ua.rotation.set(-.8,0,.22);left.fa.rotation.set(-.85,.25,-.15);
       }
+      if(item==='war_spear'){right.ua.rotation.set(-.3,0,-.1);right.fa.rotation.set(-1.15-pitch*.6,0,0);} // at the hip, point forward
+      if(item==='bow'){
+        // the bow arm out toward where the player looks, the other hand on the string
+        left.ua.rotation.set(-1.45-pitch*.8,0,-left.s*.15);left.fa.rotation.set(-.05,0,0);
+        right.ua.rotation.set(-1.35-pitch*.8,0,-right.s*.55);right.fa.rotation.set(-1.4,0,0);
+        this.model?.userData.draw?.(0);
+      }
       if(item==='espingarda'){
         // aimed where the player looks: the gun turns about the shoulder, the hands go with it
         this.shoulder.rotation.x=-pitch*.8;
@@ -81,6 +91,14 @@ export class RemoteEquipment {
     if(item!=='espingarda')this.shoulder.rotation.x=0;
     if(!action||now<action.startedAt)return;
     const u=THREE.MathUtils.clamp((now-action.startedAt)/action.duration,0,1),wave=Math.sin(u*Math.PI);
+    if(action.kind==='swing'&&item==='war_spear'){ // a thrust: the arm drives the point forward
+      const thrust=Math.sin(Math.min(1,u/.4)*Math.PI/2)*(u<.4?1:1-(u-.4)/.6);
+      right.ua.rotation.x=-.3-thrust*1.15;right.fa.rotation.x=-1.15+thrust*1.0;this.rig.torso.rotation.x+=thrust*.18;return;
+    }
+    if(action.kind==='shot'&&item==='bow'){ // draw to the cheek, loose — the string snaps back
+      this.model?.userData.draw?.(u<.65?u/.65:0);if(this.model?.userData.arrow)this.model.userData.arrow.visible=u<.65;
+      right.fa.rotation.x=-1.4-Math.min(1,u/.65)*.5*(u<.65?1:0);return;
+    }
     switch(action.kind){
       case 'swing': {
         const {cut,lift}=swordMotion(u);right.ua.rotation.set(-.55-cut*.55-lift,-cut*.4,-.12-cut);right.fa.rotation.x=-.9+cut*.35;
@@ -101,5 +119,5 @@ export class RemoteEquipment {
       case 'scare':right.ua.rotation.x=-2*wave;left.ua.rotation.x=-2*wave;break;
     }
   }
-  dispose(){this.showItem(null);this.grip.removeFromParent();this.shoulder.removeFromParent();}
+  dispose(){this.showItem(null);this.grip.removeFromParent();this.shoulder.removeFromParent();this.leftGrip.removeFromParent();}
 }

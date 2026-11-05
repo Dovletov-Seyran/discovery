@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { V3, mesh, cylGeo, between, boxGeo, lathe } from './geom.js';
 import { ihash } from './texgen.js';
+import { weaponRack } from './weapons.js';
 
 // Models of Guanahani, part 2 (ids from content/guanahani_layout.json): a Lucayan Taíno village and the island's
 // plants. Buildings face +z (door side). Each builder returns { obj, col? } like the La Gomera models.
@@ -413,6 +414,8 @@ export const TAINO_MODELS = {
   canoe, fish_spear: fishSpear, buren, grater, cibucan, loom, water_jar: waterJar, log_seat: logSeat,
   fish_shoal: fishShoal, conch_bed: conchBed, cassava_dig: cassavaDig, wood_pile: woodPile, maracas,
   banners, parrot_perch: parrotPerch, cotton_skeins: cottonSkeins,
+  // стойка воинов у батея: макана, копьё и лук для поединков (world/weapons.js)
+  rack_macana: (M) => weaponRack(M, 'macana'), rack_spear: (M) => weaponRack(M, 'war_spear'), rack_bow: (M) => weaponRack(M, 'bow'),
 };
 
 // --- plants of Guanahani -------------------------------------------------------------------
