@@ -103,6 +103,15 @@ const SOUNDS = {
   },
   // шомпол: звякает о ствол
   ramrod: (s, o) => { for (const at of [0, 0.32, 0.6]) s.tone(o, { f: 2900, f1: 2800, decay: 0.09, level: 0.12, at }); },
+  // метнул копьё: долгий свист; упало — глухо воткнулось в песок
+  spear_throw: (s, o) => s.burst(o, { f: 500, f1: 1900, q: 1.4, attack: 0.12, decay: 0.35, level: 0.6 }),
+  spear_land: (s, o) => { s.tone(o, { f: 180, f1: 90, decay: 0.12, level: 0.7 }); s.burst(o, { type: 'lowpass', f: 1200, f1: 300, attack: 0.002, decay: 0.09, level: 0.6 }); },
+  // зрители: гул одобрения (несколько полос шума нарастают и спадают) и «ох!» — ниже и короче
+  cheer: (s, o) => {
+    for (const [f, l, at] of [[520, 0.5, 0], [900, 0.45, 0.04], [1500, 0.3, 0.08], [2400, 0.15, 0.06]]) s.burst(o, { f, f1: f * 1.15, q: 0.9, attack: 0.18, decay: 1.2, level: l, at });
+    for (const at of [0.1, 0.22, 0.31]) s.burst(o, { f: 1700 + at * 900, q: 5, attack: 0.03, decay: 0.12, level: 0.18, at }); // отдельные выкрики
+  },
+  ooh: (s, o) => { for (const [f, l] of [[330, 0.45], [520, 0.3]]) s.burst(o, { f, f1: f * 0.8, q: 2.5, attack: 0.12, decay: 0.55, level: l }); },
   // барабан-маяуакан: отсчёт и начало боя
   drum: (s, o) => { s.tone(o, { f: 120, f1: 68, decay: 0.32, level: 0.9 }); s.burst(o, { type: 'lowpass', f: 700, attack: 0.002, decay: 0.05, level: 0.4 }); },
   drum_go: (s, o) => { for (const at of [0, 0.14]) { s.tone(o, { f: 150, f1: 80, decay: 0.3, level: 0.9, at }); s.burst(o, { type: 'lowpass', f: 900, attack: 0.002, decay: 0.05, level: 0.4, at }); } },

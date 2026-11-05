@@ -86,6 +86,12 @@ export function bow() {
   return { obj: root };
 }
 
+// Точка полёта метнутого копья: прямая от руки до места падения плюс дуга высотой arc (u ∈ [0, 1])
+export function arcPoint(a, b, arc, u, out = new THREE.Vector3()) {
+  out.lerpVectors(a, b, u); out.y += Math.sin(u * Math.PI) * arc;
+  return out;
+}
+
 // Стойка воинов у батея: две рогатины и перекладина, на ней оружие (одна стойка — один предмет)
 export function weaponRack(M, item) {
   const g = new THREE.Group(), wood = M?.get ? M.get('wood') : own(0x6a4a2c), add = adder(g);

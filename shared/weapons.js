@@ -7,7 +7,11 @@
 export const WEAPONS = {
   // таино
   macana: { side: 'taino', kind: 'melee', name: 'Макана', reach: 2.4, aim: 0.75, cooldown: 550, strikeR: 1.95, action: 'swing' },
-  war_spear: { side: 'taino', kind: 'thrust', name: 'Копьё', reach: 3.1, aim: 0.45, cooldown: 800, strikeR: 2.5, action: 'swing' },
+  // копьё можно и метнуть (F в поединке): летит до 15 м как стрела, потом лежит на земле — сходи и подними E
+  war_spear: { side: 'taino', kind: 'thrust', name: 'Копьё', reach: 3.1, aim: 0.45, cooldown: 800, strikeR: 2.5, action: 'swing',
+    throw: { kind: 'ranged', reach: 15, aim: 0.13, cooldown: 900, speed: 17 } },
+  // метнул копьё и ещё не подобрал — кулаками: близко и только когда соперник открыт или сбоку
+  fist: { side: 'taino', kind: 'melee', name: 'Кулаки', reach: 1.8, aim: 0.75, cooldown: 650, action: 'swing' },
   bow: { side: 'taino', kind: 'ranged', name: 'Лук', reach: 18, aim: 0.12, cooldown: 1300, action: 'shot' },
   // испанцы
   sword: { side: 'spaniard', kind: 'melee', name: 'Меч', reach: 2.3, aim: 0.75, cooldown: 580, strikeR: 1.95, action: 'swing' },

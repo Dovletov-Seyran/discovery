@@ -108,6 +108,7 @@ export class WorldAudio {
     if (!a) return;
     const p = this.locate?.(m.id);
     if (a.kind === 'swing') this.sfx(a.item === 'sword' ? 'swing_sword' : a.item === 'war_spear' ? 'thrust' : 'swing', p);
+    else if (a.kind === 'throw' && a.item === 'war_spear') this.sfx('spear_throw', p);
     else if (a.kind === 'shot') this.sfx(a.item === 'bow' ? 'bow' : 'gunshot', p, a.item === 'bow' ? 1 : 2.5);
   }
 
@@ -115,10 +116,13 @@ export class WorldAudio {
   onHit(m) {
     const p = this.where(m.target), mine = m.target === this.me;
     if (m.kind !== 'duel') { this.sfx(mine ? 'hurt' : 'body', p); return; }
+    if (m.thrown?.to) this.later(m.thrown.ms ?? 400, () => this.sfx('spear_land', m.thrown.to)); // копьё упало
     if (m.missed) return; // мимо: свист стрелы или грохот выстрела уже прозвучали
+    // зрители вокруг круга: «ох!» на отбитый, гул на попадание
+    this.later(120, () => this.sfx(m.blocked ? 'ooh' : 'cheer', p, m.blocked ? 0.6 : 0.8));
     if (m.dodged) { this.sfx('dodge', p); return; }
     if (m.blocked) { this.sfx(m.weapon === 'sword' || m.against === 'sword' ? 'block_steel' : 'block_wood', p); return; }
-    if (m.weapon === 'bow') this.sfx('arrow_hit', p);
+    if (m.weapon === 'bow' || m.thrown) this.sfx('arrow_hit', p);
     this.sfx(mine ? 'hurt' : 'body', p);
   }
 
@@ -142,6 +146,7 @@ export class WorldAudio {
         }
       }
       if (d.result && !prev.result && d.lastPlayer === this.me) this.combat.play(d.result === 'player' ? 'win' : 'lose', { gain: 0.9 });
+      if (d.result && !prev.result) this.later(500, () => this.play('sfx_clapping', { volume: Math.min(0.7, this.spatial(p).gain) })); // зрители хлопают
     }
     for (const id of this.duelSeen.keys()) if (!seen.has(id)) this.duelSeen.delete(id);
   }

@@ -250,7 +250,7 @@ const handlers = {
   [C2S.PING]: (p, msg) => players.send(p, { t: S2C.PONG, ts: Number.isFinite(msg.ts) ? msg.ts : null, serverNow: Date.now() }),
   [C2S.CLIENT_STATS]: (p, msg) => clientReport(p.id, msg),
   // бой на Гуанахани (docs/tz-combat.md): воин касика на батее — поединок, остальные таино — закон деревни
-  [C2S.ATTACK]: (p, msg) => (duel.isDuelist(msg.target) ? duel.attack(p, msg.target, Date.now(), Number(msg.r)) : combat.attack(p, msg)),
+  [C2S.ATTACK]: (p, msg) => (duel.isDuelist(msg.target) ? duel.attack(p, msg.target, Date.now(), Number(msg.r), msg.mode === 'throw' ? 'throw' : null) : combat.attack(p, msg)),
 };
 
 export function handle(p, msg) {

@@ -95,7 +95,7 @@ test('standing still gets you hit; winning completes the trial, is logged and re
  assert.ok(p.log.includes('duel_young'));
  assert.ok(p.msgs.some(m=>m.t==='quest'&&m.id==='q_p2_day_duel'&&m.status==='done'),'the optional trial is done');
  assert.ok(!p.inventory.includes('macana'),'the lent macana is taken back');
- now=run(now,8000);assert.equal(me(young.id).state,'idle','walked back to his place');
+ now=run(now,8000);assert.equal(me(young.id).state,'act','walked back to his place and practises again');assert.equal(me(young.id).act,'practice');
  assert.ok(Math.hypot(me(young.id).p[0]-young.home[0],me(young.id).p[2]-young.home[1])<0.2);
  assert.ok(duel.state().duelists.every(d=>d.p.every(Number.isFinite)),'positions stay numbers');
 });
@@ -291,4 +291,49 @@ test('Diego with the espingarda keeps his distance, aims, fires a blank and relo
  now=until(now,()=>me('es_diego').state==='aim',20000);
  front(p,'es_diego',1.8);hit(p,'es_diego',now);assert.deepEqual(me('es_diego').score,[2,1]);
  assert.ok(duel.state(now).duelists.every(x=>x.p.every(Number.isFinite)));
+});
+
+test('the cacique\'s warriors do not stand still: they practise, walk the edge of the batey, stretch, burn the spear point — and can be challenged at any of it',()=>{
+ quiet();director.setScene('p2_day');combat.reset();duel.reset();duel.setRandom(()=>0.5);
+ let now=director.startAt()+5000;duel.tick(now);
+ assert.equal(me(young.id).state,'act');assert.equal(me(young.id).act,'practice');assert.match(me(young.id).doing,/удары/);
+ const acts=new Set(),spots=new Set();
+ for(let t=0;t<240000;t+=100){now+=100;duel.tick(now);const d=me(young.id),v=me(veteran.id);acts.add(d.act??d.state);acts.add(v.act??v.state);spots.add(`${Math.round(d.p[0])},${Math.round(d.p[2])}`);}
+ for(const a of ['practice','stretch','watch','sharpen','walk'])assert.ok(acts.has(a),a);
+ assert.ok(spots.size>8,'walks around');
+ // вызов на ходу
+ now=until(now,()=>me(veteran.id).state==='walk',60000);
+ const p=player('mid-walk','grumete',at(me(veteran.id).p[0]+1,me(veteran.id).p[2]));
+ assert.equal(duel.challenge(p,veteran.id,now),true);assert.equal(me(veteran.id).state,'ready');
+ assert.ok(Math.hypot(p.p[0]-RING.c[0],p.p[2]-RING.c[1])<2,'both go to the middle of the batey');
+});
+
+test('a spear can be thrown (F): it flies like an arrow, lands by the opponent, you fight with fists until you pick it up',async()=>{
+ let {p,now}=start('thrower',young,['war_spear']);
+ now=until(now,()=>me(young.id).state==='windup',15000);
+ front(p,young.id,6);aim(p,young.id);
+ assert.equal(duel.attack(p,young.id,now,null,'throw'),true);
+ assert.deepEqual(me(young.id).score,[1,0],'a throw at his wind-up scores');
+ const hitMsg=p.msgs.findLast(m=>m.t==='hit'&&m.by===p.id);
+ assert.ok(hitMsg.thrown&&hitMsg.thrown.ms>100&&hitMsg.thrown.to.every(Number.isFinite),'everyone sees the spear fly');
+ assert.ok(!p.inventory.includes('war_spear'),'it left your hand');
+ assert.equal(duel.attack(p,young.id,now+2000,null,'throw'),false,'nothing to throw');
+ // кулаки
+ now=run(now,600);assert.equal(me(young.id).playerWeapon,'fist');
+ // упало на землю у круга — его можно поднять
+ await new Promise(r=>setTimeout(r,hitMsg.thrown.ms+50));
+ const entities=await import('../game/entities.js');
+ const dropped=entities.allDefs().find(d=>d.item==='war_spear'&&String(d.id).startsWith('drop:spear:'));
+ assert.ok(dropped,'the spear lies on the ground');
+ assert.ok(((dropped.p[0]-RING.c[0])/RING.rx)**2+((dropped.p[2]-RING.c[1])/RING.rz)**2<=1,'inside the circle');
+ assert.ok(Math.hypot(dropped.p[0]-hitMsg.thrown.to[0],dropped.p[2]-hitMsg.thrown.to[2])<0.1,'where it was seen landing');
+ // поднял — снова в руке
+ p.inventory.push('war_spear');now=run(now,200);assert.equal(p.equipped,'war_spear');assert.equal(me(young.id).playerWeapon,'war_spear');
+ // промах: летит дальше, мимо
+ now=until(now+1000,()=>me(young.id).state==='circle',15000);
+ front(p,young.id,5);aim(p,young.id);p.r+=0.8;
+ assert.equal(duel.attack(p,young.id,now,null,'throw'),false);
+ const miss=p.msgs.findLast(m=>m.t==='hit'&&m.missed&&m.thrown);assert.ok(miss,'a missed throw still flies');
+ assert.ok(Math.hypot(miss.thrown.to[0]-p.p[0],miss.thrown.to[2]-p.p[2])>5,'further than him');
+ await new Promise(r=>setTimeout(r,miss.thrown.ms+80)); // упало до конца теста
 });

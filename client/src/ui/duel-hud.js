@@ -21,7 +21,8 @@ const WEAPON_TIPS = {
 };
 const START = {
   macana: 'ЛКМ — удар',
-  war_spear: 'ЛКМ — выпад копьём, достаёт дальше',
+  war_spear: 'ЛКМ — выпад копьём, достаёт дальше · F, ЛКМ — метнуть',
+  fist: 'ЛКМ — кулаком',
   bow: 'ЛКМ — выстрел, целься в него; стреляй по две подряд',
 };
 const RESULTS = { player: 'Победа', warrior: 'Поражение', draw: 'Ничья' };
@@ -45,5 +46,6 @@ export function duelView(message, me, serverNow = Date.now()) {
     return { tone: 'ready', html: `<p class="duel-title">Поединок · ${esc(d.name)}</p>${score}<p class="duel-count">${d.startsAt > serverNow ? left : 'Бой!'}</p><p class="duel-tip">${START[weapon] ?? START.macana} · до трёх очков · ${where}</p>${d.weapon === 'espingarda' ? '<p class="duel-tip">Он стреляет: целится — шагни вбок, перезаряжает — беги к нему</p>' : ''}` };
   }
   const tip = WEAPON_TIPS[weapon]?.[d.state] ?? TIPS[d.state];
-  return { tone: TONES[d.state] ?? 'fight', html: `${score}${tip ? `<p class="duel-tip">${tip}</p>` : ''}` };
+  const unarmed = weapon === 'fist' ? '<p class="duel-tip duel-warn">Копьё на земле — подбери его (E)</p>' : '';
+  return { tone: TONES[d.state] ?? 'fight', html: `${score}${tip ? `<p class="duel-tip">${tip}</p>` : ''}${unarmed}` };
 }

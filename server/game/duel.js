@@ -16,6 +16,7 @@ import * as quests from './quests.js';
 import * as combat from './combat.js';
 import { performAction, equipForUse } from './player-actions.js';
 import { worldEvent } from './world-events.js';
+import * as objects from './objects.js';
 import { SPANIARDS, GREETINGS, SP, pathToBatey } from './spaniards.js';
 
 const ZONE = 'guanahani';
@@ -34,11 +35,27 @@ export const D = {
   FIRE_MS: 300, SHOT_RANGE: 16, SHOT_WIDTH: 0.75, // выстрел: вспышка, дальность, насколько надо уйти с линии ствола
 };
 const OPEN = new Set(['windup', 'recover', 'aim', 'fire', 'reload']); // тут любой удар засчитывается
+// Воины касика не стоят столбом: ходят по краю батея, отрабатывают удары, разминаются, обжигают остриё
+// копья. Маршрут — как у испанцев (server/game/spaniards.js), первая точка — их место у батея
 export const DUELISTS = [
   { id: 'duelist_young', kind: 'warrior', name: 'Юный воин', log: 'duel_young', weapon: 'macana', scenes: ['p2_day', 'p2_evening'],
-    home: [160.5, 255], r: -Math.PI / 2, windup: 850, recover: 1100, speed: 2.4, think: [900, 1800], feint: 0 },
+    home: [160.5, 255], r: -Math.PI / 2, windup: 850, recover: 1100, speed: 2.4, think: [900, 1800], feint: 0, walk: 1.2, greet: false,
+    route: [
+      { p: [160.5, 255], batey: true, act: 'practice', wait: 14, face: [168, 255], doing: 'отрабатывает удары маканой' },
+      { p: [161.6, 260.6] },
+      { p: [166.2, 262.6], act: 'stretch', wait: 9, face: [166.2, 256], doing: 'разминается' },
+      { p: [161.6, 260.6] },
+      { p: [160.8, 255.6], act: 'watch', wait: 7, face: [175.5, 255], doing: 'смотрит, как тренируется опытный' },
+    ] },
   { id: 'duelist_veteran', kind: 'warrior', name: 'Опытный воин', log: 'duel_veteran', weapon: 'war_spear', scenes: ['p2_day', 'p2_evening'],
-    home: [175.5, 255], r: Math.PI / 2, windup: 650, recover: 800, speed: 3.0, think: [600, 1300], feint: 0.3 },
+    home: [175.5, 255], r: Math.PI / 2, windup: 650, recover: 800, speed: 3.0, think: [600, 1300], feint: 0.3, walk: 1.1, greet: false,
+    route: [
+      { p: [175.5, 255], batey: true, act: 'practice', wait: 12, face: [168, 255], doing: 'отрабатывает выпады копьём' },
+      { p: [176.6, 249.6] },
+      { p: [172.6, 247.6], act: 'sharpen', wait: 15, face: [172.6, 245], doing: 'обжигает остриё копья' },
+      { p: [176.6, 249.6] },
+      { p: [178.6, 258.2], act: 'stretch', wait: 8, face: [172, 258.2], doing: 'разминается' },
+    ] },
   ...SPANIARDS.map((s) => ({ ...s, kind: 'spaniard', scenes: ['p2_landing'], home: s.route[0].p, r: 0 })),
 ];
 const FIGHT = new Set(['approach', 'circle', 'close', 'back', 'windup', 'strike', 'recover', 'block', 'dodge', 'stagger', 'aim', 'fire', 'reload']);
@@ -54,12 +71,13 @@ const round = (x) => Math.round(x * 100) / 100;
 const notice = (p, text) => players.send(p, { t: S2C.NOTICE, text });
 const sceneOn = (def) => def.scenes.includes(director.scene().id) && director.scene().zone === ZONE && !director.isTransitioning();
 const inRing = (ring, p, margin = 0) => ((p[0] - ring.c[0]) / (ring.rx + margin)) ** 2 + ((p[2] - ring.c[1]) / (ring.rz + margin)) ** 2 <= 1;
-const weaponOf = (p) => { const item = heldItem(p); return isDuelWeapon(item) ? item : LOAN; };
+// чем бьётся игрок: оружие в руке; копьё метнул и ещё не подобрал — кулаками
+const weaponOf = (p) => { const item = heldItem(p); return isDuelWeapon(item) ? item : 'fist'; };
 
 const duels = new Map();
 let sentAt = 0, shown = ''; // когда рассылали `duel`; кого показали клиентам (id через запятую)
 function fresh(def) {
-  const d = { def, p: at(def.home), r: def.r, state: def.kind === 'spaniard' ? 'walk' : 'idle', player: null, score: [0, 0], t: 0,
+  const d = { def, p: at(def.home), r: def.r, state: def.route ? 'walk' : 'idle', player: null, score: [0, 0], t: 0,
     startsAt: 0, until: 0, nextMove: 0, result: null, lastPlayer: null, resultAt: 0, blocks: 0, side: 1, feinting: false,
     ring: def.kind === 'spaniard' ? null : RING, arena: null, i: 0, path: [], greeted: new Map(), say: null, sayUntil: 0, gave: false, playerWeapon: null };
   return d;
@@ -79,7 +97,7 @@ export function challenge(p, id, now = Date.now()) {
   if (!sceneOn(d.def)) return notice(p, spaniard ? 'Чужаки сейчас не на острове' : 'Воины касика тренируются днём и вечером'), false;
   if (combat.level() !== 'calm') return notice(p, 'В деревне тревога — сейчас не до поединков'), false;
   if (d.player) return notice(p, spaniard ? `${d.def.name} уже занят поединком` : 'Этот воин уже бьётся'), false;
-  if (spaniard ? !FREE.has(d.state) : d.state !== 'idle') return notice(p, spaniard ? `${d.def.name} ещё не вернулся с батея` : 'Воин ещё не вернулся на место'), false;
+  if (d.def.route ? !FREE.has(d.state) : d.state !== 'idle') return notice(p, spaniard ? `${d.def.name} ещё не вернулся с батея` : 'Воин ещё не вернулся на место'), false;
   if (flat(p.p, d.p) > D.CHALLENGE_R) return notice(p, 'Подойди ближе'), false;
   if (duelOf(p)) return notice(p, 'Ты уже в поединке'), false;
   if (!spaniard) { begin(d, p, now); return true; }
@@ -123,22 +141,30 @@ function begin(d, p, now) {
 
 // yaw — куда игрок смотрел в момент удара (клиент шлёт вместе с attack: последний move мог уйти раньше
 // поворота мыши); нет — берём из move
-export function attack(p, id, now = Date.now(), yaw = null) {
+// mode 'throw' — метнуть копьё: летит как стрела, потом лежит на земле, пока его не подберут (E)
+export function attack(p, id, now = Date.now(), yaw = null, mode = null) {
   const d = duels.get(id);
   if (!d) return false;
   if (d.player !== p.id) return notice(p, d.def.kind === 'spaniard' ? `Вызови ${d.def.name} на бой: подойди и нажми E` : 'Вызови воина на поединок: подойди и нажми E'), false;
   if (!FIGHT.has(d.state)) return false;
-  const item = weaponOf(p), w = WEAPONS[item];
+  const thrown = mode === 'throw';
+  if (thrown && heldItem(p) !== 'war_spear') return notice(p, 'Метнуть можно копьё'), false;
+  const item = thrown ? 'war_spear' : weaponOf(p), w = thrown ? WEAPONS.war_spear.throw : WEAPONS[item];
   if (now - (p.lastDuelAttackAt ?? 0) < w.cooldown) return false;
   p.lastDuelAttackAt = now;
   if (Number.isFinite(yaw)) p.r = yaw;
-  performAction(p, w.action, heldItem(p));
   const dist = flat(p.p, d.p), aim = Math.abs(aimOff(p, d.p)), ranged = w.kind === 'ranged';
-  if (dist > w.reach + D.LAG || aim > w.aim + (ranged ? 0.6 / Math.max(dist, 1) : 0)) {
-    if (ranged) toZone({ t: S2C.HIT, by: p.id, target: d.def.id, kind: 'duel', weapon: item, missed: true, score: [...d.score] });
-    return false; // промах: удар или стрела мимо
+  const missed = dist > w.reach + D.LAG || aim > w.aim + (ranged ? 0.6 / Math.max(dist, 1) : 0);
+  const stagger = !missed && d.state === 'stagger';
+  if (thrown) {
+    performAction(p, 'throw', 'war_spear');
+    throwSpear(p, d, now, missed || stagger ? 'miss' : null); // исход уточняется ниже, копьё уже в полёте
+  } else performAction(p, w.action, heldItem(p));
+  if (missed) {
+    if (ranged) toZone({ t: S2C.HIT, by: p.id, target: d.def.id, kind: 'duel', weapon: item, missed: true, ...spearFlight(d), score: [...d.score] });
+    return false; // промах: удар, стрела или копьё мимо
   }
-  if (d.state === 'stagger') return false;
+  if (stagger) return false;
   // засчитывается: сбил замах или прицел, ударил, пока он открыт (после удара, перезаряжает), сбоку / сзади;
   // копьё ещё и встречает его на подходе. Стрелу спереди он видит и уворачивается — но не чаще раза в
   // DODGE_MS и не тогда, когда сам бросился в атаку: следующая стрела попадёт
@@ -149,16 +175,43 @@ export function attack(p, id, now = Date.now(), yaw = null) {
     d.score[0]++; d.blocks = 0;
     setState(d, 'stagger', now);
     shove(d, p.p, ranged ? 0.3 : 0.6);
-    toZone({ t: S2C.HIT, by: p.id, target: d.def.id, kind: 'duel', weapon: item, score: [...d.score] });
+    if (thrown) d.spear.at = [d.p[0] + (d.p[0] - p.p[0]) / dist * 0.5, 0, d.p[2] + (d.p[2] - p.p[2]) / dist * 0.5]; // упало к его ногам
+    toZone({ t: S2C.HIT, by: p.id, target: d.def.id, kind: 'duel', weapon: item, ...spearFlight(d), score: [...d.score] });
     if (d.score[0] >= D.WIN) end(d, 'player', now);
   } else {
     if (dodge) d.dodgedAt = now; else d.blocks++;
     setState(d, dodge ? 'dodge' : 'block', now);
     if (dodge) sidestep(d, p.p);
-    toZone({ t: S2C.HIT, by: p.id, target: d.def.id, kind: 'duel', weapon: item, blocked: true, ...(dodge ? { dodged: true } : {}), against: d.def.weapon, score: [...d.score] });
+    toZone({ t: S2C.HIT, by: p.id, target: d.def.id, kind: 'duel', weapon: item, blocked: true, ...(dodge ? { dodged: true } : {}), against: d.def.weapon, ...spearFlight(d), score: [...d.score] });
   }
   broadcast(now);
   return true;
+}
+
+// Метнутое копьё: из рук сразу, на землю — когда долетит (за ним надо сходить и поднять E). Летит туда, куда
+// смотрел игрок, втыкается за соперником (мимо — дальше, до 15 м), но не за кругом поединка
+function throwSpear(p, d, now, miss) {
+  const i = p.inventory.indexOf('war_spear');
+  if (i < 0) return;
+  p.inventory.splice(i, 1); players.sendInventory(p);
+  const dist = flat(p.p, d.p), far = miss ? Math.min(dist + 4, WEAPONS.war_spear.throw.reach) : dist + 1.6;
+  const dir = [-Math.sin(p.r ?? 0), -Math.cos(p.r ?? 0)];
+  let to = [p.p[0] + dir[0] * far, 0, p.p[2] + dir[1] * far];
+  for (let k = 0; k < 20 && !inRing(d.ring, to, -0.4); k++) to = [to[0] + (d.ring.c[0] - to[0]) * 0.15, 0, to[2] + (d.ring.c[1] - to[2]) * 0.15];
+  const ms = Math.max(150, (flat(p.p, to) / WEAPONS.war_spear.throw.speed) * 1000);
+  d.spear = { from: [p.p[0], p.p[1] + 1.5, p.p[2]], at: to, ms, r: p.r ?? 0 };
+  const zone = p.zone, scene = director.scene().id;
+  setTimeout(() => { // упало: лежит у круга, его видно и можно подобрать
+    if (director.scene().id !== scene) { if (!p.inventory.includes('war_spear')) { p.inventory.push('war_spear'); players.sendInventory(p); } return; }
+    const where = d.spear?.at ?? to, landed = at([where[0], where[2]]);
+    objects.spawnWorldItem({ id: `drop:spear:${p.id}:${now}`, zone, item: 'war_spear', p: landed, r: d.spear?.r ?? 0, dynamic: true });
+  }, ms);
+}
+// поля `hit` для полёта копья у всех клиентов
+function spearFlight(d) {
+  if (!d.spear || d.spear.shown) return {};
+  d.spear.shown = true;
+  return { thrown: { from: d.spear.from, to: at([d.spear.at[0], d.spear.at[2]]), ms: Math.round(d.spear.ms) } };
 }
 
 // --- такт ---
@@ -169,7 +222,7 @@ export function tick(now = Date.now()) {
     d.movedAt = now;
     if (!sceneOn(d.def)) {
       if (d.player) end(d, 'draw', now, FIGHT.has(d.state) || d.state === 'ready' ? 'Поединок прерван' : null);
-      if (d.state !== (d.def.kind === 'spaniard' ? 'walk' : 'idle') || d.i) Object.assign(d, fresh(d.def));
+      if (d.state !== (d.def.route ? 'walk' : 'idle') || d.i) Object.assign(d, fresh(d.def));
       continue;
     }
     if (d.player) {
@@ -179,14 +232,16 @@ export function tick(now = Date.now()) {
       if (d.state === 'lead' || d.state === 'await') { lead(d, p, now, dt); continue; }
       if (!inRing(d.ring, p.p, D.EXIT)) { end(d, 'warrior', now, 'Ты вышел из круга — поединок проигран'); continue; }
       if (now > d.until) { end(d, 'draw', now, 'Время вышло — ничья'); continue; }
+      // подобрал метнутое копьё (или другое своё оружие) — сразу в руку
+      if (!isDuelWeapon(heldItem(p))) { const own = p.inventory.find(isDuelWeapon); if (own) { equipForUse(p, own); d.playerWeapon = own; } else d.playerWeapon = 'fist'; }
       fight(d, p, now, dt);
-    } else if (d.def.kind === 'spaniard') wander(d, now, dt);
+    } else if (d.def.route) wander(d, now, dt);
     else if (d.state === 'return') {
       if (step(d, at(d.def.home), d.def.speed * 0.7, dt, 0.1)) { d.state = 'idle'; d.r = d.def.r; }
     }
   }
   const list = [...duels.values()].filter((d) => sceneOn(d.def)), ids = list.map((d) => d.def.id).join();
-  const busy = list.some((d) => d.player || d.state === 'return' || (d.def.kind === 'spaniard' && d.state === 'walk'));
+  const busy = list.some((d) => d.player || d.state === 'return' || d.state === 'walk');
   if (ids !== shown || (ids && now - sentAt >= (busy ? 100 : 1000))) broadcast(now);
 }
 
@@ -352,7 +407,7 @@ function wander(d, now, dt) {
       if (now >= d.until) { d.state = 'walk'; d.say = null; }
       return;
     default: { // walk
-      const greet = players.connected().find((x) => x.zone === ZONE && x.p && flat(x.p, d.p) < SP.GREET_R && !duelOf(x) && now - (d.greeted.get(x.id) ?? -Infinity) > SP.GREET_AGAIN_MS);
+      const greet = d.def.greet !== false && players.connected().find((x) => x.zone === ZONE && x.p && flat(x.p, d.p) < SP.GREET_R && !duelOf(x) && now - (d.greeted.get(x.id) ?? -Infinity) > SP.GREET_AGAIN_MS);
       if (greet) {
         d.greeted.set(greet.id, now); face(d, greet.p);
         Object.assign(d, { state: 'greet', until: now + SP.GREET_MS, say: GREETINGS[Math.floor(rnd() * GREETINGS.length)], sayUntil: now + SP.GREET_MS });
@@ -386,7 +441,7 @@ function end(d, result, now, text) {
   console.log(`[duel] ${def.name}: ${result}`);
   Object.assign(d, { player: null, result, resultAt: now, state: 'return', feinting: false, gave: false,
     ...(spaniard ? { say: result === 'player' ? '¡Bravo! ¡Buen golpe!' : result === 'warrior' ? '¡Ja! Otra vez será.' : null, sayUntil: now + 4000 } : {}) });
-  if (spaniard) backToRoute(d);
+  if (def.route) backToRoute(d);
   broadcast(now);
 }
 

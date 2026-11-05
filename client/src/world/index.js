@@ -12,7 +12,8 @@
 import * as THREE from 'three';
 import { Warriors } from './warriors.js';
 import { Spaniards } from './spaniards.js';
-import { arrow } from './weapons.js';
+import { arrow, warSpear, arcPoint } from './weapons.js';
+import { Crowd } from './crowd.js';
 import { generateTextures, Materials } from './materials.js';
 import { buildShip, interior } from './ship.js';
 import { INTERIOR, installInteriorLight } from './interior-light.js';
@@ -103,6 +104,7 @@ export const world = {
     this.warriors = new Warriors(this.scene, this.M); // бой на Гуанахани: воины таино (docs/tz-combat.md)
     this.duelists = new Warriors(this.scene, this.M, { kind: 'duelist' }); // воины касика на батее: поединки
     this.spaniards = new Spaniards(this.scene, this.M); // испанцы с «Санта-Марии» в деревне 12 октября
+    this.crowd = new Crowd(this.scene, this.M, { heightAt: (x, z) => this.groundHeight(x, z) }); // зрители поединков
     this.fauna = new Fauna(this, { layouts: { canary: canaryLayout } }); // жители и животные (fauna.js): маршруты от общего времени, реакции на world_event
     this.chunks.deferBuild = true; // чанки острова строятся по нескольку за кадр (chunks.drain в frame)
     this.env.mirrorHide.push(this.zoneRoot, this.smoke, this.players.group);
@@ -168,6 +170,36 @@ export const world = {
     this.duelists?.applyDuel({ ...message, duelists: list.filter((d) => d.kind !== 'spaniard') }, me);
     this.spaniards?.applyDuel({ ...message, duelists: list.filter((d) => d.kind === 'spaniard') }, me);
     this.showArena(list.find((d) => d.player === me && d.ring)?.ring ?? null);
+    this.crowd?.apply(list, me);
+  },
+  // `hit` поединка: зрители реагируют; метнутое копьё летит у всех
+  combatHit(message) {
+    this.crowd?.hit(message);
+    const t = message.thrown;
+    if (t?.from && t?.to) this.flySpear(t.from, t.to, t.ms);
+  },
+  // Копьё в полёте: от руки до места, где упадёт (там его потом и поднимают), остриём вперёд, с дугой
+  flySpear(from, to, ms = 500) {
+    const obj = warSpear().obj, a = new THREE.Vector3().fromArray(from), b = new THREE.Vector3().fromArray(to);
+    b.y += 0.15;
+    this.scene.add(obj);
+    (this.spears ??= []).push({ obj, a, b, ms: Math.max(120, ms), t: 0, arc: Math.min(2.2, a.distanceTo(b) * 0.12) });
+  },
+  updateSpears(dt) {
+    if (!this.spears?.length) return;
+    const p = new THREE.Vector3(), next = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    for (const s of this.spears) {
+      s.t += dt * 1000;
+      const u = Math.min(1, s.t / s.ms), u2 = Math.min(1, u + 0.02);
+      arcPoint(s.a, s.b, s.arc, u, p); arcPoint(s.a, s.b, s.arc, u2, next);
+      s.obj.position.copy(p);
+      if (u < 1) s.obj.quaternion.setFromUnitVectors(up, next.sub(p).normalize());
+    }
+    for (const s of this.spears.filter((x) => x.t >= x.ms + 120)) { // лежащее копьё дальше рисует мир (world_patch)
+      s.obj.removeFromParent();
+      s.obj.traverse((o) => { o.geometry?.dispose(); if (o.material?.userData?.equipmentOwned) o.material.dispose(); });
+    }
+    this.spears = this.spears.filter((x) => x.t < x.ms + 120);
   },
   // Круг своего поединка на земле: за линией — проигрыш (половина батея у испанцев не отмечена камнями)
   showArena(ring) {
@@ -249,6 +281,7 @@ export const world = {
     this.warriors?.setZone(zone);
     this.duelists?.setZone(zone);
     this.spaniards?.setZone(zone);
+    this.crowd?.setZone(zone);
     this.patches?.invalidate();
     const ship = zone === 'ship';
     this.ship.visible = ship; this.zoneRoot.visible = ship; this.smoke.visible = ship;
@@ -335,7 +368,9 @@ export const world = {
     this.warriors.update(dt);
     this.duelists.update(dt);
     this.spaniards.update(dt);
+    this.crowd.update(dt);
     this.updateArrows(dt);
+    this.updateSpears(dt);
     this.updateNpcs(dt);
     this.updateDowned();
     this.objects?.update();

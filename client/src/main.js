@@ -608,7 +608,11 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
   if(type==='astrolabe')openAstrolabe();
   if(type==='quest')net.emit('quest',{id:'q_astrolabe',title:'Определить широту',step:'Измерьте высоту Солнца.',status:'active',progress:0,total:1});
 });
-canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){const target=attackTarget();if(target){const r=runtime?.controller.yaw;if(net.send('attack',{target,...(Number.isFinite(r)?{r}:{})}))swingLocally();}else useEquipped();runtime?.controller.lock();}});
+canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){const target=attackTarget();if(target){
+  // в поединке F + ЛКМ с копьём — метнуть его в соперника (полёт и место, где упадёт, решает сервер)
+  const r=runtime?.controller.yaw,hurl=throwMode&&equipped==='war_spear';
+  if(net.send('attack',{target,...(Number.isFinite(r)?{r}:{}),...(hurl?{mode:'throw'}:{})})){if(hurl){throwMode=false;renderEquipment();}else swingLocally();}
+}else useEquipped();runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   if(feastUI?.handleKey(event))return;
