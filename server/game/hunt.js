@@ -86,6 +86,23 @@ export function litter(now = Date.now()) {
   }
 }
 
+// Бросок копья «просто так» (F + ЛКМ, не в зверя и не в соперника): летит в точку под прицелом, не дальше
+// 15 м, остриём вперёд, и ложится там — поднять E
+export function freeThrow(p, msg, now = Date.now()) {
+  if (!p.p || heldItem(p) !== 'war_spear' || !Array.isArray(msg?.to) || msg.to.length !== 3 || !msg.to.every(Number.isFinite)) return false;
+  if (!director.acceptsMove() || director.isTransitioning()) return false;
+  const t = WEAPONS.war_spear.throw;
+  if (now - (p.lastHuntAt ?? 0) < t.cooldown) return false;
+  p.lastHuntAt = now;
+  if (Number.isFinite(msg.r)) p.r = msg.r;
+  const dx = msg.to[0] - p.p[0], dz = msg.to[2] - p.p[2], d = Math.hypot(dx, dz), k = d > t.reach ? t.reach / d : 1;
+  const to = [p.p[0] + dx * k, msg.to[1], p.p[2] + dz * k];
+  performAction(p, 'throw', 'war_spear');
+  worldEvent(p, 'throw', {}, now); // звери рядом разбегаются
+  dropSpear(p, to, d * k);
+  return true;
+}
+
 // метнутое копьё ложится там, куда долетело
 function dropSpear(p, to, dist) {
   const i = p.inventory.indexOf('war_spear');

@@ -38,7 +38,7 @@ const OPEN = new Set(['windup', 'recover', 'aim', 'fire', 'reload']); // тут 
 // Воины касика не стоят столбом: ходят по краю батея, отрабатывают удары, разминаются, обжигают остриё
 // копья. Маршрут — как у испанцев (server/game/spaniards.js), первая точка — их место у батея
 export const DUELISTS = [
-  { id: 'duelist_young', kind: 'warrior', name: 'Юный воин', log: 'duel_young', weapon: 'macana', scenes: ['p2_day', 'p2_evening'],
+  { id: 'duelist_young', kind: 'warrior', name: 'Юный воин', log: 'duel_young', weapon: 'macana', scenes: ['p2_day', 'p2_evening', 'p2_landing'],
     home: [160.5, 255], r: -Math.PI / 2, windup: 850, recover: 1100, speed: 2.4, think: [900, 1800], feint: 0, walk: 1.2, greet: false,
     route: [
       { p: [160.5, 255], batey: true, act: 'practice', wait: 14, face: [168, 255], doing: 'отрабатывает удары маканой' },
@@ -46,8 +46,15 @@ export const DUELISTS = [
       { p: [166.2, 262.6], act: 'stretch', wait: 9, face: [166.2, 256], doing: 'разминается' },
       { p: [161.6, 260.6] },
       { p: [160.8, 255.6], act: 'watch', wait: 7, face: [175.5, 255], doing: 'смотрит, как тренируется опытный' },
+    ],
+    // 12 октября батей — для поединков с чужаками; воины стоят у западного края, смотрят на берег
+    landingRoute: [
+      { p: [152.8, 251.6], batey: true, act: 'watch', wait: 16, face: [110, 254], doing: 'смотрит на чужаков у берега' },
+      { p: [151.5, 249.2] },
+      { p: [150.2, 247.2], act: 'practice', wait: 10, face: [155, 247], doing: 'отрабатывает удары маканой' },
+      { p: [151.5, 249.2] },
     ] },
-  { id: 'duelist_veteran', kind: 'warrior', name: 'Опытный воин', log: 'duel_veteran', weapon: 'war_spear', scenes: ['p2_day', 'p2_evening'],
+  { id: 'duelist_veteran', kind: 'warrior', name: 'Опытный воин', log: 'duel_veteran', weapon: 'war_spear', scenes: ['p2_day', 'p2_evening', 'p2_landing'],
     home: [175.5, 255], r: Math.PI / 2, windup: 650, recover: 800, speed: 3.0, think: [600, 1300], feint: 0.3, walk: 1.1, greet: false,
     route: [
       { p: [175.5, 255], batey: true, act: 'practice', wait: 12, face: [168, 255], doing: 'отрабатывает выпады копьём' },
@@ -55,6 +62,12 @@ export const DUELISTS = [
       { p: [172.6, 247.6], act: 'sharpen', wait: 15, face: [172.6, 245], doing: 'обжигает остриё копья' },
       { p: [176.6, 249.6] },
       { p: [178.6, 258.2], act: 'stretch', wait: 8, face: [172, 258.2], doing: 'разминается' },
+    ],
+    landingRoute: [
+      { p: [183.5, 258.6], batey: true, act: 'watch', wait: 14, face: [172, 255], doing: 'не сводит глаз с чужаков' },
+      { p: [184.6, 260.8] },
+      { p: [185.2, 262.4], act: 'sharpen', wait: 12, face: [185.2, 264.5], doing: 'обжигает остриё копья' },
+      { p: [184.6, 260.8] },
     ] },
   ...SPANIARDS.map((s) => ({ ...s, kind: 'spaniard', scenes: ['p2_landing'], home: s.route[0].p, r: 0 })),
 ];
@@ -76,8 +89,11 @@ const weaponOf = (p) => { const item = heldItem(p); return isDuelWeapon(item) ? 
 
 const duels = new Map();
 let sentAt = 0, shown = ''; // когда рассылали `duel`; кого показали клиентам (id через запятую)
+// маршрут на эту сцену: у воинов 12 октября — свой (батей занят поединками с чужаками)
+const routeOf = (def) => (director.scene().id === 'p2_landing' && def.landingRoute) || def.route;
 function fresh(def) {
-  const d = { def, p: at(def.home), r: def.r, state: def.route ? 'walk' : 'idle', player: null, score: [0, 0], t: 0,
+  const route = routeOf(def);
+  const d = { def, route, sceneId: director.scene().id, p: at(route ? route[0].p : def.home), r: def.r, state: route ? 'walk' : 'idle', player: null, score: [0, 0], t: 0,
     startsAt: 0, until: 0, nextMove: 0, result: null, lastPlayer: null, resultAt: 0, blocks: 0, side: 1, feinting: false,
     ring: def.kind === 'spaniard' ? null : RING, arena: null, i: 0, path: [], greeted: new Map(), say: null, sayUntil: 0, gave: false, playerWeapon: null };
   return d;
@@ -97,15 +113,20 @@ export function challenge(p, id, now = Date.now()) {
   if (!sceneOn(d.def)) return notice(p, spaniard ? 'Чужаки сейчас не на острове' : 'Воины касика тренируются днём и вечером'), false;
   if (combat.level() !== 'calm') return notice(p, 'В деревне тревога — сейчас не до поединков'), false;
   if (d.player) return notice(p, spaniard ? `${d.def.name} уже занят поединком` : 'Этот воин уже бьётся'), false;
-  if (d.def.route ? !FREE.has(d.state) : d.state !== 'idle') return notice(p, spaniard ? `${d.def.name} ещё не вернулся с батея` : 'Воин ещё не вернулся на место'), false;
+  if (d.route ? !FREE.has(d.state) : d.state !== 'idle') return notice(p, spaniard ? `${d.def.name} ещё не вернулся с батея` : 'Воин ещё не вернулся на место'), false;
   if (flat(p.p, d.p) > D.CHALLENGE_R) return notice(p, 'Подойди ближе'), false;
   if (duelOf(p)) return notice(p, 'Ты уже в поединке'), false;
-  if (!spaniard) { begin(d, p, now); return true; }
-  // испанец: свободная половина батея, ближняя к нему
+  // 12 октября батей поделён на две половины (два поединка сразу) — и с чужаками, и с воинами касика
+  const halves = director.scene().id === 'p2_landing';
   const busy = new Set([...duels.values()].filter((x) => x.arena && x.player).map((x) => x.arena.id));
   const free = ARENAS.filter((a) => !busy.has(a.id)).sort((a, b) => Math.hypot(a.c[0] - d.p[0], a.c[1] - d.p[2]) - Math.hypot(b.c[0] - d.p[0], b.c[1] - d.p[2]));
-  if (!free.length) return notice(p, 'На батее уже бьются двое — подожди, пока освободится'), false;
-  const { path } = pathToBatey(d.def, d.p, d.i);
+  if ((spaniard || halves) && !free.length) return notice(p, 'На батее уже бьются двое — подожди, пока освободится'), false;
+  if (!spaniard) { // воин касика: сразу в круг
+    Object.assign(d, halves ? { arena: free[0], ring: free[0] } : { arena: null, ring: RING });
+    begin(d, p, now); return true;
+  }
+  // испанец: свободная половина батея, ближняя к нему
+  const { path } = pathToBatey({ route: d.route }, d.p, d.i);
   Object.assign(d, { player: p.id, arena: free[0], ring: free[0], path: [...path, free[0].c], state: 'lead', t: now, until: now + 120000,
     score: [0, 0], result: null, lastPlayer: p.id, resultAt: 0, say: '¡Vamos! ¡Al batey!', sayUntil: now + 3000 });
   notice(p, `${d.def.name} кивает и идёт на батей — иди за ним. Тренировочный бой до ${D.WIN} очков`);
@@ -220,9 +241,10 @@ export function tick(now = Date.now()) {
   for (const d of duels.values()) {
     const dt = Math.min((now - (d.movedAt ?? now)) / 1000, 0.25);
     d.movedAt = now;
+    if (sceneOn(d.def) && !d.player && d.sceneId !== director.scene().id) Object.assign(d, fresh(d.def)); // другая сцена — свой маршрут
     if (!sceneOn(d.def)) {
       if (d.player) end(d, 'draw', now, FIGHT.has(d.state) || d.state === 'ready' ? 'Поединок прерван' : null);
-      if (d.state !== (d.def.route ? 'walk' : 'idle') || d.i) Object.assign(d, fresh(d.def));
+      if (d.state !== (d.route ? 'walk' : 'idle') || d.i) Object.assign(d, fresh(d.def));
       continue;
     }
     if (d.player) {
@@ -235,7 +257,7 @@ export function tick(now = Date.now()) {
       // подобрал метнутое копьё (или другое своё оружие) — сразу в руку
       if (!isDuelWeapon(heldItem(p))) { const own = p.inventory.find(isDuelWeapon); if (own) { equipForUse(p, own); d.playerWeapon = own; } else d.playerWeapon = 'fist'; }
       fight(d, p, now, dt);
-    } else if (d.def.route) wander(d, now, dt);
+    } else if (d.route) wander(d, now, dt);
     else if (d.state === 'return') {
       if (step(d, at(d.def.home), d.def.speed * 0.7, dt, 0.1)) { d.state = 'idle'; d.r = d.def.r; }
     }
@@ -385,12 +407,12 @@ function cancel(d, now, text) {
 
 // После поединка (или отмены) — на свою точку у батея и дальше по маршруту
 function backToRoute(d) {
-  const R = d.def.route, b = R.findIndex((s) => s.batey);
+  const R = d.route, b = R.findIndex((s) => s.batey);
   d.path = [R[b].p]; d.i = b; d.arena = null;
 }
 
 function wander(d, now, dt) {
-  const R = d.def.route, stop = R[d.i];
+  const R = d.route, stop = R[d.i];
   if (d.say && now > d.sayUntil) d.say = null;
   switch (d.state) {
     case 'return': {
@@ -441,7 +463,7 @@ function end(d, result, now, text) {
   console.log(`[duel] ${def.name}: ${result}`);
   Object.assign(d, { player: null, result, resultAt: now, state: 'return', feinting: false, gave: false,
     ...(spaniard ? { say: result === 'player' ? '¡Bravo! ¡Buen golpe!' : result === 'warrior' ? '¡Ja! Otra vez será.' : null, sayUntil: now + 4000 } : {}) });
-  if (def.route) backToRoute(d);
+  if (d.route) backToRoute(d);
   broadcast(now);
 }
 
@@ -486,7 +508,7 @@ export function state(now = Date.now()) {
       state: STATE_OUT[d.state] ?? d.state,
       player: d.player, score: [...d.score], startsAt: d.startsAt,
       ...(d.def.crew ? { crew: d.def.crew } : {}),
-      ...(d.state === 'act' && d.def.route[d.i]?.act ? { act: d.def.route[d.i].act, doing: d.def.route[d.i].doing } : {}),
+      ...(d.state === 'act' && d.route?.[d.i]?.act ? { act: d.route[d.i].act, doing: d.route[d.i].doing } : {}),
       ...(d.say && now < d.sayUntil ? { say: d.say } : {}),
       ...(d.player && d.playerWeapon ? { playerWeapon: d.playerWeapon } : {}),
       ...(d.player && d.ring && d.state !== 'lead' ? { ring: { c: d.ring.c, rx: d.ring.rx + D.EXIT, rz: d.ring.rz + D.EXIT } } : {}), // за этой линией — проигрыш

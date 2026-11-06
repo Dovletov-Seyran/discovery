@@ -226,6 +226,17 @@ export const world = {
     this.scene.add(obj);
     (this.arrows ??= []).push({ obj, v: dir.clone().normalize().multiplyScalar(34), left: 0.55 });
   },
+  // Куда упадёт то, что бросили по прицелу: первая точка луча из глаз под землёй, не дальше far (м)
+  aimGround(far = 15) {
+    const o = this.camera.getWorldPosition(new THREE.Vector3()), d = this.camera.getWorldDirection(new THREE.Vector3()), p = new THREE.Vector3();
+    for (let t = 0.5; t <= far; t += 0.25) {
+      p.copy(o).addScaledVector(d, t);
+      const h = this.groundHeight(p.x, p.z);
+      if (h != null && p.y <= h) return [p.x, h, p.z];
+    }
+    p.copy(o).addScaledVector(d, far);
+    return [p.x, this.groundHeight(p.x, p.z) ?? 0, p.z];
+  },
   // лучник — этот игрок: от глаз, туда, куда смотрит камера
   shootArrowFromCamera() {
     const dir = new THREE.Vector3(); this.camera.getWorldDirection(dir);

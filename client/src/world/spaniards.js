@@ -10,6 +10,8 @@ import { sword } from '../game/held-models.js';
 import { espingarda } from './espingarda.js';
 
 const FIGHT = new Set(['ready', 'approach', 'circle', 'windup', 'strike', 'recover', 'block', 'dodge', 'stagger', 'aim', 'fire', 'reload']);
+// где стрелок держит эспингарду наготове (ствол вперёд-вниз); приклад вперёд — только удар прикладом и защита
+const LOW_READY = new Set(['ready', 'await', 'approach', 'circle', 'recover', 'dodge', 'stagger', 'lead', 'return']);
 const glow = (color, opacity = 1) => { const m = new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 }); m.userData.equipmentOwned = true; return m; };
 const own =(color, roughness = 0.8, metalness = 0) => { const m = new THREE.MeshStandardMaterial({ color, roughness, metalness }); m.userData.equipmentOwned = true; return m; };
 
@@ -102,6 +104,14 @@ export class Spaniards extends Warriors {
     x.rod.visible = reloading && k > 0.4 && k < 2.8;
     if (x.state === 'fire' && !x.smoked) { x.smoked = true; this.smoke(x.gun); }
     if (x.state !== 'fire') x.smoked = false;
+  }
+
+  // Наготове: приклад у бедра, правая рука на шейке приклада, левая — под стволом, ствол вперёд и вниз
+  lowReady(x) {
+    const { arm, rig } = x, left = rig.arms.find((a) => a !== arm);
+    arm.ua.rotation.set(-0.35, 0, -arm.s * 0.2); arm.fa.rotation.set(-1.0, 0, arm.s * 0.15);
+    left.ua.rotation.set(-1.0, 0, -left.s * 0.45); left.fa.rotation.set(-0.55, 0, 0);
+    this.aimGun(x, 1, -0.42);
   }
 
   // ствол точно туда, куда он смотрит (то есть на соперника), что бы ни делали руки; lift — пока поднимает
@@ -207,7 +217,10 @@ export class Spaniards extends Warriors {
       rig.torso.rotation.set(-0.1, -arm.s * 0.6 * Math.min(1, k / 0.3), 0);
       return;
     }
-    if (this.fightPose(x, dt, k)) return;
+    if (this.fightPose(x, dt, k)) {
+      if (x.gun && x.armed && LOW_READY.has(x.state)) this.lowReady(x); // эспингарда наготове: ствол вперёд и вниз, двумя руками
+      return;
+    }
     pose(rig, 'stand');
     switch (x.state === 'act' ? x.act : x.state) {
       case 'greet': { // здоровается: машет поднятой рукой (на остановке у касика — кланяется)

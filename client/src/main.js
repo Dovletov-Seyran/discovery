@@ -477,6 +477,10 @@ function flashHurt(down){
 function useEquipped(){
   if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!isPlay(scene)||sceneProgress?.phase==='departing')return;
   if((itemCooldowns.get(equipped)||0)>Date.now())return;
+  if(throwMode&&equipped==='war_spear'){ // копьё летит остриём вперёд туда, куда смотришь (сервер: hunt.freeThrow)
+    const to=world?.aimGround?.(15),r=runtime?.controller.yaw;
+    if(to&&net.send('spear_throw',{to,...(Number.isFinite(r)?{r}:{})})){throwMode=false;renderEquipment();}return;
+  }
   if(throwMode){if(world&&net.send('throw',launch(world,equipped))){throwMode=false;renderEquipment();}return;}
   const target=ITEM_RULES[equipped]?.target&&ITEM_RULES[equipped].target===currentTarget?.id?currentTarget.id:undefined;
   net.send('use',{item:equipped,...(target?{target}:{})});

@@ -177,7 +177,7 @@ const beside=(p,id)=>{const d=me(id);p.p=at(d.p[0]+1.5,d.p[2]);};
 test('the routes keep to the paths: no stop inside a hut, every loop passes the batey',async()=>{
  const layout=JSON.parse((await import('node:fs')).readFileSync(new URL('../../content/guanahani_layout.json',import.meta.url),'utf8'));
  const huts=[[193.4,263.2],[181.5,275.8],[163.3,278.6],[147.3,270.4],[147.3,239.6],[188.7,239.6],[206,229],[207,287],[168,222]];
- for(const s of [...SPANIARDS,...DUELISTS.filter(d=>d.kind==='warrior')]){
+ for(const s of [...SPANIARDS,...DUELISTS.filter(d=>d.kind==='warrior'),...DUELISTS.filter(d=>d.landingRoute).map(d=>({...d,id:d.id+':landing',route:d.landingRoute}))]){
   assert.equal(s.route.filter(x=>x.batey).length,1,s.id);
   for(const x of s.route){
    for(const h of huts)assert.ok(Math.hypot(x.p[0]-h[0],x.p[1]-h[1])>(h[1]===222?9:5),`${s.id} ${x.p} near a hut`);
@@ -202,8 +202,8 @@ test('the routes keep to the paths: no stop inside a hut, every loop passes the 
 test('on 12 October the crew of the Santa María walk the village, stop by the villagers and greet the Taíno',()=>{
  let now=landing();duel.tick(now);
  const list=duel.state(now).duelists;
- assert.deepEqual(list.map(d=>d.id).sort(),['es_boatswain','es_diego','es_sancho']);
- assert.deepEqual(Object.fromEntries(list.map(d=>[d.id,d.crew])),{es_diego:'sailor_1',es_sancho:'sailor_3',es_boatswain:'boatswain'},'the same people as on the ship');
+ assert.deepEqual(list.filter(d=>d.kind==='spaniard').map(d=>d.id).sort(),['es_boatswain','es_diego','es_sancho']);
+ assert.deepEqual(Object.fromEntries(list.filter(d=>d.kind==='spaniard').map(d=>[d.id,d.crew])),{es_diego:'sailor_1',es_sancho:'sailor_3',es_boatswain:'boatswain'},'the same people as on the ship');
  assert.equal(me('es_diego').weapon,'espingarda');assert.equal(me('es_sancho').weapon,'sword');
  assert.equal(me('es_diego').state,'act');assert.equal(me('es_diego').act,'guard');assert.match(me('es_diego').doing,/лодки/);assert.ok(me('es_diego').say);
  // через минуту Диего уже на тропе к деревне, потом слушает старейшину
@@ -217,8 +217,9 @@ test('on 12 October the crew of the Santa María walk the village, stop by the v
  assert.equal(me('es_diego').state,'greet');assert.ok(me('es_diego').say);
  now=run(now,3000);assert.notEqual(me('es_diego').state,'greet');
  assert.ok(duel.state(now).duelists.every(x=>x.p.every(Number.isFinite)));
- // батей пуст днём: воинов касика 12 октября нет
- assert.equal(me('duelist_young'),undefined);
+ // воины касика 12 октября тоже здесь — у края батея, вне кругов для поединков, смотрят на чужаков
+ for(const id of ['duelist_young','duelist_veteran']){const w=me(id);assert.ok(w,id);
+  for(const a of ARENAS)assert.ok(((w.p[0]-a.c[0])/a.rx)**2+((w.p[2]-a.c[1])/a.rz)**2>1,`${id} stands outside the circles`);}
 });
 
 test('a challenged sailor leads you to the batey; the bout counts for «Сила чужаков» and he goes back to his round',()=>{
@@ -344,4 +345,20 @@ test('a spear can be thrown (F): it flies like an arrow, lands by the opponent, 
  const miss=p.msgs.findLast(m=>m.t==='hit'&&m.missed&&m.thrown);assert.ok(miss,'a missed throw still flies');
  assert.ok(Math.hypot(miss.thrown.to[0]-p.p[0],miss.thrown.to[2]-p.p[2])>5,'further than him');
  await new Promise(r=>setTimeout(r,miss.thrown.ms+80)); // упало до конца теста
+});
+
+test('on 12 October a warrior of the cacique can be challenged too: the bout takes a free half of the batey',()=>{
+ let now=landing();duel.tick(now);
+ const w=me('duelist_veteran');assert.ok(['act','walk'].includes(w.state));
+ const p=player('vs-warrior-landing','lengua',at(w.p[0]+1,w.p[2]));
+ assert.equal(duel.challenge(p,'duelist_veteran',now),true);assert.equal(me('duelist_veteran').state,'ready');
+ const ring=me('duelist_veteran').ring;assert.ok(ARENAS.some(a=>Math.abs(a.c[0]-ring.c[0])<0.01),'a half of the batey');
+ // в другой половине можно вызвать испанца, в третий бой — нет
+ const q=player('vs-es-too','grumete',at(0,0));{const d=me('es_sancho');q.p=at(d.p[0]+1.5,d.p[2]);}
+ assert.equal(duel.challenge(q,'es_sancho',now),true);
+ const r=player('third','piloto',at(0,0));{const d=me('es_diego');r.p=at(d.p[0]+1.5,d.p[2]);}
+ assert.equal(duel.challenge(r,'es_diego',now),false);
+ // днём у воинов снова свой маршрут на батее
+ quiet();director.setScene('p2_day');duel.tick(now+100);duel.tick(now+200);
+ assert.ok(Math.hypot(me('duelist_veteran').p[0]-veteran.route[0].p[0],me('duelist_veteran').p[2]-veteran.route[0].p[1])<3,'back at his place on the batey');
 });

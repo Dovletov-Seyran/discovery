@@ -29,6 +29,7 @@ export const C2S = {
   SCARE: 'scare',           // { target }
   PING: 'ping',             // { ts } — раз в 2 с; сервер сразу отвечает pong, клиент считает задержку
   CLIENT_STATS: 'client_stats', // { fps, ping, calls, chunks, pct, mem } — раз в 2 с, для админки
+  SPEAR_THROW: 'spear_throw', // { to, r } — метнуть копьё не в зверя и не в соперника: летит остриём вперёд и ложится в to
   HUNT: 'hunt',             // { id, kind, p, r, mode? } — охота: удар / выстрел / бросок копья по животному (server/game/hunt.js)
   ATTACK: 'attack',         // { target, r? } — удар по таино или воину на Гуанахани (docs/tz-combat.md); r — куда смотрел
 };
