@@ -340,7 +340,8 @@ export class Fauna {
 
   // `fauna` сервера: кто убит. killed — только что (падает у всех), dead — весь список (при входе)
   applyDead(msg) {
-    if (msg.dead) { const now = new Set(msg.dead.map((d) => d.id)); for (const id of this.dead.keys()) if (!now.has(id)) this.dead.delete(id); for (const d of msg.dead) if (!this.dead.has(d.id)) this.dead.set(d.id, { p: d.p, fresh: false }); }
+    // список — по одной зоне: ожившие в ней снова ходят, убитые в других зонах не трогаем
+    if (msg.dead) { const now = new Set(msg.dead.map((d) => d.id)), zone = `${msg.zone}:`; for (const id of this.dead.keys()) if (id.startsWith(zone) && !now.has(id)) this.dead.delete(id); for (const d of msg.dead) if (!this.dead.has(d.id)) this.dead.set(d.id, { p: d.p, fresh: false }); }
     if (msg.killed) this.dead.set(msg.killed.id, { p: msg.killed.p, fresh: true });
   }
 

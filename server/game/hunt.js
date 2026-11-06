@@ -12,6 +12,7 @@ import * as director from './director.js';
 import * as objects from './objects.js';
 import { performAction } from './player-actions.js';
 import { worldEvent } from './world-events.js';
+import * as entities from './entities.js';
 
 // на кого можно охотиться, где; сколько ударов выдерживает; что остаётся (предмет)
 export const GAME = {
@@ -24,7 +25,7 @@ const TOOLS = {
   macana: WEAPONS.macana, war_spear: WEAPONS.war_spear, bow: WEAPONS.bow, sword: WEAPONS.sword,
   espingarda: { kind: 'ranged', reach: 22, aim: 0.1, cooldown: 2500 },
 };
-export const H = { RESPAWN_MS: 180000, LAG: 1.0, LOOT_MS: 650, MAX_ID: 400 };
+export const H = { RESPAWN_MS: 180000, LAG: 1.0, LOOT_MS: 650, MAX_ID: 400, LITTER_MS: 240000 };
 
 const dead = new Map(); // id → { zone, kind, p, at, hp? }
 const wounds = new Map(); // id → { hp, at } — подранок (коза держит два удара)
@@ -73,6 +74,18 @@ export function hunt(p, msg, now = Date.now()) {
   return true;
 }
 
+// Несъеденная тушка и брошенное копьё (охота и поединки) лежат LITTER_MS, потом исчезают; съеденная —
+// сразу (иначе такие предметы копятся до предела объектов мира). Время броска — в конце id
+export function litter(now = Date.now()) {
+  for (const d of entities.allDefs()) {
+    const m = /^drop:(game|spear):.*:(\d+)$/.exec(d.id);
+    if (!m) continue;
+    const holder = entities.stateOf(d.id)?.holder, owner = holder && players.get(holder);
+    if (owner) { if (!owner.inventory?.includes(d.item)) objects.removeWorldObject(d.id); continue; } // у кого-то в руках — пока не съел
+    if (now - Number(m[2]) > H.LITTER_MS) objects.removeWorldObject(d.id); // лежит (или ушедший игрок унёс) — пора убрать
+  }
+}
+
 // метнутое копьё ложится там, куда долетело
 function dropSpear(p, to, dist) {
   const i = p.inventory.indexOf('war_spear');
@@ -89,6 +102,7 @@ let listedAt = 0;
 export function tick(now = Date.now()) {
   const zones = new Set();
   for (const [id, d] of dead) if (now - d.at > H.RESPAWN_MS) { dead.delete(id); zones.add(d.zone); }
+  litter(now);
   // раз в 10 с — список убитых всем (кто вошёл в зону или загрузил мир позже)
   if (now - listedAt > 10000) { listedAt = now; for (const d of dead.values()) zones.add(d.zone); }
   for (const zone of zones) toZone(zone, { t: S2C.FAUNA, zone, dead: deadList(zone) });

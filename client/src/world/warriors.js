@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { person, pose, makeLabel, taino } from './people.js';
 import { macana } from './macana.js';
 import { warSpear } from './weapons.js';
+import { compactRig } from './crowd.js';
 
 export const DELAY = 120;
 const LOOKS = [
@@ -27,7 +28,7 @@ const WEAPON = { macana: () => macana().obj, war_spear: () => warSpear().obj };
 
 // Подпись и подсказка воина на батее: свободен — вызвать, бьётся с тобой — бить, с другим — счёт
 function duelLabel(d, me) {
-  if (d.player && d.player === me) return { mine: true, prompt: `${d.name} · ЛКМ — удар`, sub: `${d.score[0]} : ${d.score[1]}` };
+  if (d.player && d.player === me) return { mine: true, fighting: true, prompt: `${d.name} · ЛКМ — удар`, sub: `${d.score[0]} : ${d.score[1]}` };
   if (d.player) return { mine: false, prompt: `${d.name} · бьётся`, sub: `поединок ${d.score[0]} : ${d.score[1]}` };
   const free = ['idle', 'walk', 'act'].includes(d.state);
   return { mine: false, prompt: free ? `${d.name} · E — вызвать на поединок` : d.name, sub: d.doing ?? 'воин касика' };
@@ -81,6 +82,7 @@ export class Warriors {
 
   // общая часть create: в сцену, в таблицу, буфер позиций
   track(w, rig, arm, label, extra = {}) {
+    compactRig(rig.root); // меньше вызовов отрисовки (crowd.js)
     rig.root.rotation.order = 'YXZ'; // курс, потом наклон — так лежащий падает навзничь по ходу
     rig.root.userData = { id: w.id, kind: this.kind, label: `${w.name ?? 'Воин таино'} · ЛКМ — ударить` };
     rig.root.position.fromArray(w.p);

@@ -5,7 +5,28 @@
 //   walk — идут к кругу, watch — хлопают и покачиваются, cheer — прыгают с поднятыми руками (наш попал),
 //   groan — хватаются за голову (попали по нашему), ooh — подались вперёд (отбил / увернулся), leave — расходятся.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { person, pose, makeLabel, taino, NPC_LOOK } from './people.js';
+
+// Зрителей много, а человек из people.js — 33 отдельных меша. Меши, висящие на одном суставе, движутся
+// вместе — сливаем их в один (суставы остаются, поза работает): ~3 раза меньше вызовов отрисовки
+export function compactRig(root) {
+  const jobs = [];
+  root.traverse((o) => {
+    const meshes = o.children.filter((c) => c.isMesh && !c.children.length);
+    if (meshes.length > 1 && meshes.every((m) => m.material === meshes[0].material)) jobs.push([o, meshes]);
+  });
+  for (const [o, meshes] of jobs) {
+    const names = Object.keys(meshes[0].geometry.attributes).sort().join();
+    if (!meshes.every((m) => Object.keys(m.geometry.attributes).sort().join() === names && !!m.geometry.index === !!meshes[0].geometry.index)) continue;
+    const merged = mergeGeometries(meshes.map((m) => { m.updateMatrix(); return m.geometry.clone().applyMatrix4(m.matrix); }));
+    if (!merged) continue;
+    const one = new THREE.Mesh(merged, meshes[0].material); one.castShadow = true; one.receiveShadow = true;
+    for (const m of meshes) { o.remove(m); m.geometry.dispose(); }
+    o.add(one);
+  }
+  return root;
+}
 
 const TAINO_LOOKS = [
   taino({ loincloth: 0xe6dfcb, bodyPaint: 0x9a2a1c }), taino({ nagua: 0xece5d2, bands: 0xece5d2 }),
@@ -76,6 +97,7 @@ export class Crowd {
       const side = i < sailors.length ? 'sailor' : 'taino';
       const look = side === 'sailor' ? NPC_LOOK[sailors[i]] ?? NPC_LOOK.sailor_2 : TAINO_LOOKS[Math.floor(rnd() * TAINO_LOOKS.length)];
       const rig = person(this.M.person, look);
+      compactRig(rig.root);
       const from = [s.x + Math.cos(s.a) * FAR, s.z + Math.sin(s.a) * FAR];
       rig.root.position.set(from[0], this.ground(from[0], from[1]), from[1]);
       rig.root.visible = this.zone === 'guanahani';

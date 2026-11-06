@@ -430,6 +430,7 @@ const HUNT_REACH={macana:3,war_spear:3.7,sword:2.9,bow:18,espingarda:22};
 function huntTarget(){
   if(!world?.fauna||!equipped||!connected||modal||chatOpen||!isPlay(scene)||document.pointerLockElement!==canvas)return null;
   const hurl=throwMode&&equipped==='war_spear',far=hurl?15:HUNT_REACH[equipped];
+  if(throwMode&&!hurl)return null; // в режиме броска (F) — бросок предмета, а не удар
   if(!far)return null;
   const origin=world.camera.getWorldPosition(world.camera.position.clone()),dir=world.camera.getWorldDirection(world.camera.position.clone());
   const prey=world.fauna.pick(origin,dir,far);

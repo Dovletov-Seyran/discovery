@@ -15,6 +15,7 @@ test('a bout draws a crowd: villagers walk up to the circle, face it and clap; o
   const b=[...c.bouts.values()][0];
   assert.ok(b.people.length>=5,'a crowd, not one man');
   assert.equal(b.people.filter(p=>p.side==='sailor').length,2,'Pedro and Gil cheer for Sancho');
+  for(const p of b.people){let n=0;p.rig.root.traverse(o=>{if(o.isMesh)n++;});assert.ok(n<=14,`a spectator is ${n} meshes, not 33`);}
   for(const p of b.people){
     const d=((p.spot[0]-161.6)/7.7)**2+((p.spot[1]-255)/9.9)**2;assert.ok(d>1,'outside the line');
     assert.ok(Math.hypot(p.spot[0]-171,p.spot[1]-257)>1.8,'not in the fire');

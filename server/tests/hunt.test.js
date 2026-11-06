@@ -72,3 +72,18 @@ test('a goat on La Gomera takes two blows of a sword, one arrow-like spear throw
  assert.ok(entities.allDefs().some(d=>d.item==='war_spear'&&Math.hypot(d.p[0]-prey[0],d.p[2]-prey[2])<0.1),'the spear lies by the iguana');
  assert.ok(entities.allDefs().some(d=>d.item==='iguana'),'and the iguana');
 });
+
+test('carcasses and spears do not pile up: an eaten carcass goes at once, one left on the ground after a few minutes',async()=>{
+ director.setScene('p2_day');hunt.reset();
+ const p=player('litter',at(200,260),['macana']);
+ for(const [id,x] of [['guanahani:40',201.5],['guanahani:41',198.5]]){const prey=at(x,260);look(p,prey);hunt.hunt(p,{id,kind:'crab',p:prey,r:p.r},Date.now()+(id.endsWith('41')?2000:0));}
+ await sleep(hunt.H.LOOT_MS+80);
+ const crabs=()=>entities.allDefs().filter(d=>d.item==='crab'&&d.id.startsWith('drop:game:'));
+ assert.equal(crabs().length,2);
+ // одного подобрал и съел
+ const eaten=crabs()[0];entities.setState(eaten.id,{holder:p.id});p.inventory.push('crab');
+ hunt.litter();assert.equal(crabs().length,2,'in the hand, not eaten yet — kept');
+ p.inventory=['macana'];hunt.litter();assert.ok(!crabs().some(d=>d.id===eaten.id),'eaten — removed');
+ assert.equal(crabs().length,1);
+ hunt.litter(Date.now()+hunt.H.LITTER_MS+5000);assert.equal(crabs().length,0,'the uneaten one is gone after a while');
+});
