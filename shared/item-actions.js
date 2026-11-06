@@ -25,6 +25,9 @@ export const ITEM_RULES={
  firewood:{effect:'supplies',target:'fire',cooldown:500,hint:'Подойди к костру на площади и нажми E.'},
  torch:{effect:'light',cooldown:800},
  // оружие таино (shared/weapons.js): со стойки у батея; в поединке — то, чем бьёшься (server/game/duel.js)
+ // добыча охоты (server/game/hunt.js): съесть — силы
+ hutia:{effect:'food',cooldown:1000,servings:1,energy:45},iguana:{effect:'food',cooldown:1000,servings:1,energy:40},crab:{effect:'food',cooldown:1000,servings:1,energy:20},
+ goat_meat:{effect:'food',cooldown:1000,servings:2,energy:45},chicken:{effect:'food',cooldown:1000,servings:1,energy:35},
  macana:{effect:'swing',cooldown:550},war_spear:{effect:'swing',cooldown:800},bow:{effect:'loose',cooldown:1300},
  parrot:{effect:'show',cooldown:800},gift_cotton:{effect:'show',cooldown:800},
  bell:{effect:'show',cooldown:800},beads:{effect:'show',cooldown:800},red_cap:{effect:'show',cooldown:800},

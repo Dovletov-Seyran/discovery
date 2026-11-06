@@ -32,6 +32,8 @@ export const HOLD_POSES={
  sword:{size:1.2,rotation:[-.24,1.05,-.18],depth:.95},
  macana:{size:1.0,rotation:[-.30,1.0,-.20],depth:.9}, // дубинка таино на поединке: держат и бьют как меч
  war_spear:{size:2.3,rotation:[-1.42,.10,.05],depth:.75}, // копьё — остриём вперёд, выпад
+ hutia:{size:.5,rotation:[.2,-.4,0],depth:.85},iguana:{size:.7,rotation:[.2,-.5,0],depth:.95},crab:{size:.3,rotation:[.3,-.3,0],depth:.72},
+ goat_meat:{size:.8,rotation:[.2,-.4,0],depth:1.0},chicken:{size:.45,rotation:[.2,-.4,0],depth:.8},
  bow:{size:1.2,rotation:[.04,Math.PI-.42,.28],depth:1.0}, // лук — в вытянутой руке, тетива к себе, стрела смотрит вперёд
  cup:{size:.32,rotation:[.15,0,-.1],depth:.72},
  compass:{size:.34,rotation:[1.10,0,0],depth:.72},

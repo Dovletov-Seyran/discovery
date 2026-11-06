@@ -409,7 +409,116 @@ function cottonSkeins(M) {
   return { obj: g, col: [boxGeo(0.9, 0.25, 0.9, 0, 0.12, 0)] };
 }
 
+// --- быт деревни: что стоит у домов (декор, без заданий) ----------------------------------------
+
+// Барбакоа (таинское слово): решётка из прутьев на четырёх рогатинах над углями, на ней рыба и утия
+function barbacoa(M) {
+  const g = new THREE.Group(), posts = [], bars = [], fish = [];
+  for (const [x, z] of [[-0.6, -0.4], [0.6, -0.4], [-0.6, 0.4], [0.6, 0.4]]) {
+    posts.push(cylGeo(0.035, 0.04, 0.85, 6).translate(x, 0.42, z));
+    for (const s of [-1, 1]) posts.push(cylGeo(0.016, 0.02, 0.14, 5).rotateZ(s * 0.5).translate(x + s * 0.03, 0.88, z));
+  }
+  for (const z of [-0.4, 0.4]) bars.push(cylGeo(0.025, 0.025, 1.4, 6).rotateZ(Math.PI / 2).translate(0, 0.84, z));
+  for (let i = 0; i < 9; i++) bars.push(cylGeo(0.012, 0.012, 1.0, 5).rotateX(Math.PI / 2).translate(-0.56 + i * 0.14, 0.87, 0));
+  for (let i = 0; i < 3; i++) fish.push(new THREE.SphereGeometry(0.06, 8, 6).scale(0.8, 0.45, 2.6).translate(-0.35 + i * 0.32, 0.92, (i - 1) * 0.08));
+  g.add(mesh(mergeGeometries(posts), M.get('trim')), mesh(mergeGeometries(bars), M.get('wood')), mesh(mergeGeometries(fish), M.get('fish')));
+  for (let i = 0; i < 7; i++) g.add(mesh(noisy(new THREE.IcosahedronGeometry(0.14, 0), 0.3, 611 + i).translate(Math.cos(i) * 0.45, 0.08, Math.sin(i) * 0.3), M.get('limestone')));
+  g.add(mesh(new THREE.SphereGeometry(0.3, 8, 6).scale(1.2, 0.35, 0.8).translate(0, 0.06, 0), M.get('ember')));
+  g.userData.flame = new V3(0, 0.25, 0); // ночью тлеет (firelight.js)
+  return { obj: g, col: [boxGeo(1.4, 1.0, 1.0, 0, 0.5, 0)] };
+}
+
+// Гамак (таинское слово) из хлопка между двумя столбами — днём в нём отдыхают у дома
+function hammockPosts(M) {
+  const g = new THREE.Group(), L = 3.2;
+  for (const x of [-L / 2, L / 2]) g.add(mesh(cylGeo(0.07, 0.09, 1.9, 7).translate(x, 0.95, 0), M.get('trim')));
+  const pts = [];
+  for (let i = 0; i <= 16; i++) { const t = i / 16 - 0.5; pts.push(new V3(t * (L - 0.3), 1.45 - (1 - 4 * t * t) * 0.6, 0)); }
+  const net = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.32, 8, false);
+  net.scale(1, 1, 1); // вытянутая трубка — полотно, сплющим по высоте
+  const pos = net.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const y = pos.getY(i), c = pts[Math.round((pos.getX(i) / (L - 0.3) + 0.5) * 16)] ?? pts[8]; pos.setY(i, c.y + (y - c.y) * 0.18); }
+  net.computeVertexNormals();
+  g.add(mesh(net, M.get('cotton')));
+  for (const s of [-1, 1]) g.add(mesh(between(new V3(s * (L / 2 - 0.15), 1.45, 0), new V3(s * L / 2, 1.6, 0), 0.015, 0.015, 4), M.get('rope')));
+  return { obj: g, col: [boxGeo(0.25, 1.9, 0.25, -L / 2, 0.95, 0), boxGeo(0.25, 1.9, 0.25, L / 2, 0.95, 0)] };
+}
+
+// Глиняная утварь на циновке: большой сосуд для воды, миски-кастрюли, кувшинчики
+function pots(M) {
+  const g = new THREE.Group();
+  g.add(mesh(cylGeo(0.9, 0.9, 0.015, 16).translate(0, 0.008, 0), M.get('sack')));
+  const jar = lathe([[0, 0], [0.18, 0.02], [0.3, 0.22], [0.3, 0.42], [0.18, 0.6], [0.12, 0.66], [0.14, 0.7]], 14);
+  g.add(mesh(jar.clone().translate(-0.35, 0, -0.2), M.get('clay')));
+  const bowl = lathe([[0, 0], [0.16, 0.01], [0.24, 0.08], [0.27, 0.16], [0.25, 0.17]], 14);
+  for (const [x, z, s] of [[0.3, -0.25, 1], [0.35, 0.3, 0.8], [-0.2, 0.35, 0.7]]) g.add(mesh(bowl.clone().scale(s, s, s).translate(x, 0.015, z), M.get('clay')));
+  const small = lathe([[0, 0], [0.08, 0.01], [0.12, 0.1], [0.07, 0.2], [0.05, 0.25], [0.06, 0.27]], 10);
+  for (const [x, z] of [[0.05, 0.05], [-0.55, 0.25]]) g.add(mesh(small.clone().translate(x, 0.015, z), M.get('gourd')));
+  return { obj: g, col: [boxGeo(1.2, 0.7, 1.2, 0, 0.35, 0)] };
+}
+
+// Плетёные корзины — пустые и с хлопком, рядом тыквы-калабасы
+function baskets(M) {
+  const g = new THREE.Group();
+  const basket = (r, h) => lathe([[0, 0], [r * 0.8, 0.01], [r, h * 0.5], [r * 1.05, h], [r * 1.0, h]], 14);
+  for (const [x, z, r, h, full] of [[0, 0, 0.32, 0.4, true], [0.6, 0.15, 0.25, 0.32, false], [0.15, 0.6, 0.22, 0.28, true], [0.62, 0.65, 0.2, 0.5, false]]) {
+    g.add(mesh(basket(r, h).translate(x, 0, z), M.get('cane')));
+    if (full) g.add(mesh(noisy(new THREE.IcosahedronGeometry(r * 0.9, 1), 0.25, 701).scale(1, 0.45, 1).translate(x, h * 0.95, z), M.get('cotton')));
+  }
+  for (const [x, z] of [[-0.45, 0.35], [-0.5, -0.2]]) g.add(mesh(new THREE.SphereGeometry(0.15, 10, 8).scale(1, 0.85, 1).translate(x, 0.13, z), M.get('gourd')));
+  return { obj: g, col: [boxGeo(1.4, 0.5, 1.2, 0.1, 0.25, 0.25)] };
+}
+
+// Дуо — резное кресло касика из тёмного дерева: низкое сиденье, изогнутая спинка, лик земи спереди
+function duho(M) {
+  const g = new THREE.Group();
+  const seat = new THREE.SphereGeometry(0.35, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.25, 0.8).translate(0, 0.28, 0);
+  g.add(mesh(seat, M.get('resin')));
+  for (const [x, z] of [[-0.2, 0.18], [0.2, 0.18], [-0.2, -0.18], [0.2, -0.18]]) g.add(mesh(cylGeo(0.04, 0.05, 0.28, 6).translate(x, 0.14, z), M.get('resin')));
+  const back = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new V3(0, 0.3, -0.2), new V3(0, 0.55, -0.32), new V3(0, 0.85, -0.38)]), 10, 0.09, 6);
+  back.scale(2.2, 1, 0.6);
+  g.add(mesh(back, M.get('resin')));
+  g.add(mesh(new THREE.SphereGeometry(0.1, 10, 8).scale(1, 0.9, 0.6).translate(0, 0.32, 0.3), M.get('resin')));
+  for (const x of [-0.04, 0.04]) g.add(mesh(new THREE.SphereGeometry(0.018, 6, 5).translate(x, 0.35, 0.36), M.get('brass'))); // глаза из золотых пластинок
+  return { obj: g, col: [boxGeo(0.7, 0.9, 0.7, 0, 0.45, 0)] };
+}
+
+// Сеть сушится на шестах, к ней привязаны поплавки-тыквы
+function netRack(M) {
+  const g = new THREE.Group(), W = 2.6, H = 1.7, lines = [];
+  for (const x of [-W / 2, W / 2]) g.add(mesh(cylGeo(0.04, 0.05, 2.0, 6).translate(x, 1.0, 0), M.get('trim')));
+  g.add(mesh(cylGeo(0.03, 0.03, W + 0.2, 6).rotateZ(Math.PI / 2).translate(0, 1.95, 0), M.get('wood')));
+  for (let i = 0; i <= 12; i++) { const x = -W / 2 + 0.1 + (i / 12) * (W - 0.2); lines.push(cylGeo(0.005, 0.005, H, 3).translate(x, 1.95 - H / 2 - Math.sin((i / 12) * Math.PI) * 0.15, 0)); }
+  for (let j = 1; j <= 8; j++) lines.push(cylGeo(0.005, 0.005, W - 0.2, 3).rotateZ(Math.PI / 2).translate(0, 1.95 - j * 0.2 - Math.sin(Math.PI / 2) * 0.05, 0));
+  g.add(mesh(mergeGeometries(lines), M.get('rope')));
+  for (let i = 0; i < 5; i++) g.add(mesh(new THREE.SphereGeometry(0.07, 8, 6).translate(-0.9 + i * 0.45, 1.88, 0.03), M.get('gourd')));
+  return { obj: g, col: [boxGeo(0.2, 2, 0.2, -W / 2, 1, 0), boxGeo(0.2, 2, 0.2, W / 2, 1, 0)] };
+}
+
+// Навес из пальмовых листьев на шести столбах — здесь работают в тени: под ним циновка, корзина, ткацкая рама
+function ramada(M) {
+  const g = new THREE.Group(), posts = [];
+  for (const [x, z] of [[-1.6, -1.2], [0, -1.2], [1.6, -1.2], [-1.6, 1.2], [0, 1.2], [1.6, 1.2]]) posts.push(cylGeo(0.06, 0.07, 2.3, 6).translate(x, 1.15, z));
+  for (const z of [-1.2, 1.2]) posts.push(cylGeo(0.05, 0.05, 3.6, 6).rotateZ(Math.PI / 2).translate(0, 2.3, z));
+  g.add(mesh(mergeGeometries(posts), M.get('trim')));
+  // двускатная кровля из пальмовых листьев с напуском, конёк — жердь
+  const slope = 0.42, half = 1.85, slabs = [];
+  for (const s of [-1, 1]) {
+    const slab = new THREE.BoxGeometry(4.2, 0.16, half, 10, 1, 5), p = slab.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) + (ihash(i, s + 3, 721) - 0.5) * 0.07); // лохматые листья
+    slab.rotateX(s * slope).translate(0, 2.3 + Math.sin(slope) * half / 2 + 0.08, s * Math.cos(slope) * half / 2);
+    slabs.push(slab);
+  }
+  const roof = mergeGeometries(slabs); roof.computeVertexNormals();
+  g.add(mesh(roof, M.get('thatch')));
+  g.add(mesh(cylGeo(0.05, 0.05, 4.3, 6).rotateZ(Math.PI / 2).translate(0, 2.3 + Math.sin(slope) * half + 0.1, 0), M.get('trim')));
+  g.add(mesh(cylGeo(1.0, 1.0, 0.015, 14).translate(0.2, 0.008, 0), M.get('sack')));
+  g.add(mesh(lathe([[0, 0], [0.22, 0.01], [0.27, 0.2], [0.28, 0.3]], 12).translate(-0.9, 0, 0.5), M.get('cane')));
+  return { obj: g, col: posts.length ? [boxGeo(0.2, 2.3, 0.2, -1.6, 1.15, -1.2), boxGeo(0.2, 2.3, 0.2, 0, 1.15, -1.2), boxGeo(0.2, 2.3, 0.2, 1.6, 1.15, -1.2), boxGeo(0.2, 2.3, 0.2, -1.6, 1.15, 1.2), boxGeo(0.2, 2.3, 0.2, 0, 1.15, 1.2), boxGeo(0.2, 2.3, 0.2, 1.6, 1.15, 1.2)] : [] };
+}
+
 export const TAINO_MODELS = {
+  barbacoa, hammock_posts: hammockPosts, pots, baskets, duho, net_rack: netRack, ramada,
   bohio, caney, batey, zemi, conuco, cotton_bush: cottonBush, fire_pit: firePit,
   canoe, fish_spear: fishSpear, buren, grater, cibucan, loom, water_jar: waterJar, log_seat: logSeat,
   fish_shoal: fishShoal, conch_bed: conchBed, cassava_dig: cassavaDig, wood_pile: woodPile, maracas,

@@ -83,6 +83,7 @@ export class WorldAudio {
     events.on('duel', (m) => this.onDuel(m));
     events.on('combat', (m) => this.onCombat(m));
     events.on('player_action', (m) => this.onAction(m));
+    events.on('fauna', (m) => this.onFauna(m));
     events.on('world_event', (m) => { if (m.type === 'alarm') this.play('sfx_scream', { volume: 0.55 }); });
     events.on('logout', () => { clearTimeout(this.performanceEnd);this.performanceKey=null;this.setAmbience({}); this.setMusic(null); this.inventory = null; this.doneQuests.clear(); });
   }
@@ -149,6 +150,13 @@ export class WorldAudio {
       if (d.result && !prev.result) this.later(500, () => this.play('sfx_clapping', { volume: Math.min(0.7, this.spatial(p).gain) })); // зрители хлопают
     }
     for (const id of this.duelSeen.keys()) if (!seen.has(id)) this.duelSeen.delete(id);
+  }
+
+  // охота: зверь вскрикнул и упал, метнутое копьё воткнулось
+  onFauna(m) {
+    const cry = { iguana: 'hiss', goat: 'bleat', chicken: 'cluck' };
+    for (const x of [m.killed, m.hurt].filter(Boolean)) { this.sfx('body', x.p, 0.8); this.sfx(cry[x.kind] ?? 'squeal', x.p); }
+    if (m.thrown?.to) this.later(m.thrown.ms ?? 400, () => this.sfx('spear_land', m.thrown.to));
   }
 
   // стража деревни: выпад копьём

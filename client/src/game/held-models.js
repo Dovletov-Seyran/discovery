@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import {espingarda} from '../world/espingarda.js';
 import {macana} from '../world/macana.js';
 import {warSpear,bow} from '../world/weapons.js';
+import {animalModel,CARCASS_LOOK} from '../world/animal-models.js';
+// добыча охоты: тушка на боку (goat_meat — козья тушка)
+const carcass=(kind)=>()=>({obj:animalModel(kind,CARCASS_LOOK[kind])});
 
 const own=(color,roughness=.5,metalness=0)=>{const m=new THREE.MeshStandardMaterial({color,roughness,metalness});m.userData.equipmentOwned=true;return m;};
 const part=(root,geometry,material,p=[0,0,0],rotation=[0,0,0])=>{
@@ -127,7 +130,7 @@ function stores(id){
 export const NOTES=['note_stores','note_trade','note_old','note_arms','note_cosa','note_torres','note_logs','note_letters'];
 const STORE_ITEMS=['crossbow','shield','garlic','stone_ball','book','note',...NOTES];
 const TAINO_ITEMS=['spear','fish','conch','cassava','cassava_grated','cassava_pulp','casabe','cotton','hammock_gift','firewood','torch','parrot','gift_cotton','bell','beads','red_cap'];
-export const HELD_MODELS={sword,espingarda,macana,war_spear:warSpear,bow,purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit'),
+export const HELD_MODELS={sword,espingarda,macana,war_spear:warSpear,bow,hutia:carcass('hutia'),iguana:carcass('iguana'),crab:carcass('crab'),goat_meat:carcass('goat'),chicken:carcass('chicken'),purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit'),
   ...Object.fromEntries(TAINO_ITEMS.map(id=>[id,()=>taino(id)])),...Object.fromEntries(STORE_ITEMS.map(id=>[id,()=>stores(id)]))};
 
 export function releaseModel(obj){

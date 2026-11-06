@@ -112,6 +112,11 @@ const SOUNDS = {
     for (const at of [0.1, 0.22, 0.31]) s.burst(o, { f: 1700 + at * 900, q: 5, attack: 0.03, decay: 0.12, level: 0.18, at }); // отдельные выкрики
   },
   ooh: (s, o) => { for (const [f, l] of [[330, 0.45], [520, 0.3]]) s.burst(o, { f, f1: f * 0.8, q: 2.5, attack: 0.12, decay: 0.55, level: l }); },
+  // зверь: короткий писк (утия, крыса), шипение (игуана), блеяние (коза), кудахтанье (курица)
+  squeal: (s, o) => { s.tone(o, { type: 'triangle', f: 1300, f1: 1900, attack: 0.01, decay: 0.08, level: 0.35 }); s.tone(o, { type: 'triangle', f: 1800, f1: 900, attack: 0.005, decay: 0.14, level: 0.3, at: 0.08 }); },
+  hiss: (s, o) => s.burst(o, { type: 'highpass', f: 3000, attack: 0.03, decay: 0.35, level: 0.35 }),
+  bleat: (s, o) => { for (const at of [0, 0.09, 0.18]) s.tone(o, { type: 'sawtooth', f: 520, f1: 480, attack: 0.01, decay: 0.07, level: 0.12, at }); },
+  cluck: (s, o) => { for (const at of [0, 0.12]) s.tone(o, { type: 'square', f: 900, f1: 600, attack: 0.004, decay: 0.05, level: 0.1, at }); },
   // барабан-маяуакан: отсчёт и начало боя
   drum: (s, o) => { s.tone(o, { f: 120, f1: 68, decay: 0.32, level: 0.9 }); s.burst(o, { type: 'lowpass', f: 700, attack: 0.002, decay: 0.05, level: 0.4 }); },
   drum_go: (s, o) => { for (const at of [0, 0.14]) { s.tone(o, { f: 150, f1: 80, decay: 0.3, level: 0.9, at }); s.burst(o, { type: 'lowpass', f: 900, attack: 0.002, decay: 0.05, level: 0.4, at }); } },

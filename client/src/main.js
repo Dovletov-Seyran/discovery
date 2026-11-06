@@ -424,6 +424,23 @@ function swingLocally(){
   if(equipped==='bow')shootOwnArrow();
 }
 const shootOwnArrow=()=>world?.shootArrowFromCamera?.();
+// Охота (server/game/hunt.js): зверь в прицеле, в руке оружие — удар, выстрел или (F) бросок копья.
+// Дальность — как у оружия; где зверь, знает только клиент, поэтому шлём место, а сервер проверяет
+const HUNT_REACH={macana:3,war_spear:3.7,sword:2.9,bow:18,espingarda:22};
+function huntTarget(){
+  if(!world?.fauna||!equipped||!connected||modal||chatOpen||!isPlay(scene)||document.pointerLockElement!==canvas)return null;
+  const hurl=throwMode&&equipped==='war_spear',far=hurl?15:HUNT_REACH[equipped];
+  if(!far)return null;
+  const origin=world.camera.getWorldPosition(world.camera.position.clone()),dir=world.camera.getWorldDirection(world.camera.position.clone());
+  const prey=world.fauna.pick(origin,dir,far);
+  return prey?{...prey,hurl}:null;
+}
+function huntPrey(prey){
+  const r=runtime?.controller.yaw;
+  if(!net.send('hunt',{id:prey.id,kind:prey.kind,p:prey.p,...(Number.isFinite(r)?{r}:{}),...(prey.hurl?{mode:'throw'}:{})}))return;
+  if(prey.hurl){throwMode=false;renderEquipment();return;}
+  swingLocally();if(equipped==='espingarda'){equipment?.fire();}
+}
 // Попадание по мне — красная вспышка; оглушили — затемнение, пока сервер переносит на берег
 function onHit(message){
   if(message.kind==='duel'&&message.by===you.id){ // свой удар: что вышло — у прицела
@@ -612,7 +629,7 @@ canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.co
   // в поединке F + ЛКМ с копьём — метнуть его в соперника (полёт и место, где упадёт, решает сервер)
   const r=runtime?.controller.yaw,hurl=throwMode&&equipped==='war_spear';
   if(net.send('attack',{target,...(Number.isFinite(r)?{r}:{}),...(hurl?{mode:'throw'}:{})})){if(hurl){throwMode=false;renderEquipment();}else swingLocally();}
-}else useEquipped();runtime?.controller.lock();}});
+}else{const prey=huntTarget();if(prey)huntPrey(prey);else useEquipped();}runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   if(feastUI?.handleKey(event))return;

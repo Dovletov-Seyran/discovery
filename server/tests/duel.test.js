@@ -174,18 +174,26 @@ function landing(){quiet();director.setScene('p2_landing');combat.reset();duel.r
 // подойти к испанцу и встать рядом
 const beside=(p,id)=>{const d=me(id);p.p=at(d.p[0]+1.5,d.p[2]);};
 
-test('the routes keep to the paths: no stop inside a hut, every loop passes the batey',()=>{
+test('the routes keep to the paths: no stop inside a hut, every loop passes the batey',async()=>{
+ const layout=JSON.parse((await import('node:fs')).readFileSync(new URL('../../content/guanahani_layout.json',import.meta.url),'utf8'));
  const huts=[[193.4,263.2],[181.5,275.8],[163.3,278.6],[147.3,270.4],[147.3,239.6],[188.7,239.6],[206,229],[207,287],[168,222]];
- for(const s of SPANIARDS){
+ for(const s of [...SPANIARDS,...DUELISTS.filter(d=>d.kind==='warrior')]){
   assert.equal(s.route.filter(x=>x.batey).length,1,s.id);
   for(const x of s.route){
    for(const h of huts)assert.ok(Math.hypot(x.p[0]-h[0],x.p[1]-h[1])>(h[1]===222?9:5),`${s.id} ${x.p} near a hut`);
-   if(x.act)assert.ok(x.doing&&x.say&&x.face&&x.wait>0,`${s.id} stop ${x.p}`);
+   if(x.act)assert.ok(x.doing&&(s.greet===false||x.say)&&x.face&&x.wait>0,`${s.id} stop ${x.p}`);
   }
   // по каждому отрезку маршрута — не через хижину
   for(let i=0;i<s.route.length;i++){
    const a=s.route[i].p,b=s.route[(i+1)%s.route.length].p;
    for(let k=0;k<=20;k++){const q=[a[0]+(b[0]-a[0])*k/20,a[1]+(b[1]-a[1])*k/20];for(const h of huts)assert.ok(Math.hypot(q[0]-h[0],q[1]-h[1])>(h[1]===222?8:4.6),`${s.id} ${a}→${b} crosses a hut`);}
+  }
+  // и не через утварь деревни (барбакоа, гамаки, корзины, навес — content/guanahani_layout.json)
+  const decor=layout.objects.filter(o=>['barbacoa','hammock_posts','pots','baskets','duho','net_rack','ramada'].includes(o.m)).map(o=>[o.p[0],o.p[1],o.m==='ramada'?3:o.m==='hammock_posts'?2.2:1.4]);
+  assert.ok(decor.length>=8,'the village has its things');
+  for(let i=0;i<s.route.length;i++){
+   const a=s.route[i].p,b=s.route[(i+1)%s.route.length].p;
+   for(let k=0;k<=20;k++){const q=[a[0]+(b[0]-a[0])*k/20,a[1]+(b[1]-a[1])*k/20];for(const [x,z,r] of decor)assert.ok(Math.hypot(q[0]-x,q[1]-z)>r,`${s.id} ${a}→${b} through decor at ${x},${z}`);}
   }
   for(let i=0;i<s.route.length;i++){const {path,b}=pathToBatey(s,[...s.route[i].p.slice(0,1),0,s.route[i].p[1]],i);assert.deepEqual(path.at(-1),s.route[b].p);}
  }

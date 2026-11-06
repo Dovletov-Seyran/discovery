@@ -56,6 +56,8 @@ export class WorldConnection {
     events.on('combat',message=>this.world?.applyCombat?.(message)); // бой на Гуанахани: воины (docs/tz-combat.md)
     events.on('duel',message=>this.world?.applyDuel?.(message,this.you?.id)); // поединки на батее
     events.on('hit',message=>this.world?.combatHit?.(message)); // зрители и полёт метнутого копья
+    // охота: кто из животных убит (падает у всех), полёт копья, брошенного в зверя
+    events.on('fauna',message=>{this.world?.fauna?.applyDead?.(message);const t=message.thrown;if(t?.from&&t?.to)this.world?.flySpear?.(t.from,t.to,t.ms);});
     events.on('scene_progress',message=>{
       if(this.world&&message.scene===this.scene?.id&&Number.isFinite(message.serverNow))this.world.npcClockOffset=message.serverNow-Date.now();
     });

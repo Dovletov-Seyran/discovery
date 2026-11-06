@@ -23,6 +23,7 @@ import { worldEvent, forget as forgetEvents } from './world-events.js';
 import { clientReport, countTick, forgetClient } from './stats.js';
 import * as combat from './combat.js';
 import * as duel from './duel.js';
+import * as hunt from './hunt.js';
 import { onChunkReq, onChunkDrop } from '../world/chunks.js';
 
 director.setHooks({
@@ -89,6 +90,7 @@ export function join(session, ws) {
   if (p.role && players.roleOwner(p.role, p.id)) p.role = null;
   duel.cleanup(p); // макана после перезапуска посреди поединка
   director.placeOnJoin(p);
+  hunt.sync(p); // кого из животных уже убили (и раз в 10 с — всем, hunt.tick)
   director.seatOnJoin(p);
 
   const scene = director.scene();
@@ -250,6 +252,7 @@ const handlers = {
   [C2S.PING]: (p, msg) => players.send(p, { t: S2C.PONG, ts: Number.isFinite(msg.ts) ? msg.ts : null, serverNow: Date.now() }),
   [C2S.CLIENT_STATS]: (p, msg) => clientReport(p.id, msg),
   // бой на Гуанахани (docs/tz-combat.md): воин касика на батее — поединок, остальные таино — закон деревни
+  [C2S.HUNT]: (p, msg) => hunt.hunt(p, msg),
   [C2S.ATTACK]: (p, msg) => (duel.isDuelist(msg.target) ? duel.attack(p, msg.target, Date.now(), Number(msg.r), msg.mode === 'throw' ? 'throw' : null) : combat.attack(p, msg)),
 };
 
@@ -358,6 +361,7 @@ export function start() {
     setInterval(()=>rules.tickVitals(),1000),
     setInterval(() => combat.tick(), 100),
     setInterval(() => duel.tick(), 100),
+    setInterval(() => hunt.tick(), 2000),
     setInterval(()=>tickObjects(),100),
     setInterval(() => {
       const gone = players.expire();
