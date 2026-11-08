@@ -28,3 +28,9 @@ test('cross-zone targets and a real island house both prevent gun damage',async(
  const {seedWorld}=await import('../world/generate.js');seedWorld();p.zone='canary';p.p=[225,npc.p[1],npc.p[2]];p.r=-Math.PI/2;p.pitch=0;p.lastItemUse={};
  assert.equal(weaponAttack(p,{target:npc.id},Date.now()+22000),false);assert.equal(entities.stateOf(npc.id).hp,100);
 });
+
+test('agents, quest NPCs and story speakers cannot be killed by weapons; background NPCs can', async () => {
+  const { isProtectedNpc } = await import('../game/weapons.js');
+  for (const id of ['columbus', 'storyteller', 'trader', 'carpenter', 'boatswain', 'cacique', 'elder', 'admiral', 'villager_1']) assert.ok(isProtectedNpc(id), id);
+  for (const id of ['sailor_1', 'sailor_2', 'cook', 'town_1']) assert.ok(!isProtectedNpc(id), id);
+});

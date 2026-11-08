@@ -9,12 +9,22 @@ import {surfaceAt} from '../world/object-collision.js';
 import {applyItemUse} from './item-actions.js';
 import {performAction} from './player-actions.js';
 import {worldEvent} from './world-events.js';
+import {loadContent} from '../content.js';
 const tell=(p,text)=>players.send(p,{t:'notice',text});
 function interruptConversation(id){
  for(const p of players.all())if(p.dialogue?.npc===id){
   players.send(p,{t:'npc_say',npc:id,dialogueId:p.dialogue.id,busy:true,error:true,ru:'Разговор прерван: персонаж погиб.',hints:[]});p.dialogue=null;p.npcRequest=null;
  }
 }
+// Неуязвимы ИИ-агенты, NPC из заданий и те, кто говорит в сюжетных репликах сцен: их гибель ломает прохождение
+const PROTECTED=(()=>{
+ const npcs=loadContent('npcs.json',[]),quests=JSON.stringify(loadContent('quests.json',[])),scenes=JSON.stringify(loadContent('scenes.json',[]));
+ const ids=new Set(npcs.filter(n=>n.type==='llm'||quests.includes(`"${n.id}"`)).map(n=>n.id));
+ for(const line of loadContent('lines.json',[]))if(scenes.includes(`"${line.id}"`))ids.add(line.npc);
+ return ids;
+})();
+export const isProtectedNpc=id=>PROTECTED.has(id);
+
 export function weaponAttack(p,msg={},now=Date.now()){
  const item=heldItem(p),rule=WEAPONS[item];if(!rule)return false;
  if(!p.connected||!director.acceptsMove()||director.isTransitioning()||!p.p)return false;
@@ -36,6 +46,7 @@ export function weaponAttack(p,msg={},now=Date.now()){
  }
  if(!target||missed)return !missed;
  if(p.zone==='guanahani'&&combat.weaponHit(p,target,rule.damage,now)){if(entities.stateOf(target)?.dead)interruptConversation(target);return true;}
+ if(PROTECTED.has(target)){tell(p,'Рука не поднимается: без него не обойтись.');return false;}
  const old=entities.stateOf(target)??{},hp=Math.max(0,(old.hp??100)-rule.damage),dead=hp===0;
  if(dead)interruptConversation(target);
  const state=entities.setState(target,{hp,dead,down:dead?Number.MAX_SAFE_INTEGER:0,paused:null});
