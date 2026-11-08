@@ -11,6 +11,9 @@
 // Chunk wiring for Фронт 2 is described at the top of chunks.js.
 import * as THREE from 'three';
 import { Warriors } from './warriors.js';
+import { Spaniards } from './spaniards.js';
+import { arrow, warSpear, arcPoint } from './weapons.js';
+import { Crowd } from './crowd.js';
 import { generateTextures, Materials } from './materials.js';
 import { buildShip, interior } from './ship.js';
 import { INTERIOR, installInteriorLight } from './interior-light.js';
@@ -100,6 +103,8 @@ export const world = {
     this.players = new Players(this.scene, this.M);
     this.warriors = new Warriors(this.scene, this.M); // бой на Гуанахани: воины таино (docs/tz-combat.md)
     this.duelists = new Warriors(this.scene, this.M, { kind: 'duelist' }); // воины касика на батее: поединки
+    this.spaniards = new Spaniards(this.scene, this.M); // испанцы с «Санта-Марии» в деревне 12 октября
+    this.crowd = new Crowd(this.scene, this.M, { heightAt: (x, z) => this.groundHeight(x, z) }); // зрители поединков
     this.fauna = new Fauna(this, { layouts: { canary: canaryLayout } }); // жители и животные (fauna.js): маршруты от общего времени, реакции на world_event
     this.chunks.deferBuild = true; // чанки острова строятся по нескольку за кадр (chunks.drain в frame)
     this.env.mirrorHide.push(this.zoneRoot, this.smoke, this.players.group);
@@ -155,12 +160,107 @@ export const world = {
   get island() { return this.islands?.[this.zone] ?? null; },
 
   // what the player can use right now: the ship's or the island's visible chunks'
-  get interactables() { return [...(this.island ? this.island.interactables : this.shipInteractables),...(this.objects?.selectable??[]),...(this.warriors?.targets??[]),...(this.duelists?.targets??[])]; },
+  get interactables() { return [...(this.island ? this.island.interactables : this.shipInteractables),...(this.objects?.selectable??[]),...(this.warriors?.targets??[]),...(this.duelists?.targets??[]),...(this.spaniards?.targets??[])]; },
 
   // `combat` сервера: ступень деревни и воины
   applyCombat(message) { this.warriors?.apply(message); },
-  // `duel` сервера: воины на батее; me — id этого игрока (ему подсказка «ЛКМ — удар»)
-  applyDuel(message, me) { this.duelists?.applyDuel(message, me); },
+  // `duel` сервера: воины касика на батее и испанцы в деревне; me — id этого игрока (ему «ЛКМ — удар»)
+  applyDuel(message, me) {
+    const list = message.duelists ?? [];
+    this.duelists?.applyDuel({ ...message, duelists: list.filter((d) => d.kind !== 'spaniard') }, me);
+    this.spaniards?.applyDuel({ ...message, duelists: list.filter((d) => d.kind === 'spaniard') }, me);
+    this.showArena(list.find((d) => d.player === me && d.ring)?.ring ?? null);
+    this.crowd?.apply(list, me);
+  },
+  // `hit` поединка: зрители реагируют; метнутое копьё летит у всех
+  combatHit(message) {
+    this.crowd?.hit(message);
+    const t = message.thrown;
+    if (t?.from && t?.to) this.flySpear(t.from, t.to, t.ms);
+  },
+  // Копьё в полёте: от руки до места, где упадёт (там его потом и поднимают), остриём вперёд, с дугой
+  flySpear(from, to, ms = 500) {
+    const obj = warSpear().obj, a = new THREE.Vector3().fromArray(from), b = new THREE.Vector3().fromArray(to);
+    b.y += 0.15;
+    this.scene.add(obj);
+    (this.spears ??= []).push({ obj, a, b, ms: Math.max(120, ms), t: 0, arc: Math.min(2.2, a.distanceTo(b) * 0.12) });
+  },
+  updateSpears(dt) {
+    if (!this.spears?.length) return;
+    const p = new THREE.Vector3(), next = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    for (const s of this.spears) {
+      s.t += dt * 1000;
+      const u = Math.min(1, s.t / s.ms), u2 = Math.min(1, u + 0.02);
+      arcPoint(s.a, s.b, s.arc, u, p); arcPoint(s.a, s.b, s.arc, u2, next);
+      s.obj.position.copy(p);
+      if (u < 1) s.obj.quaternion.setFromUnitVectors(up, next.sub(p).normalize());
+    }
+    for (const s of this.spears.filter((x) => x.t >= x.ms + 120)) { // лежащее копьё дальше рисует мир (world_patch)
+      s.obj.removeFromParent();
+      s.obj.traverse((o) => { o.geometry?.dispose(); if (o.material?.userData?.equipmentOwned) o.material.dispose(); });
+    }
+    this.spears = this.spears.filter((x) => x.t < x.ms + 120);
+  },
+  // Круг своего поединка на земле: за линией — проигрыш (половина батея у испанцев не отмечена камнями)
+  showArena(ring) {
+    const key = ring ? `${ring.c}|${ring.rx}|${ring.rz}` : '';
+    if (key === this.arenaKey) return;
+    this.arenaKey = key;
+    if (this.arena) { this.arena.removeFromParent(); this.arena.geometry.dispose(); this.arena.material.dispose(); this.arena = null; }
+    if (!ring) return;
+    const pts = [];
+    for (let i = 0; i <= 96; i++) {
+      const a = i / 96 * Math.PI * 2, x = ring.c[0] + Math.cos(a) * ring.rx, z = ring.c[1] + Math.sin(a) * ring.rz;
+      pts.push(new THREE.Vector3(x, (this.groundHeight(x, z) ?? 2) + 0.06, z));
+    }
+    const material = new THREE.LineDashedMaterial({ color: 0xf2d79a, dashSize: 0.6, gapSize: 0.35, transparent: true, opacity: 0.85, depthWrite: false });
+    this.arena = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), material);
+    this.arena.computeLineDistances();
+    this.scene.add(this.arena);
+  },
+  // Стрела из лука (поединок): летит от лучника туда, куда он смотрит, ~0,5 с
+  shootArrow(from, dir) {
+    const obj = arrow({ blunt: true }).obj;
+    obj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    obj.position.copy(from);
+    this.scene.add(obj);
+    (this.arrows ??= []).push({ obj, v: dir.clone().normalize().multiplyScalar(34), left: 0.55 });
+  },
+  // Куда упадёт то, что бросили по прицелу: первая точка луча из глаз под землёй, не дальше far (м)
+  aimGround(far = 15) {
+    const o = this.camera.getWorldPosition(new THREE.Vector3()), d = this.camera.getWorldDirection(new THREE.Vector3()), p = new THREE.Vector3();
+    for (let t = 0.5; t <= far; t += 0.25) {
+      p.copy(o).addScaledVector(d, t);
+      const h = this.groundHeight(p.x, p.z);
+      if (h != null && p.y <= h) return [p.x, h, p.z];
+    }
+    p.copy(o).addScaledVector(d, far);
+    return [p.x, this.groundHeight(p.x, p.z) ?? 0, p.z];
+  },
+  // лучник — этот игрок: от глаз, туда, куда смотрит камера
+  shootArrowFromCamera() {
+    const dir = new THREE.Vector3(); this.camera.getWorldDirection(dir);
+    this.shootArrow(this.camera.position.clone().addScaledVector(dir, 0.6).add(new THREE.Vector3(0, -0.12, 0)), dir);
+  },
+  // лучник — другой игрок: от его груди по направлению взгляда
+  arrowFromPlayer(id) {
+    const p = this.players?.map.get(id);
+    if (!p?.rig.root.visible) return;
+    const root = p.rig.root, a = root.rotation.y, pitch = p.pitch ?? 0;
+    this.shootArrow(root.position.clone().add(new THREE.Vector3(0, 1.45, 0)), new THREE.Vector3(Math.sin(a) * Math.cos(pitch), Math.sin(pitch), Math.cos(a) * Math.cos(pitch)));
+  },
+  updateArrows(dt) {
+    if (!this.arrows?.length) return;
+    for (const x of this.arrows) {
+      x.left -= dt; x.v.y -= 4 * dt; x.obj.position.addScaledVector(x.v, dt);
+      x.obj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), x.v.clone().normalize());
+    }
+    for (const x of this.arrows.filter((a) => a.left <= 0)) {
+      x.obj.removeFromParent();
+      x.obj.traverse((o) => { o.geometry?.dispose(); if (o.material?.userData?.equipmentOwned) o.material.dispose(); });
+    }
+    this.arrows = this.arrows.filter((a) => a.left > 0);
+  },
 
   // world_patch: предметы и декор (сухари, товар, бочки, брошенное игроками) — WorldObjects Санджара;
   // изменения корабля и неба (паруса, флаг, фонари, туман) — WorldPatches
@@ -191,6 +291,8 @@ export const world = {
     this.players?.setZone(zone);
     this.warriors?.setZone(zone);
     this.duelists?.setZone(zone);
+    this.spaniards?.setZone(zone);
+    this.crowd?.setZone(zone);
     this.patches?.invalidate();
     const ship = zone === 'ship';
     this.ship.visible = ship; this.zoneRoot.visible = ship; this.smoke.visible = ship;
@@ -276,6 +378,10 @@ export const world = {
     this.players.update(dt);
     this.warriors.update(dt);
     this.duelists.update(dt);
+    this.spaniards.update(dt);
+    this.crowd.update(dt);
+    this.updateArrows(dt);
+    this.updateSpears(dt);
     this.updateNpcs(dt);
     this.updateDowned();
     this.objects?.update();

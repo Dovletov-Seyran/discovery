@@ -7,6 +7,7 @@
 // Производительность: InstancedMesh на каждую часть тела вида (≈30 вызовов отрисовки на всех), дальние
 // без анимации (> ANIM_DIST), совсем дальние скрыты (> HIDE_DIST). Сколько их — setDensity() из настроек.
 import * as THREE from 'three';
+import { ANIMALS } from './animal-models.js';
 
 const ANIM_DIST = 40, HIDE_DIST = 95;
 const WALK = { human: 1.15, goat: 0.45, chicken: 0.55, dog: 1.7, cat: 0.7, rat: 1.1, iguana: 0.25, gull: 6.5, parrot: 5, hutia: 0.6, crab: 0.35 };
@@ -58,54 +59,23 @@ const HUMAN = (dress, short = false) => [
   { key: 'arm', geo: new THREE.CylinderGeometry(0.045, 0.04, 0.58, 6).translate(0, -0.29, 0), pos: [-0.22, 1.32, 0], anim: 'armA', color: (a) => a.shirt },
   { key: 'arm', geo: null, pos: [0.22, 1.32, 0], anim: 'armB', color: (a) => a.shirt },
 ];
-const QUAD = (body, head, legH, legX, legZ, extra = []) => [
-  { key: 'body', geo: new THREE.BoxGeometry(...body), pos: [0, legH + body[1] / 2 - 0.02, 0], color: (a) => a.coat },
-  { key: 'head', geo: new THREE.BoxGeometry(...head), pos: [0, legH + body[1] + head[1] * 0.2, body[2] / 2 + head[2] * 0.35], anim: 'head', color: (a) => a.coat },
-  ...[[-legX, legZ, 'legA'], [legX, -legZ, 'legA'], [legX, legZ, 'legB'], [-legX, -legZ, 'legB']].map(([x, z, anim], i) => ({
-    key: 'leg', geo: i ? null : new THREE.CylinderGeometry(0.03, 0.025, legH, 5).translate(0, -legH / 2, 0), pos: [x, legH, z], anim, color: (a) => a.legs ?? a.coat,
-  })),
-  ...extra,
-];
-const BIRD = (len, span) => [
-  { key: 'body', geo: new THREE.SphereGeometry(0.5, 8, 6).scale(len * 0.35, len * 0.3, len), pos: [0, 0, 0], color: (a) => a.coat },
-  { key: 'head', geo: new THREE.SphereGeometry(len * 0.17, 8, 6), pos: [0, len * 0.12, len * 0.5], color: (a) => a.head ?? a.coat },
-  { key: 'wing', geo: new THREE.BoxGeometry(span, 0.012, len * 0.45).translate(-span / 2, 0, 0), pos: [-len * 0.12, len * 0.05, 0], anim: 'wingA', color: (a) => a.wing ?? a.coat },
-  { key: 'wing', geo: null, pos: [len * 0.12, len * 0.05, 0], anim: 'wingB', ry: Math.PI, color: (a) => a.wing ?? a.coat }, // правое — то же крыло, повёрнутое на 180°
-];
 const SPECIES = {
   human: HUMAN(false),
   woman: HUMAN(true),
   taino: HUMAN(true, true), // мужчина: торс и ноги открыты, хлопковая набедренная повязка
   taina: HUMAN(true, true), // женщина: короткая нагуа
-  goat: QUAD([0.32, 0.3, 0.7], [0.16, 0.18, 0.24], 0.46, 0.1, 0.24, [
-    { key: 'horn', geo: new THREE.ConeGeometry(0.025, 0.16, 5).rotateX(-0.6), pos: [-0.05, 0.98, 0.38], color: () => C(0x4a3b2c) },
-    { key: 'horn', geo: null, pos: [0.05, 0.98, 0.38], color: () => C(0x4a3b2c) }]),
-  dog: QUAD([0.22, 0.24, 0.62], [0.16, 0.17, 0.22], 0.36, 0.08, 0.22, [
-    { key: 'tail', geo: new THREE.CylinderGeometry(0.02, 0.015, 0.28, 5).rotateX(-0.9), pos: [0, 0.62, -0.38], anim: 'tail', color: (a) => a.coat }]),
-  cat: QUAD([0.14, 0.15, 0.36], [0.12, 0.11, 0.12], 0.2, 0.05, 0.13, [
-    { key: 'tail', geo: new THREE.CylinderGeometry(0.015, 0.01, 0.3, 5).rotateX(0.7), pos: [0, 0.38, -0.24], anim: 'tail', color: (a) => a.coat }]),
-  iguana: QUAD([0.18, 0.12, 0.5], [0.1, 0.09, 0.16], 0.1, 0.1, 0.16, [
-    { key: 'tail', geo: new THREE.ConeGeometry(0.06, 0.7, 6).rotateX(-Math.PI / 2), pos: [0, 0.14, -0.6], anim: 'tail', color: (a) => a.coat }]),
-  chicken: [
-    { key: 'body', geo: new THREE.SphereGeometry(0.13, 8, 6).scale(0.9, 1, 1.3), pos: [0, 0.27, 0], color: (a) => a.coat },
-    { key: 'head', geo: new THREE.SphereGeometry(0.065, 8, 6), pos: [0, 0.42, 0.13], anim: 'peck', color: (a) => a.coat },
-    { key: 'comb', geo: new THREE.BoxGeometry(0.02, 0.05, 0.07), pos: [0, 0.49, 0.13], anim: 'peck', color: () => C(0xc0281e) },
-    { key: 'leg', geo: new THREE.CylinderGeometry(0.012, 0.012, 0.16, 4).translate(0, -0.08, 0), pos: [-0.05, 0.16, 0], anim: 'legA', color: () => C(0xd9a33a) },
-    { key: 'leg', geo: null, pos: [0.05, 0.16, 0], anim: 'legB', color: () => C(0xd9a33a) },
-  ],
-  hutia: QUAD([0.16, 0.14, 0.34], [0.11, 0.1, 0.12], 0.08, 0.06, 0.1),
-  crab: QUAD([0.2, 0.06, 0.14], [0.05, 0.04, 0.03], 0.06, 0.1, 0.05),
-  rat: [
-    { key: 'body', geo: new THREE.SphereGeometry(0.06, 8, 6).scale(0.8, 0.7, 1.6), pos: [0, 0.05, 0], color: (a) => a.coat },
-    { key: 'tail', geo: new THREE.CylinderGeometry(0.008, 0.004, 0.18, 4).rotateX(Math.PI / 2 + 0.2), pos: [0, 0.04, -0.17], anim: 'tail', color: () => C(0xc49a8a) },
-  ],
-  gull: BIRD(0.42, 0.55),
-  parrot: BIRD(0.32, 0.32),
+  ...ANIMALS, // животные — подробные модели (animal-models.js)
 };
 // какие виды кто ест/боится: реакции автомата
 const BEGS = new Set(['goat', 'dog', 'chicken', 'cat']);
 const PEOPLE = new Set(['human', 'woman', 'taino', 'taina']);
 const FLYING = new Set(['gull', 'parrot']);
+// Охота (server/game/hunt.js): на кого можно, радиус попадания, как близко подпускает (ближе — убегает)
+export const HUNT = {
+  hutia: { r: 0.32, shy: 1.8 }, iguana: { r: 0.4, shy: 0 }, crab: { r: 0.25, shy: 2.2 },
+  goat: { r: 0.6, shy: 1.8 }, chicken: { r: 0.3, shy: 1.5 }, rat: { r: 0.2, shy: 1.2 },
+};
+const SHY_MS = 2200, FALL_MS = 450, CORPSE_MS = 750;
 
 // --- кто живёт в каждой зоне (зерно — от раскладки, у всех одно и то же) ---
 function canaryPopulation(rand, canaryLayout) {
@@ -205,7 +175,7 @@ class Herd {
   constructor(world, zone, agents) {
     this.world = world; this.zone = zone; this.agents = agents;
     this.group = new THREE.Group(); this.group.name = `fauna:${zone}`;
-    this.material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
+    this.material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, vertexColors: true });
     this.meshes = new Map(); // `${species}:${key}` → { mesh, slots }
     const counts = new Map();
     for (const a of agents) for (const part of SPECIES[a.kind]) {
@@ -214,6 +184,7 @@ class Herd {
     }
     for (const [id, count] of counts) {
       const [kind, key] = id.split(':'), geo = SPECIES[kind].find((p) => p.key === key && p.geo).geo;
+      if (!geo.attributes.color) geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(geo.attributes.position.count * 3).fill(1), 3)); // люди: цвет — только у особи
       const mesh = new THREE.InstancedMesh(geo, this.material, count);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.castShadow = PEOPLE.has(kind) || kind === 'goat';
@@ -245,6 +216,7 @@ export class Fauna {
   // layouts: { canary } — раскладка Ла-Гомеры (дорожки и дома для маршрутов); её передаёт world/index.js
   constructor(world, { layouts = {} } = {}) {
     this.world = world; this.layouts = layouts; this.herds = new Map(); this.density = 1; this.events = [];
+    this.dead = new Map(); // id → { p, at } — убитые (сервер, `fauna`), пока не появились снова
   }
 
   // Настройки: 1 — все, 0.5 — половина, 0 — никого
@@ -262,7 +234,9 @@ export class Fauna {
       const layout = this.layouts[zone];
       if (zone === 'canary' && !layout) { this.herds.set(zone, null); return null; }
       const rand = rng(zone.length * 7919 + (layout?.seed ?? 1492));
-      const all = make(rand, layout), keep = all.filter((_, i) => (i * 0.618034) % 1 < this.density + 1e-6);
+      const all = make(rand, layout);
+      all.forEach((a, i) => { a.id = `${zone}:${i}`; }); // номер для охоты — один у всех клиентов, какой бы ни была плотность
+      const keep = all.filter((_, i) => (i * 0.618034) % 1 < this.density + 1e-6);
       if (keep.length) {
         herd = new Herd(this.world, zone, keep);
         (zone === 'ship' ? this.world.ship : this.world.scene).add(herd.group);
@@ -296,6 +270,15 @@ export class Fauna {
   step(a, herd, t, now, dt, events, people, cam, island) {
     const r = sampleRoute(a.route, t + a.phase, SAMPLE), kind = a.kind, ship = herd.zone === 'ship';
     if (!a.p) a.p = [r.x, r.z];
+    const dead = this.dead.get(a.id);
+    if (dead) { this.corpse(a, dead, now, ship, island); return; }
+    if (a.deathT) { a.deathT = 0; a.p = [r.x, r.z]; a.mode = 'route'; } // снова появилось (сервер: прошло время)
+    // пугливые убегают, если подойти вплотную (охотнику — красться или стрелять издалека)
+    const shy = HUNT[kind]?.shy;
+    if (shy && a.mode !== 'flee') for (const [x, z] of people) {
+      const d = Math.hypot(x - a.p[0], z - a.p[1]);
+      if (d < shy) { const k = 6 / Math.max(d, 0.1); a.mode = 'flee'; a.goal = [a.p[0] + (a.p[0] - x) * k, a.p[1] + (a.p[1] - z) * k]; a.until = now + SHY_MS; break; }
+    }
     for (const ev of events) this.consider(a, ev, now, ship);
     if (PEOPLE.has(kind) && a.mode === 'route' && now > a.cool) {
       for (const [x, z] of people) {
@@ -321,6 +304,7 @@ export class Fauna {
     const dist = Math.hypot(cam.x - a.p[0], cam.z - a.p[1]);
     const hidden = y == null || dist > HIDE_DIST;
     if (FLYING.has(kind)) y = Math.max(y ?? 0, 0) + a.fly + Math.sin((t + a.phase) * 0.7) * 0.8 + (a.mode === 'flee' ? 6 : 0);
+    a.y = hidden ? null : y;
     if (hidden) { for (const s of a.slots) s.mesh.setMatrixAt(s.slot, ZERO); return; }
     a.step += dt * (moving ? (a.mode === 'flee' ? 11 : 6.5) : 0);
     const animate = dist < ANIM_DIST;
@@ -335,6 +319,7 @@ export class Fauna {
       else if (p.anim === 'armA') rx = -swing * 0.5 + (a.mode === 'dance' ? -2.4 : 0); else if (p.anim === 'armB') rx = swing * 0.5 + (a.mode === 'dance' ? -2.4 : 0);
       else if (p.anim === 'head' || p.anim === 'peck') rx = graze;
       else if (p.anim === 'tail') rz = animate ? Math.sin((t + a.phase) * 6) * 0.3 : 0;
+      else if (p.anim === 'scuttle') rz = swing * 0.18;
       else if (p.anim === 'wingA' || p.anim === 'wingB') rz = flap; // правое повёрнуто на 180°: тот же знак — взмах зеркальный
       PART.compose(V.set(...p.pos), Q.setFromEuler(E.set(rx, p.ry ?? 0, rz, 'YXZ')), ONE);
       s.mesh.setMatrixAt(s.slot, M4.multiplyMatrices(BASE, PART));
@@ -342,6 +327,41 @@ export class Fauna {
   }
 
   near(a, cam) { return Math.hypot(cam.x - a.p[0], cam.z - a.p[1]) < HIDE_DIST; }
+
+  // Убитое: там, где его настигли (сервер), падает на бок и через миг пропадает — на его месте тушка-предмет
+  corpse(a, dead, now, ship, island) {
+    if (!a.deathT) { a.deathT = dead.fresh ? now : now - 60000; a.p = [dead.p[0], dead.p[2]]; }
+    const age = now - a.deathT, y = ship ? a.deck ?? 0 : island?.heightAt(a.p[0], a.p[1]);
+    if (age > CORPSE_MS || y == null) { for (const s of a.slots) s.mesh.setMatrixAt(s.slot, ZERO); return; }
+    const roll = Math.min(1, age / FALL_MS) * Math.PI / 2;
+    BASE.compose(V.set(a.p[0], y + (FLYING.has(a.kind) ? Math.max(0, a.fly * (1 - age / FALL_MS)) : 0), a.p[1]), Q.setFromEuler(E.set(0, a.heading, roll, 'YXZ')), ONE);
+    for (const s of a.slots) { PART.compose(V.set(...s.part.pos), Q.setFromEuler(E.set(0, s.part.ry ?? 0, 0)), ONE); s.mesh.setMatrixAt(s.slot, M4.multiplyMatrices(BASE, PART)); }
+  }
+
+  // `fauna` сервера: кто убит. killed — только что (падает у всех), dead — весь список (при входе)
+  applyDead(msg) {
+    // список — по одной зоне: ожившие в ней снова ходят, убитые в других зонах не трогаем
+    if (msg.dead) { const now = new Set(msg.dead.map((d) => d.id)), zone = `${msg.zone}:`; for (const id of this.dead.keys()) if (id.startsWith(zone) && !now.has(id)) this.dead.delete(id); for (const d of msg.dead) if (!this.dead.has(d.id)) this.dead.set(d.id, { p: d.p, fresh: false }); }
+    if (msg.killed) this.dead.set(msg.killed.id, { p: msg.killed.p, fresh: true });
+  }
+
+  // Охота: по кому попадёт луч (из глаз по прицелу) не дальше far — ближайший живой зверь, на которого можно
+  // охотиться. → { id, kind, p: [x, y, z], d } или null
+  pick(origin, dir, far) {
+    const herd = this.herds.get(this.world.zone);
+    if (!herd) return null;
+    let best = null;
+    for (const a of herd.agents) {
+      const hunt = HUNT[a.kind];
+      if (!hunt || a.y == null || !a.p || this.dead.has(a.id)) continue;
+      const c = [a.p[0] - origin.x, a.y + hunt.r * 0.8 - origin.y, a.p[1] - origin.z], along = c[0] * dir.x + c[1] * dir.y + c[2] * dir.z;
+      if (along < 0 || along > far + hunt.r) continue;
+      const off = Math.hypot(c[0] - dir.x * along, c[1] - dir.y * along, c[2] - dir.z * along);
+      if (off > hunt.r + 0.12 || (best && along > best.d)) continue;
+      best = { id: a.id, kind: a.kind, p: [a.p[0], a.y, a.p[1]], d: along };
+    }
+    return best;
+  }
 
   // Реакция на событие: кто и как
   consider(a, ev, now, ship) {

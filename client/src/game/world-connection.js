@@ -55,6 +55,9 @@ export class WorldConnection {
     events.on('world_event',message=>this.world?.fauna?.react?.(message));
     events.on('combat',message=>this.world?.applyCombat?.(message)); // бой на Гуанахани: воины (docs/tz-combat.md)
     events.on('duel',message=>this.world?.applyDuel?.(message,this.you?.id)); // поединки на батее
+    events.on('hit',message=>this.world?.combatHit?.(message)); // зрители и полёт метнутого копья
+    // охота: кто из животных убит (падает у всех), полёт копья, брошенного в зверя
+    events.on('fauna',message=>{this.world?.fauna?.applyDead?.(message);const t=message.thrown;if(t?.from&&t?.to)this.world?.flySpear?.(t.from,t.to,t.ms);});
     events.on('scene_progress',message=>{
       if(this.world&&message.scene===this.scene?.id&&Number.isFinite(message.serverNow))this.world.npcClockOffset=message.serverNow-Date.now();
     });
@@ -74,6 +77,7 @@ export class WorldConnection {
       // набрали воду у колодца — у всех, и у самого игрока, крутится ворот и едет ведро (world/props.js)
       if(message.action?.kind==='fill'&&message.action.target){const well=this.world?.entity?.(message.action.target);if(well?.userData.winch)well.userData.winchAt=Date.now();}
       if(message.id===this.you?.id)return;
+      if(message.action?.kind==='shot'&&message.action.item==='bow')this.world?.arrowFromPlayer?.(message.id); // стрела другого игрока
       const p=this.remotePlayers.get(message.id);if(p)this.remotePlayers.set(message.id,{...p,action:message.action});
       this.world?.players?.action?.(message);
     });

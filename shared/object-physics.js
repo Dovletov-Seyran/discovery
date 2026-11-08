@@ -12,6 +12,8 @@ export const OBJECT_PROFILES = {
  cup:{radius:.1,half:[.075,.09,.075],bounce:.03},tar:{radius:.2,half:[.16,.18,.16]},planks:{radius:.45,half:[.15,.055,.45],bounce:.01},
  purse:{radius:.14,half:[.13,.12,.10],bounce:0},cheese:{radius:.15,half:[.15,.09,.12],bounce:0},meat:{radius:.18,half:[.18,.07,.12],bounce:0},biscuit:{radius:.1,half:[.1,.025,.08],bounce:0},
  crossbow:{radius:.4,half:[.33,.05,.36],bounce:.02},shield:{radius:.28,half:[.28,.04,.28],bounce:.02},garlic:{radius:.14,half:[.07,.25,.05],bounce:0},
+ // оружие таино лежит плашмя (client/src/game/world-item-model.js кладёт его длинной стороной по z)
+ war_spear:{radius:.6,half:[.035,.03,1.15],bounce:.02},bow:{radius:.6,half:[.14,.02,.74],bounce:.02},macana:{radius:.5,half:[.08,.022,.48],bounce:.02},
  stone_ball:{radius:.085,half:[.085,.085,.085],bounce:.05},book:{radius:.15,half:[.12,.025,.085],bounce:0},
  ...Object.fromEntries(['note_stores','note_trade','note_old','note_arms','note_cosa','note_torres','note_logs','note_letters'].map(id=>[id,{radius:.15,half:[.11,.004,.15],bounce:0,friction:15}])),
 };

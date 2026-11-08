@@ -3,7 +3,7 @@ import {STAMINA} from '../../shared/stamina.js';
 import './ui/style.css';
 import {FeastUI} from './ui/feast-games.js';
 import {placement,launch,homeSlot} from './game/object-actions.js';
-import {drawLocalMap,unlockItemAudio,playShot} from './ui/item-feedback.js';
+import {drawLocalMap,unlockItemAudio} from './ui/item-feedback.js';
 import {ITEM_RULES,freshVitals} from '../../shared/item-actions.js';
 import {sceneProgressView} from './ui/scene-progress.js';
 import {Equipment,itemPictures} from './game/equipment.js';
@@ -386,11 +386,11 @@ function renderVitals(){
 function receiveItemUse(message){
   const left=Math.max(0,message.cooldownUntil-message.serverNow);itemCooldowns.set(message.item,Date.now()+left);
   if(message.vitals)applyVitals(message.vitals,message.serverNow);
-  if(equipped===message.item)equipment?.use();
+  if(equipped===message.item&&equipment?.use()&&message.effect==='loose')shootOwnArrow();
   if(message.effect==='drink')notify('Глоток вина.');
   if(message.effect==='food')notify(`Запас сил: ${Math.round(vitals.stamina)} / ${STAMINA.max}`);
   if(message.effect==='water')notify('Глоток воды.');
-  if(message.effect==='shot'){equipment?.fire();playShot();notify('Выстрел · перезарядка 2,5 с');}
+  if(message.effect==='shot'){equipment?.fire();notify('Выстрел · перезарядка 2,5 с');} // грохот — из звуков боя (player_action)
   if(message.effect==='map')openMap();
   if(message.effect==='read')openKnowledge(message.item,'ЧИТАЕШЬ');
   if(message.effect==='astrolabe')openAstrolabe();
@@ -405,22 +405,65 @@ function openMap(){
 // Бой на Гуанахани (docs/tz-combat.md): ЛКМ по таино или воину — удар. Только когда мышь уже в игре
 // или в руке предмет: первый щелчок, которым захватывают мышь, никого не бьёт.
 const TAINO_TARGETS=new Set(['cacique','elder','villager_1','villager_2','villager_3']);
+const BOUT=new Set(['ready','approach','circle','windup','strike','recover','block','dodge','stagger','aim','fire','reload']);
+let lastDuel=null;
 function attackTarget(){
+  if(scene.zone!=='guanahani'||!isPlay(scene)||!connected||modal||chatOpen)return null;
+  // в поединке ЛКМ всегда по своему сопернику: попал ли (дальность, куда смотришь) — решает сервер; так лук бьёт издалека
+  const bout=lastDuel?.duelists?.find(d=>d.player===you.id&&BOUT.has(d.state));
+  if(bout&&document.pointerLockElement===canvas)return bout.id;
   const t=currentTarget;
-  if(!t||scene.zone!=='guanahani'||!isPlay(scene)||!connected||modal||chatOpen)return null;
-  if(t.kind==='duelist')return t.mine?t.id:null; // воин на батее: бить можно только своего соперника в поединке
+  if(!t)return null;
+  if(t.kind==='duelist'||t.kind==='spaniard')return t.fighting?t.id:null; // воин касика или испанец: только свой соперник в поединке
   if(t.kind!=='warrior'&&!TAINO_TARGETS.has(t.id))return null;
   return document.pointerLockElement===canvas||equipped?t.id:null;
 }
+// Свой удар сразу виден: взмах / выпад / выстрел из лука от первого лица, стрела летит от глаз
+function swingLocally(){
+  if(!equipped||!equipment?.use())return;
+  if(equipped==='bow')shootOwnArrow();
+}
+const shootOwnArrow=()=>world?.shootArrowFromCamera?.();
+// Охота (server/game/hunt.js): зверь в прицеле, в руке оружие — удар, выстрел или (F) бросок копья.
+// Дальность — как у оружия; где зверь, знает только клиент, поэтому шлём место, а сервер проверяет
+const HUNT_REACH={macana:3,war_spear:3.7,sword:2.9,bow:18,espingarda:22};
+function huntTarget(){
+  if(!world?.fauna||!equipped||!connected||modal||chatOpen||!isPlay(scene)||document.pointerLockElement!==canvas)return null;
+  const hurl=throwMode&&equipped==='war_spear',far=hurl?15:HUNT_REACH[equipped];
+  if(throwMode&&!hurl)return null; // в режиме броска (F) — бросок предмета, а не удар
+  if(!far)return null;
+  const origin=world.camera.getWorldPosition(world.camera.position.clone()),dir=world.camera.getWorldDirection(world.camera.position.clone());
+  const prey=world.fauna.pick(origin,dir,far);
+  return prey?{...prey,hurl}:null;
+}
+function huntPrey(prey){
+  const r=runtime?.controller.yaw;
+  if(!net.send('hunt',{id:prey.id,kind:prey.kind,p:prey.p,...(Number.isFinite(r)?{r}:{}),...(prey.hurl?{mode:'throw'}:{})}))return;
+  if(prey.hurl){throwMode=false;renderEquipment();return;}
+  swingLocally();if(equipped==='espingarda'){equipment?.fire();}
+}
 // Попадание по мне — красная вспышка; оглушили — затемнение, пока сервер переносит на берег
 function onHit(message){
+  if(message.kind==='duel'&&message.by===you.id){ // свой удар: что вышло — у прицела
+    hitMark(message.missed?'Мимо':message.dodged?'Увернулся':message.blocked?'Отбил':'Попал!',message.missed||message.blocked?'miss':'hit');
+    return;
+  }
   if(message.target!==you.id)return;
-  if(message.kind==='duel'){flashHurt(false);return;} // очко воину: только вспышка, здоровье не тратится
-  flashHurt(message.down);
+  if(message.kind==='duel'){ // очко сопернику: вспышка и толчок камеры, здоровье не тратится
+    if(message.missed){hitMark(message.shot?'Мимо! Ушёл с линии ствола':'Мимо','dodge');return;}
+    flashHurt(false);equipment?.hurt(message.shot?1:.7);return;
+  }
+  flashHurt(message.down);equipment?.hurt(1);
   applyVitals({hp:message.hp});
+}
+// Отметка у прицела: «Попал!», «Отбил», «Увернулся», «Мимо»
+function hitMark(text,tone){
+  const el=$('#hitmark')??document.body.appendChild(Object.assign(document.createElement('div'),{id:'hitmark',className:'hitmark'}));
+  el.textContent=text;el.dataset.tone=tone;el.classList.remove('show');void el.offsetWidth;el.classList.add('show');
 }
 // Табло поединка на батее: счёт, отсчёт, подсказка по замаху воина (ui/duel-hud.js)
 function renderDuel(message){
+  lastDuel=message;
   const view=duelView(message,you.id,Date.now()+serverOffset);
   const el=$('#duel')??document.body.appendChild(Object.assign(document.createElement('div'),{id:'duel',className:'duel'}));
   el.hidden=!view;if(!view)return;
@@ -434,6 +477,10 @@ function flashHurt(down){
 function useEquipped(){
   if(!equipped||!inventory.some(item=>itemId(item)===equipped)||!connected||modal||chatOpen||!isPlay(scene)||sceneProgress?.phase==='departing')return;
   if((itemCooldowns.get(equipped)||0)>Date.now())return;
+  if(throwMode&&equipped==='war_spear'){ // копьё летит остриём вперёд туда, куда смотришь (сервер: hunt.freeThrow)
+    const to=world?.aimGround?.(15),r=runtime?.controller.yaw;
+    if(to&&net.send('spear_throw',{to,...(Number.isFinite(r)?{r}:{})})){throwMode=false;renderEquipment();}return;
+  }
   if(throwMode){if(world&&net.send('throw',launch(world,equipped))){throwMode=false;renderEquipment();}return;}
   const target=ITEM_RULES[equipped]?.target&&ITEM_RULES[equipped].target===currentTarget?.id?currentTarget.id:undefined;
   net.send('use',{item:equipped,...(target?{target}:{})});
@@ -557,7 +604,12 @@ if(typeof ResizeObserver!=='undefined'){
   new ResizeObserver(entries=>{document.documentElement.style.setProperty('--quest-height',`${entries[0].contentRect.height}px`);}).observe($('#quest'));
   new ResizeObserver(entries=>{document.documentElement.style.setProperty('--scene-progress-height',`${entries[0].contentRect.height}px`);}).observe($('#scene-progress'));
 }
-if(!preview)new WorldAudio(gameEvents);
+const worldAudio=preview?null:new WorldAudio(gameEvents);
+// звуки боя: где слушатель (камера) и где игрок по id — громкость и сторона
+worldAudio?.attach({
+  listener:()=>world?.camera?{p:world.camera.position.toArray(),yaw:runtime?.controller.yaw??0}:null,
+  locate:id=>id===you?.id?world?.camera?.position.toArray()??null:world?.players?.map.get(id)?.rig.root.position.toArray()??null,
+});
 if(!preview)new WorldConnection({
   events:gameEvents,send:sendGameMessage,attach:attachWorld,canvas,
   // открыто меню, журнал или диалог — 30 кадров: игрок читает, сцене хватает (ноут не греется)
@@ -578,7 +630,11 @@ $('#preview-controls').querySelectorAll('button').forEach(button=>button.onclick
   if(type==='astrolabe')openAstrolabe();
   if(type==='quest')net.emit('quest',{id:'q_astrolabe',title:'Определить широту',step:'Измерьте высоту Солнца.',status:'active',progress:0,total:1});
 });
-canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){const target=attackTarget();if(target)net.send('attack',{target});else useEquipped();runtime?.controller.lock();}});
+canvas.addEventListener('click',()=>{unlockItemAudio();if(runtime?.controller.consumeLookClick())return;if(screen==='game'&&!modal&&!chatOpen&&connected){const target=attackTarget();if(target){
+  // в поединке F + ЛКМ с копьём — метнуть его в соперника (полёт и место, где упадёт, решает сервер)
+  const r=runtime?.controller.yaw,hurl=throwMode&&equipped==='war_spear';
+  if(net.send('attack',{target,...(Number.isFinite(r)?{r}:{}),...(hurl?{mode:'throw'}:{})})){if(hurl){throwMode=false;renderEquipment();}else swingLocally();}
+}else{const prey=huntTarget();if(prey)huntPrey(prey);else useEquipped();}runtime?.controller.lock();}});
 window.addEventListener('keydown',event=>{
   if(screen!=='game')return;
   if(feastUI?.handleKey(event))return;

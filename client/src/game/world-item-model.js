@@ -11,7 +11,8 @@ export function worldItemModel(M,item,model){
  if(!make)return null;
  const built=make(M);built.col?.forEach(g=>g.dispose());
  const content=built.obj;
- if(item==='sword')content.rotation.x=Math.PI/2;
+ if(item==='sword'||item==='war_spear'||item==='macana')content.rotation.x=Math.PI/2; // клинок / древко — плашмя
+ if(item==='bow')content.rotation.set(Math.PI/2,Math.PI/2,0); // лук лежит на боку, плечами вдоль земли
  let box=new THREE.Box3().setFromObject(content),size=box.getSize(new THREE.Vector3());
  if(['espingarda','planks'].includes(item)){
   if(size.y>size.z&&size.y>size.x)content.rotation.x=Math.PI/2;

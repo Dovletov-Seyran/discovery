@@ -46,7 +46,7 @@ export const allDefs = () => [...defs.values()];
 export const positionOf = id => objects[id]?.p ?? defs.get(id)?.p;
 export function register(data) {
   if(data?.item&&!Object.hasOwn(ITEM_RULES,data.item))return null;
-  if(!data||typeof data.id!=='string'||data.id.length>100||staticIds.has(data.id)||!finiteVec(data.p)||!['ship','canary'].includes(data.zone))return null;
+  if(!data||typeof data.id!=='string'||data.id.length>100||staticIds.has(data.id)||!finiteVec(data.p)||!['ship','canary','guanahani'].includes(data.zone))return null; // Гуанахани: метнутое копьё лежит на земле
   if(!defs.has(data.id)&&[...defs.keys()].filter(id=>!staticIds.has(id)).length>=OBJECT_LIMIT)return null;
   const d={...data,kind:data.kind??'item',x:data.p[0],z:data.p[2],dynamic:true};
   defs.set(d.id,d);dirty=true;return d;

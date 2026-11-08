@@ -325,5 +325,9 @@
   {"id": "q_p2_steel", "doneEn": "touched the long shining knife of the strangers", "scene": "p2_landing", "role": "all", "optional": true, "title": "Блестящий нож",
     "steps": [
       {"type": "interact", "target": "steel", "text": "Рядом с чужаками лежит длинный блестящий нож. Потрогай его"}
+    ] },
+  {"id": "q_p2_landing_duel", "doneEn": "sparred on the batey with one of the strangers from the big canoes and won", "scene": "p2_landing", "role": "all", "optional": true, "title": "Сила чужаков",
+    "steps": [
+      {"type": "minigame", "game": "duel", "text": "Чужаки ходят по деревне. Подойди к одному из них, нажми E и победи в тренировочном бою на батее: макана, копьё или лук — со стойки воинов", "en": "Challenge one of the strangers walking through the village to a sparring bout on the batey and win"}
     ] }
 ]

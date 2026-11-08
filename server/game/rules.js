@@ -6,6 +6,7 @@ import {emitWorldEvent} from './world-events.js';
 import {toggle,canPickup} from './objects.js';
 import {applyItemUse,advanceStamina} from './item-actions.js';
 import {ITEM_RULES} from '../../shared/item-actions.js';
+import {isDuelWeapon} from '../../shared/weapons.js';
 import {SONGS,activePerformance} from '../../shared/npc-performance.js';
 import { CONFIG } from '../../shared/config.js';
 import { ASTROLABE, latitude } from '../../shared/astrolabe.js';
@@ -80,6 +81,7 @@ export function pickup(p, msg) {
   p.inventory.push(d.item);
   if(st?.uses!==undefined){p.itemUses??={};p.itemUses[d.item]=st.uses;}
   players.sendInventory(p);
+  if (isDuelWeapon(d.item)) equipForUse(p, d.item); // подобрал оружие (например, метнутое копьё) — сразу в руке
   broadcastEntity(id);
   players.save(p, { now: true });
   event(p, { type: 'pickup', item: d.item });
@@ -186,6 +188,8 @@ export function interact(p, msg) {
   }
   if (gained.length) {
     players.sendInventory(p);
+    const weapon = gained.find(isDuelWeapon);
+    if (weapon) equipForUse(p, weapon); // со стойки воинов — сразу в руку
     players.save(p, { now: true });
   }
   if (d.say && (d.kind !== 'source' || gained.length)) notice(p, d.say);

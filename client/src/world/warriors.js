@@ -2,16 +2,18 @@
 // игроков: рисуем на 120 мс в прошлом и сглаживаем, поза — по state.
 //   стража деревни (server/game/combat.js, `combat`): копьё; guard (на посту, копьё вверх), chase / return
 //     (бег / шаг), windup (замах — копьё над плечом, видно заранее), strike (выпад), down (лежит);
-//   воины касика на батее (server/game/duel.js, `duel`): макана; idle (дубинка на плече), ready (стойка),
-//     approach / circle (подходит / кружит), windup, strike (рубящий удар), recover (открыт после удара),
-//     block (отбил), stagger (пропустил удар), return (идёт на место).
-// Воины — цели для E и ЛКМ (world.interactables).
+//   воины касика на батее (server/game/duel.js, `duel`): юный с маканой, опытный с копьём; idle (оружие на
+//     плече), ready (стойка), approach / circle (подходит / кружит), windup, strike (макана — рубит сверху,
+//     копьё — выпад), recover (открыт после удара), block (отбил), dodge (увернулся от стрелы),
+//     stagger (пропустил удар), return (идёт на место).
+// Воины — цели для E и ЛКМ (world.interactables). Испанцы в деревне — world/spaniards.js, тот же каркас.
 import * as THREE from 'three';
 import { person, pose, makeLabel, taino } from './people.js';
-import { cylGeo, mesh } from './geom.js';
 import { macana } from './macana.js';
+import { warSpear } from './weapons.js';
+import { compactRig } from './crowd.js';
 
-const DELAY = 120;
+export const DELAY = 120;
 const LOOKS = [
   taino({ loincloth: 0xd9cfb8, bodyPaint: 0x9a2a1c, hat: 'band', hatColor: 0x9a2a1c }),
   taino({ loincloth: 0xcfc4ab, bodyPaint: 0x1e1814 }),
@@ -20,23 +22,20 @@ const LOOKS = [
 ];
 
 // Оружие в кулаке: остриё / клинок — по −Y предплечья (туда, куда смотрит кулак)
-function spear(M) {
-  const g = new THREE.Group();
-  g.add(mesh(cylGeo(0.022, 0.026, 2.1, 6).translate(0, 0.45, 0), M.get('wood')));
-  g.add(mesh(new THREE.ConeGeometry(0.04, 0.2, 5).translate(0, 1.6, 0), M.get('limestone')));
-  return g;
-}
-function inFist(obj) { obj.rotation.x = Math.PI; obj.position.y = -0.3; return obj; }
+export function inFist(obj) { obj.rotation.x = Math.PI; obj.position.y = -0.3; return obj; }
+// копьё держат на трети длины: кулак — у хвата, остриё вперёд
+const WEAPON = { macana: () => macana().obj, war_spear: () => warSpear().obj };
 
 // Подпись и подсказка воина на батее: свободен — вызвать, бьётся с тобой — бить, с другим — счёт
 function duelLabel(d, me) {
-  if (d.player && d.player === me) return { mine: true, prompt: `${d.name} · ЛКМ — удар`, sub: `${d.score[0]} : ${d.score[1]}` };
+  if (d.player && d.player === me) return { mine: true, fighting: true, prompt: `${d.name} · ЛКМ — удар`, sub: `${d.score[0]} : ${d.score[1]}` };
   if (d.player) return { mine: false, prompt: `${d.name} · бьётся`, sub: `поединок ${d.score[0]} : ${d.score[1]}` };
-  return { mine: false, prompt: d.state === 'idle' ? `${d.name} · E — вызвать на поединок` : d.name, sub: 'воин касика' };
+  const free = ['idle', 'walk', 'act'].includes(d.state);
+  return { mine: false, prompt: free ? `${d.name} · E — вызвать на поединок` : d.name, sub: d.doing ?? 'воин касика' };
 }
 
 export class Warriors {
-  // kind: 'warrior' — стража деревни с копьём, 'duelist' — воины касика на батее с маканой
+  // kind: 'warrior' — стража деревни с копьём, 'duelist' — воины касика на батее
   constructor(scene, M, { labelFactory = makeLabel, kind = 'warrior' } = {}) {
     this.M = M; this.labelFactory = labelFactory; this.kind = kind;
     this.group = new THREE.Group(); scene.add(this.group);
@@ -46,12 +45,16 @@ export class Warriors {
   // `combat`: стража деревни
   apply(msg) { this.level = msg.level; this.applyList(msg.warriors ?? []); }
 
-  // `duel`: воины на батее; me — id этого игрока (кому подсказка «ЛКМ — удар»)
+  label(d, me) { return duelLabel(d, me); }
+
+  // `duel`: воины на батее (или испанцы — у них свой label); me — id этого игрока
   applyDuel(msg, me) {
-    this.applyList(msg.duelists ?? []);
-    for (const d of msg.duelists ?? []) {
-      const x = this.map.get(d.id), l = duelLabel(d, me);
-      Object.assign(x.rig.root.userData, { label: l.prompt, mine: l.mine });
+    const list = msg.duelists ?? [];
+    this.applyList(list);
+    for (const d of list) {
+      const x = this.map.get(d.id), l = this.label(d, me);
+      Object.assign(x.rig.root.userData, { label: l.prompt, mine: l.mine, fighting: !!(l.mine && l.fighting) });
+      x.data = d;
       if (x.sub !== l.sub) { x.sub = l.sub; x.label.draw(d.name, l.sub); }
     }
   }
@@ -61,7 +64,7 @@ export class Warriors {
     for (const w of list) {
       seen.add(w.id);
       const x = this.map.get(w.id) ?? this.create(w);
-      x.buf.push({ at: now, p: w.p, r: w.r, state: w.state });
+      x.buf.push({ at: now, p: w.p, r: w.r, state: w.state, act: w.act });
       if (x.buf.length > 12) x.buf.shift();
     }
     for (const id of this.map.keys()) if (!seen.has(id)) this.remove(id);
@@ -70,15 +73,22 @@ export class Warriors {
   create(w) {
     const i = Number(w.id.split('_').at(-1)) || (w.id.includes('veteran') ? 3 : 1), rig = person(this.M.person, LOOKS[i % LOOKS.length]);
     const arm = rig.arms.find((a) => a.s === 1) ?? rig.arms[1];
-    arm.fa.add(inFist(this.kind === 'duelist' ? macana().obj : spear(this.M)));
+    const weapon = w.weapon ?? (this.kind === 'duelist' ? 'macana' : 'war_spear');
+    arm.fa.add(inFist(WEAPON[weapon]?.() ?? WEAPON.war_spear()));
     const name = w.name ?? 'Воин таино', label = this.labelFactory();
     label.position.y = 2.25; label.draw(name, this.kind === 'duelist' ? 'воин касика' : ''); rig.root.add(label);
+    return this.track(w, rig, arm, label, { weapon });
+  }
+
+  // общая часть create: в сцену, в таблицу, буфер позиций
+  track(w, rig, arm, label, extra = {}) {
+    compactRig(rig.root); // меньше вызовов отрисовки (crowd.js)
     rig.root.rotation.order = 'YXZ'; // курс, потом наклон — так лежащий падает навзничь по ходу
-    rig.root.userData = { id: w.id, kind: this.kind, label: `${name} · ЛКМ — ударить` };
+    rig.root.userData = { id: w.id, kind: this.kind, label: `${w.name ?? 'Воин таино'} · ЛКМ — ударить` };
     rig.root.position.fromArray(w.p);
     rig.root.visible = this.zone === 'guanahani';
     this.group.add(rig.root);
-    const x = { rig, arm, label, buf: [], phase: Math.random() * 6, state: w.state, since: performance.now() };
+    const x = { rig, arm, label, buf: [], phase: Math.random() * 6, state: w.state, since: performance.now(), ...extra };
     this.map.set(w.id, x);
     return x;
   }
@@ -114,79 +124,149 @@ export class Warriors {
       root.position.set(THREE.MathUtils.lerp(s0.p[0], s1.p[0], f), THREE.MathUtils.lerp(s0.p[1], s1.p[1], f), THREE.MathUtils.lerp(s0.p[2], s1.p[2], f));
       let dr = s1.r - s0.r; dr = Math.atan2(Math.sin(dr), Math.cos(dr));
       root.rotation.y = s0.r + dr * f + Math.PI; // r — как у камеры, модель смотрит в +z
-      if (s1.state !== x.state) { x.state = s1.state; x.since = performance.now(); }
+      if (s1.state !== x.state || s1.act !== x.act) { x.state = s1.state; x.act = s1.act; x.since = performance.now(); }
       this.animate(x, dt);
     }
   }
 
-  animate(x, dt) {
-    const { rig, arm } = x, left = rig.arms.find((a) => a !== arm), k = (performance.now() - (x.since ?? 0)) / 1000;
-    const root = rig.root, duel = this.kind === 'duelist';
-    root.rotation.x = 0; rig.hip.position.y = 0.95;
-    const stance = () => { // боевая стойка: ноги шире, оружие перед собой, левая рука прикрывает
-      rig.legs[0].th.rotation.x = -0.25; rig.legs[1].th.rotation.x = 0.25; rig.hip.position.y = 0.92;
-      arm.ua.rotation.set(-0.9, 0, -arm.s * 0.15); arm.fa.rotation.set(-0.9, 0, 0);
-      left.ua.rotation.set(-0.7, 0, left.s * 0.25); left.fa.rotation.set(-1.1, 0, 0);
-    };
+  // боевая стойка: ноги шире, оружие перед собой, левая рука прикрывает
+  stance(x) {
+    const { rig, arm } = x, left = rig.arms.find((a) => a !== arm);
+    rig.legs[0].th.rotation.x = -0.25; rig.legs[1].th.rotation.x = 0.25; rig.hip.position.y = 0.92;
+    arm.ua.rotation.set(-0.9, 0, -arm.s * 0.15); arm.fa.rotation.set(-0.9, 0, 0);
+    left.ua.rotation.set(-0.7, 0, left.s * 0.25); left.fa.rotation.set(-1.1, 0, 0);
+  }
+
+  // общие позы боя (поединок и стража): true — поза поставлена
+  fightPose(x, dt, k) {
+    const { rig, arm } = x, left = rig.arms.find((a) => a !== arm), root = rig.root;
+    const spear = x.weapon === 'war_spear';
     switch (x.state) {
-      case 'chase': case 'return': case 'approach':
-        x.phase += dt * (x.state === 'chase' ? 11 : 7);
+      case 'chase': case 'return': case 'approach': case 'lead':
+        x.phase += dt * (x.state === 'chase' ? 11 : x.state === 'lead' ? 8.5 : 7);
         pose(rig, x.state === 'chase' ? 'run' : 'walk', x.phase);
-        if (duel) { arm.ua.rotation.set(-0.9, 0, -arm.s * 0.15); arm.fa.rotation.set(-0.9, 0, 0); }
-        else { arm.ua.rotation.set(-1.15, 0, 0); arm.fa.rotation.set(-0.45, 0, 0); } // копьё наперевес, остриём вперёд
-        break;
+        this.carry(x, true);
+        return true;
       case 'circle': // кружит приставным шагом в стойке
         x.phase += dt * 5;
-        pose(rig, 'walk', x.phase); stance();
+        pose(rig, 'walk', x.phase); this.stance(x);
         rig.legs[0].th.rotation.x += Math.sin(x.phase) * 0.25; rig.legs[1].th.rotation.x -= Math.sin(x.phase) * 0.25;
-        break;
-      case 'ready':
-        pose(rig, 'stand'); stance();
-        break;
+        return true;
+      case 'ready': case 'await':
+        pose(rig, 'stand'); this.stance(x);
+        return true;
       case 'windup': // замах: оружие над плечом, корпус назад — видно, что сейчас ударит
         pose(rig, 'stand');
-        arm.ua.rotation.set(-2.5 * Math.min(1, k / 0.25), 0, -arm.s * 0.2); arm.fa.rotation.set(-0.5, 0, 0);
-        rig.torso.rotation.set(-0.12, -arm.s * 0.35, 0);
+        if (spear) { arm.ua.rotation.set(-1.0, 0, -arm.s * 0.1); arm.fa.rotation.set(-0.15, 0, 0); rig.torso.rotation.set(-0.08, -arm.s * 0.5 * Math.min(1, k / 0.25), 0); }
+        else { arm.ua.rotation.set(-2.5 * Math.min(1, k / 0.25), 0, -arm.s * 0.2); arm.fa.rotation.set(-0.5, 0, 0); rig.torso.rotation.set(-0.12, -arm.s * 0.35, 0); }
         left.ua.rotation.set(-0.9, 0, left.s * 0.3);
-        break;
+        return true;
       case 'strike': // копьё — выпад вперёд, макана — рубящий удар сверху
         pose(rig, 'stand');
-        if (duel) { arm.ua.rotation.set(-2.4 + 1.6 * Math.min(1, k / 0.15), 0, -arm.s * 0.1); arm.fa.rotation.set(-0.15, 0, 0); }
-        else { arm.ua.rotation.set(-1.5, 0, 0); arm.fa.rotation.set(0, 0, 0); }
-        rig.torso.rotation.set(0.35, arm.s * 0.2, 0);
+        if (spear || this.kind === 'warrior') { arm.ua.rotation.set(-1.5, 0, 0); arm.fa.rotation.set(0, 0, 0); rig.torso.rotation.set(0.3, arm.s * 0.25, 0); }
+        else { arm.ua.rotation.set(-2.4 + 1.6 * Math.min(1, k / 0.15), 0, -arm.s * 0.1); arm.fa.rotation.set(-0.15, 0, 0); rig.torso.rotation.set(0.35, arm.s * 0.2, 0); }
         rig.legs[0].th.rotation.x = -0.5; rig.legs[1].th.rotation.x = 0.35;
-        break;
+        return true;
       case 'recover': // открыт: согнулся после удара, оружие внизу, медленно выпрямляется
         pose(rig, 'stand');
         rig.torso.rotation.x = 0.55 * Math.max(0.3, 1 - k);
         arm.ua.rotation.set(-0.5, 0, 0); arm.fa.rotation.set(-0.2, 0, 0);
         left.ua.rotation.set(-0.2, 0, left.s * 0.3);
         rig.legs[0].th.rotation.x = -0.45; rig.legs[1].th.rotation.x = 0.3;
-        break;
-      case 'block': // отбил: макана поперёк, на уровне груди
-        pose(rig, 'stand'); stance();
+        return true;
+      case 'block': // отбил: оружие поперёк, на уровне груди
+        pose(rig, 'stand'); this.stance(x);
         arm.ua.rotation.set(-1.3, 0, -arm.s * 0.25); arm.fa.rotation.set(0, 0, -arm.s * 1.45);
-        break;
+        return true;
+      case 'dodge': { // увернулся от стрелы: шаг в сторону с наклоном
+        pose(rig, 'stand'); this.stance(x);
+        const w = Math.sin(Math.min(1, k / 0.35) * Math.PI);
+        rig.torso.rotation.z = arm.s * 0.35 * w; rig.hip.position.y = 0.92 - 0.1 * w;
+        rig.legs[0].th.rotation.z = -0.3 * w; rig.legs[1].th.rotation.z = 0.2 * w;
+        return true;
+      }
       case 'stagger': // пропустил удар: отшатнулся назад
         pose(rig, 'stand');
         rig.torso.rotation.x = -0.3 * Math.max(0, 1 - k * 1.5);
         for (const a of rig.arms) { a.ua.rotation.set(-0.4, 0, a.s * 0.6); a.fa.rotation.set(-0.5, 0, 0); }
-        break;
+        return true;
       case 'down': // лежит навзничь
         pose(rig, 'stand');
         root.rotation.x = -Math.PI / 2 * Math.min(1, k / 0.35);
         root.position.y += 0.18;
         for (const a of rig.arms) a.ua.rotation.z = a.s * 1.1;
-        break;
-      case 'idle': // ждёт на краю батея, макана на плече
-        pose(rig, 'stand');
-        arm.ua.rotation.set(-0.35, 0, arm.s * 0.2); arm.fa.rotation.set(-2.3, 0, 0);
-        rig.torso.rotation.y = Math.sin(performance.now() / 1100 + x.phase) * 0.05;
-        break;
-      default: // guard: на посту, копьё вверх, переминается
-        pose(rig, 'stand');
-        arm.ua.rotation.set(-0.25, 0, arm.s * 0.15); arm.fa.rotation.set(-2.0, 0, 0);
-        rig.torso.rotation.y = Math.sin(performance.now() / 900 + x.phase) * 0.06;
+        return true;
     }
+    return false;
+  }
+
+  // руки на ходу: копьё наперевес, остриём вперёд; макана — перед собой
+  carry(x) {
+    const { arm } = x;
+    if (this.kind === 'duelist' && x.weapon !== 'war_spear') { arm.ua.rotation.set(-0.9, 0, -arm.s * 0.15); arm.fa.rotation.set(-0.9, 0, 0); }
+    else { arm.ua.rotation.set(-1.15, 0, 0); arm.fa.rotation.set(-0.45, 0, 0); }
+  }
+
+  // оружие на плече (идёт по батею): макана — на плече, копьё — остриём вверх
+  shoulder(x) {
+    const { arm } = x;
+    if (x.weapon === 'war_spear') { arm.ua.rotation.set(-0.2, 0, arm.s * 0.12); arm.fa.rotation.set(-1.75, 0, 0); }
+    else { arm.ua.rotation.set(-0.35, 0, arm.s * 0.2); arm.fa.rotation.set(-2.3, 0, 0); }
+  }
+
+  // Чем занят воин касика между поединками (server/game/duel.js, маршрут): true — поза поставлена
+  //   practice — бой с тенью: замах, удар, стойка по кругу; stretch — разминка, руки вверх, наклоны;
+  //   sharpen — на коленях обжигает остриё над углями; watch — смотрит, опершись на оружие
+  practise(x, dt) {
+    const { rig, arm } = x, left = rig.arms.find((a) => a !== arm), t = performance.now() / 1000 + x.phase;
+    switch (x.act) {
+      case 'practice': {
+        const cycle = 1.7, u = (t % cycle) / cycle, phase = u < 0.42 ? 'windup' : u < 0.58 ? 'strike' : 'circle';
+        const shadow = { ...x, state: phase };
+        this.fightPose(shadow, phase === 'circle' ? dt * 0.4 : 0, phase === 'windup' ? u * cycle : (u - 0.42) * cycle);
+        return true;
+      }
+      case 'stretch': {
+        pose(rig, 'stand');
+        const s = Math.sin(t * 1.4);
+        for (const a of rig.arms) { a.ua.rotation.set(-2.9, 0, a.s * 0.25); a.fa.rotation.set(-0.2, 0, 0); }
+        rig.torso.rotation.set(0, 0, s * 0.35); rig.hip.position.y = 0.95 - Math.abs(s) * 0.03;
+        return true;
+      }
+      case 'sharpen': {
+        pose(rig, 'kneel');
+        rig.torso.rotation.x = 0.4; rig.head.rotation.x = 0.3;
+        arm.ua.rotation.set(-0.95, 0, -arm.s * 0.35); arm.fa.rotation.set(-0.5, 0, Math.sin(t * 2.2) * 0.25);
+        left.ua.rotation.set(-1.0, 0, -left.s * 0.3); left.fa.rotation.set(-0.6, 0, 0);
+        return true;
+      }
+      case 'watch': {
+        pose(rig, 'stand');
+        arm.ua.rotation.set(-0.15, 0, arm.s * 0.25); arm.fa.rotation.set(-1.35, 0, 0); // оружие уткнуто в землю
+        left.ua.rotation.set(0.25, 0, left.s * 0.2); left.fa.rotation.set(-1.4, 0, 0); // рука за спиной
+        rig.head.rotation.set(0.05, Math.sin(t * 0.5) * 0.3, 0);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  animate(x, dt) {
+    const { rig, arm } = x, k = (performance.now() - (x.since ?? 0)) / 1000;
+    rig.root.rotation.x = 0; rig.hip.position.y = 0.95;
+    if (this.fightPose(x, dt, k)) return;
+    if (x.state === 'walk') { x.phase += dt * 6; pose(rig, 'walk', x.phase); this.shoulder(x); return; }
+    if (x.state === 'act' && this.practise(x, dt)) return;
+    if (x.state === 'idle') { // ждёт на краю батея, оружие на плече
+      pose(rig, 'stand');
+      if (x.weapon === 'war_spear') { arm.ua.rotation.set(-0.2, 0, arm.s * 0.12); arm.fa.rotation.set(-1.75, 0, 0); }
+      else { arm.ua.rotation.set(-0.35, 0, arm.s * 0.2); arm.fa.rotation.set(-2.3, 0, 0); }
+      rig.torso.rotation.y = Math.sin(performance.now() / 1100 + x.phase) * 0.05;
+      return;
+    }
+    // guard: на посту, копьё вверх, переминается
+    pose(rig, 'stand');
+    arm.ua.rotation.set(-0.25, 0, arm.s * 0.15); arm.fa.rotation.set(-2.0, 0, 0);
+    rig.torso.rotation.y = Math.sin(performance.now() / 900 + x.phase) * 0.06;
   }
 }

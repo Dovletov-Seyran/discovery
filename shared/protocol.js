@@ -29,7 +29,9 @@ export const C2S = {
   SCARE: 'scare',           // { target }
   PING: 'ping',             // { ts } — раз в 2 с; сервер сразу отвечает pong, клиент считает задержку
   CLIENT_STATS: 'client_stats', // { fps, ping, calls, chunks, pct, mem } — раз в 2 с, для админки
-  ATTACK: 'attack',         // { target } — удар по таино или воину на Гуанахани (docs/tz-combat.md)
+  SPEAR_THROW: 'spear_throw', // { to, r } — метнуть копьё не в зверя и не в соперника: летит остриём вперёд и ложится в to
+  HUNT: 'hunt',             // { id, kind, p, r, mode? } — охота: удар / выстрел / бросок копья по животному (server/game/hunt.js)
+  ATTACK: 'attack',         // { target, r? } — удар по таино или воину на Гуанахани (docs/tz-combat.md); r — куда смотрел
 };
 
 // Сервер → Клиент
@@ -70,7 +72,8 @@ export const S2C = {
   WORLD_EVENT: 'world_event',   // { type: talk/eat/drink/run/swing/scare/dance, who, p } — для реагирующих NPC
   COMBAT: 'combat',             // { level: calm/alert/fight, offenders, warriors: [{id, p, r, state, hp}], serverNow }
   HIT: 'hit',                   // { by, target, kind: npc/warrior/player/duel, hp, down, score?, blocked? }
-  DUEL: 'duel',                 // { duelists: [{id, name, p, r, state, player, score, startsAt, result?, lastPlayer?}], serverNow } — поединки на батее
+  FAUNA: 'fauna',               // { zone, dead?: [{id, p}], killed?: {id, kind, p, by}, hurt?, thrown? } — охота: кто убит
+  DUEL: 'duel',               // { duelists: [{id, name, p, r, state, player, score, startsAt, result?, lastPlayer?}], serverNow } — поединки на батее
 };
 
 // Коды закрытия WebSocket
