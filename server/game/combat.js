@@ -51,7 +51,7 @@ export const refuses = (p, npc) => TAINO.has(npc) && isOffender(p);
 
 export function reset(now = Date.now()) {
   const had = v.level !== 'calm' || v.warriors.length;
-  for (const id of v.npcs.keys()) entities.setState(id, { down: 0 });
+  for (const id of v.npcs.keys()) entities.setState(id, { down: 0,dead:false,hp:100 });
   v = fresh(now);
   if (had) broadcastState(now, true);
 }
@@ -101,21 +101,21 @@ export function attack(p, msg, now = Date.now()) {
   return true;
 }
 
-function hitNpc(p, id, now) {
+function hitNpc(p, id, now, power=1, lethal=false) {
   const s = v.npcs.get(id) ?? { hits: 0, downUntil: 0 };
   if (s.downUntil > now) return;
-  s.hits++;
+  s.hits+=power;
   const down = s.hits >= C.HITS;
-  if (down) { s.hits = 0; s.downUntil = now + C.DOWN_MS; players.broadcast({ t: S2C.ENTITY, id, state: entities.setState(id, { down: s.downUntil }) }); }
+  if (down) { s.hits = lethal?C.HITS:0; s.downUntil = lethal?Number.MAX_SAFE_INTEGER:now + C.DOWN_MS; players.broadcast({ t: S2C.ENTITY, id, state: entities.setState(id, { down: s.downUntil,dead:lethal }) }); }
   v.npcs.set(id, s);
-  toZone({ t: S2C.HIT, by: p.id, target: id, kind: 'npc', hp: C.HITS - s.hits, down });
+  toZone({ t: S2C.HIT, by: p.id, target: id, kind: 'npc', hp: down?0:C.HITS - s.hits, down });
 }
 
-function hitWarrior(p, w, now) {
+function hitWarrior(p, w, now, power=1, lethal=false) {
   if (w.downUntil > now) return;
-  w.hits++;
+  w.hits+=power;
   const down = w.hits >= C.HITS;
-  if (down) { w.hits = 1; w.downUntil = now + C.DOWN_MS; w.state = 'down'; w.target = null; }
+  if (down) { w.hits = lethal?C.HITS:1; w.downUntil = lethal?Number.MAX_SAFE_INTEGER:now + C.DOWN_MS; w.state = 'down'; w.target = null; }
   toZone({ t: S2C.HIT, by: p.id, target: w.id, kind: 'warrior', hp: C.HITS - (down ? C.HITS : w.hits), down });
 }
 
@@ -244,4 +244,15 @@ function broadcastState(now, force = false) {
   if (!force && !v.warriors.length) return;
   v.sentAt = now;
   toZone(state(now));
+}
+
+// Called only after server weapon range, aim, visibility and cooldown checks.
+export function weaponHit(p,target,damage,now=Date.now()){
+ if(!active()||!inZone(p))return false;
+ if(v.key!==sceneKey()){reset(now);v.key=sceneKey();}
+ const w=v.warriors.find(x=>x.id===target);if(!w&&!TAINO.has(target))return false;
+ const o=v.offenders.get(p.id)??{hits:0,warnedAt:0,nearSince:0};o.hits++;v.offenders.set(p.id,o);v.incidentAt=now;
+ const power=damage>=100?C.HITS:Math.ceil(C.HITS*damage/100);
+ if(w)hitWarrior(p,w,now,power,true);else hitNpc(p,target,now,power,true);
+ if(v.level==='calm')setLevel('alert',now);setLevel('fight',now);broadcastState(now,true);return true;
 }

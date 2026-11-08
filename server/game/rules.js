@@ -1,3 +1,7 @@
+import {weaponAttack} from './weapons.js';
+import {treasureHunt} from './treasure.js';
+import {strikeSignal} from '../../shared/harbor-signals.js';
+import {createIslandActivities} from './canary-activities.js';
 // Действия игрока в мире: подбор, взаимодействие, передача предметов, мини-игры, торговля, «Бу!», разговор с NPC.
 // Сервер решает всё сам; клиент присылает только намерения.
 import {equipForUse,performAction} from './player-actions.js';
@@ -31,8 +35,10 @@ const playable = () => director.acceptsMove() && !director.isTransitioning();
 const itemName = (id) => ITEM_NAMES.get(id) ?? id;
 const countOf = (p, item) => p.inventory.filter((x) => x === item).length;
 // Объект только для некоторых сцен (scenes: [...]): шлюпки и люди Колумба на Гуанахани есть только 12 октября
-const present = (d) => !d.scenes || d.scenes.includes(sceneId());
+const present = (d) => !Array.isArray(d.scenes) || d.scenes.includes(sceneId());
 
+const treasure=treasureHunt(event);
+const islandWork=createIslandActivities({valid:(p,id)=>p.zone==='canary'&&entities.isNear(p,id),send:(p,m)=>players.send(p,m)});
 function event(p, ev) {
   const boatScene = !!director.scene().readyAt;
   const wasDone = boatScene && quests.playerDone(p, sceneId());
@@ -92,6 +98,13 @@ export function pickup(p, msg) {
 function deliver(p, item, target) {
   if (!p.inventory.includes(item) || !entities.isNear(p, target)) return false;
   if (!quests.wantsDelivery(p, sceneId(), item, target)) return false;
+  if(target==='carpenter'&&p.zone==='canary'&&quests.stateOf(p,sceneId(),'q_rudder')?.step===2&&quests.stateOf(p,sceneId(),'q_rudder')?.sub?.length===1){
+    islandWork.start(p,{kind:'repair',label:'Закрепляем руль вместе с плотником',duration:3000,target,finish:()=>{
+      if(!p.inventory.includes(item)||!quests.wantsDelivery(p,sceneId(),item,target))return;
+      removeItem(p,item);players.sendInventory(p);players.save(p,{now:true});event(p,{type:'deliver',item,target});
+      performAction(p,'give',item,{target});sayLine('carpenter_done',p);
+    }});performAction(p,'fill',item,{target,duration:3000});return true;
+  }
   removeItem(p, item);
   players.sendInventory(p);
   players.save(p, { now: true });
@@ -103,6 +116,8 @@ function deliver(p, item, target) {
 export function use(p, msg) {
   const item=msg.item,rule=ITEM_RULES[item];
   if(!playable()||typeof item!=='string'||!p.inventory.includes(item))return;
+  if(['sword','espingarda'].includes(item)&&p.equipped===item)return weaponAttack(p,{target:msg.target});
+  if(item==='shovel')return treasure.dig(p);
   if(msg.target){
     if(rule?.target!==msg.target)return notice(p,'Этот предмет здесь не нужен.');
     if(!entities.isNear(p,msg.target))return notice(p,'Подойди ближе.');
@@ -122,6 +137,7 @@ export function use(p, msg) {
   event(p,{type:'use',item});
 }
 export function tickVitals(now=Date.now()){
+  islandWork.tick(now);treasure.tick(now);
   syncNpcDialogues(now);
   for(const p of players.connected()){
     const before=JSON.stringify(p.vitals);
@@ -136,6 +152,7 @@ export function interact(p, msg) {
   if (!playable()) return;
   const id = msg.id;
   const d = entities.def(id);
+  if(d&&entities.stateOf(d.id)?.dead)return notice(p,'Этот персонаж погиб.');
   if (!d || d.zone !== p.zone || !present(d)) return;
   if (d.kind === 'item') return pickup(p, msg);
   if (d.kind === 'toggle') return toggle(p,msg);
@@ -151,6 +168,20 @@ export function interact(p, msg) {
   if (id === 'cacique' && combat.offerPeace(p)) return;
   if (combat.refuses(p, id)) return notice(p, 'С тобой не хотят говорить. Помирись с касиком: принеси ему дар');
 
+  if(id==='harbor_manifest'){
+    p.trade??={};p.trade.harbor_signal??={step:0};players.save(p,{now:true});
+  }
+  if(d.kind==='treasure_site')return treasure.dig(p);
+  if(d.kind==='treasure_chest')return treasure.open(p);
+  if(d.kind==='harbor_signal'){
+    if(!p.trade?.harbor_signal)return notice(p,'Сначала прочитай порядок сигналов на стенде у дороги к причалу.');
+    const time=Date.now();if(time-(p.lastHarborTone??0)<350)return;p.lastHarborTone=time;
+    const result=strikeSignal(p.trade.harbor_signal,d.tone);p.trade.harbor_signal=result.state;players.save(p,{now:true});
+    players.send(p,{t:'harbor_tone',tone:d.tone});performAction(p,'toggle',null,{target:id});
+    if(result.done){event(p,{type:'interact',target:'harbor_signals_complete'});notice(p,'Сигнал готовности подан!');}
+    else notice(p,result.wrong?'Неверный сигнал. Попробуй снова: низкий — высокий — средний — высокий.':`Верно: ${result.state.step} из 4.`);
+    return;
+  }
   let gained = []; // предметы, которые игрок получил этим нажатием (→ события pickup / trade_complete)
   switch (d.kind) {
     case 'hourglass': {
@@ -165,13 +196,12 @@ export function interact(p, msg) {
     }
     case 'well':
       if (!p.inventory.includes('barrel')) return notice(p, 'Нужен пустой бочонок');
-      p.inventory[p.inventory.indexOf('barrel')] = 'barrel_full';
-      p.itemUses??={};p.itemUses.barrel_full=3;
-      if(p.equipped==='barrel')equipForUse(p,'barrel_full');
-      players.sendInventory(p);
-      players.save(p, { now: true });
-      performAction(p,'fill','barrel_full',{target:id});
-      break;
+      islandWork.start(p,{kind:'water',label:'Набираем воду из колодца',duration:3500,target:id,finish:()=>{
+        if(!p.inventory.includes('barrel'))return;
+        p.inventory[p.inventory.indexOf('barrel')]='barrel_full';p.itemUses??={};p.itemUses.barrel_full=3;
+        if(p.equipped==='barrel')equipForUse(p,'barrel_full');players.sendInventory(p);players.save(p,{now:true});
+        event(p,{type:'interact',target:id});notice(p,'Бочонок наполнен. Отнеси его к шлюпке.');
+      }});performAction(p,'fill','barrel',{target:id,duration:3500});return;
     case 'npc':
       if (id === 'trader') players.send(p, tradeState(p, id));
       if (d.swap) gained = swap(p, d);
@@ -308,6 +338,7 @@ export function npcOwner(npc, now = Date.now()) {
 }
 
 function claimNpc(p, npc, req = {}) {
+  if(entities.stateOf(npc)?.dead){replyError(p,npc,req,'Этот персонаж погиб.');return false;}
   if(feast.reservation(npc)){replyError(p,npc,req,'Хуан ведёт игру в 21. Подойди к карточному столу, чтобы присоединиться.',{busy:true});return false;}
   const owner = npcOwner(npc);
   if (owner && owner !== p) {
@@ -346,7 +377,7 @@ async function askAi(p, npc, req) {
   const token = {}, started = director.startAt(), socket = p.ws;
   p.npcRequest = token;
   const tags = { npc, requestId: req.requestId, dialogueId: req.dialogueId };
-  const current = () => p.npcRequest === token && p.connected && p.ws === socket && director.startAt() === started
+  const current = () => !entities.stateOf(npc)?.dead && p.npcRequest === token && p.connected && p.ws === socket && director.startAt() === started
     && (!req.dialogueId || p.dialogue?.id === req.dialogueId);
   players.send(p, { t: S2C.NPC_THINKING, ...tags });
   let timer;

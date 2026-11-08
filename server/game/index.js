@@ -1,3 +1,4 @@
+import {weaponAttack,resetWeaponNPCs} from './weapons.js';
 import {makeSceneShortcuts} from './scene-shortcuts.js';
 import {freshVitals} from '../../shared/item-actions.js';
 // Игровая логика: вход/выход игрока, обработчики сообщений, циклы.
@@ -28,6 +29,7 @@ import { onChunkReq, onChunkDrop } from '../world/chunks.js';
 
 director.setHooks({
   onSceneStart: (scene, party) => {
+    resetWeaponNPCs();
     feast.reset();
     rules.onSceneStart(scene, party);
     resetNpcBrain();
@@ -225,6 +227,7 @@ function takenFromWorld(id) {
 
 const sceneShortcut=makeSceneShortcuts({director,players});
 const handlers = {
+  [C2S.DUEL_GUARD]:p=>duel.guard(p),
   [C2S.SCENE_SHORTCUT]:sceneShortcut,
   [C2S.MOVE]: onMove,
   [C2S.INTERACT]: (p, msg) => { onInteract(p, msg); takenFromWorld(msg.id); },
@@ -254,7 +257,7 @@ const handlers = {
   // бой на Гуанахани (docs/tz-combat.md): воин касика на батее — поединок, остальные таино — закон деревни
   [C2S.HUNT]: (p, msg) => hunt.hunt(p, msg),
   [C2S.SPEAR_THROW]: (p, msg) => hunt.freeThrow(p, msg),
-  [C2S.ATTACK]: (p, msg) => (duel.isDuelist(msg.target) ? duel.attack(p, msg.target, Date.now(), Number(msg.r), msg.mode === 'throw' ? 'throw' : null) : combat.attack(p, msg)),
+  [C2S.ATTACK]: (p, msg) => (duel.isDuelist(msg.target) ? duel.attack(p, msg.target, Date.now(), Number(msg.r), msg.mode === 'throw' ? 'throw' : null) : ['sword','espingarda'].includes(p.equipped) ? weaponAttack(p, msg) : combat.attack(p, msg)),
 };
 
 export function handle(p, msg) {

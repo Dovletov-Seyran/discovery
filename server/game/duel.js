@@ -279,6 +279,7 @@ function fight(d, p, now, dt) {
       if (d.feinting && now - d.t >= def.windup * 0.5) { d.feinting = false; setState(d, 'circle', now); d.nextMove = now + 350; return; }
       if (now - d.t < def.windup) return;
       setState(d, 'strike', now);
+      if (now < (p.duelGuardUntil ?? 0) && dist <= strikeR) { setState(d, 'recover', now); toZone({ t: S2C.HIT, by: p.id, target: d.def.id, kind: 'duel', blocked: true, score: [...d.score] }); return; } // блок Q
       if (dist <= strikeR && Math.abs(bearing(d, p.p)) < 1.0) {
         d.score[1]++;
         toZone({ t: S2C.HIT, by: def.id, target: p.id, kind: 'duel', weapon: def.weapon, score: [...d.score] });
@@ -289,7 +290,7 @@ function fight(d, p, now, dt) {
       if (now - d.t >= D.STRIKE_MS) setState(d, 'recover', now);
       return;
     case 'recover':
-      if (now - d.t >= def.recover) { setState(d, 'circle', now); d.nextMove = now + think(def); }
+      if(now-d.t>=def.recover){if(def.id==='duelist_veteran'&&dist<D.CLOSE+.3&&rnd()<.35){startWindup(d,now);}else{setState(d,'circle',now);d.nextMove=now+think(def);}}
       return;
     case 'block': case 'dodge':
       face(d, p.p);
@@ -520,4 +521,10 @@ function broadcast(now) {
   const msg = state(now);
   sentAt = now; shown = msg.duelists.map((d) => d.id).join();
   toZone(msg);
+}
+
+// Короткий блок (Q): 350 мс удар соперника отбивается (fight → blocked), не чаще раза в секунду
+export function guard(p,now=Date.now()){
+ const d=duelOf(p);if(!d||!FIGHT.has(d.state)||now-(p.lastDuelGuardAt??0)<1000)return false;
+ p.lastDuelGuardAt=now;p.duelGuardUntil=now+350;performAction(p,'inspect',heldItem(p),{guard:true});return true;
 }

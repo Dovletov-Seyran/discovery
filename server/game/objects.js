@@ -78,7 +78,7 @@ export function place(p,msg){
   if(len<.1)return;
   const direction=surface.map((x,i)=>(x-origin[i])/len),hit=surfaceAt(p.zone,origin,direction,3.5);
   if(!hit||hit.face?.normal.y<.5||distance(hit.point.toArray(),surface)>.13)return notice(p,'Нужна свободная поверхность под прицелом.');
-  const resolved=resolveBody(createBody({p:msg.p,item:msg.item,r:msg.r}),msg.p,(p,r)=>contactWithDoors(p.zone,p,r));
+  const resolved=resolveBody(createBody({p:msg.p,item:msg.item,r:msg.r}),msg.p,(pos,r)=>contactWithDoors(p.zone,pos,r));
   if(distance(resolved,msg.p)>.08)return notice(p,'Здесь предмет не поместится.');
   const now=Date.now(),body=createBody({p:msg.p,item:msg.item,startedAt:now,roll:p.zone==='ship'&&!!objectProfile(msg.item).roll,r:msg.r??0});
   if(put(p,msg,body))performAction(p,'place',msg.item);

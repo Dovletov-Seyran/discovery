@@ -1,3 +1,4 @@
+import {shovel,medallion} from '../world/treasure-models.js';
 import * as THREE from 'three';
 import {espingarda} from '../world/espingarda.js';
 import {macana} from '../world/macana.js';
@@ -16,7 +17,7 @@ export function sword(){
   const root=new THREE.Group();root.name='held-sword';
   const steel=own(0xd5dde4,.23,.72),edge=own(0xf0f3f5,.17,.82),brass=own(0xb69352,.34,.7),leather=own(0x36251e,.85),dark=own(0x46505a,.4,.65);
   // A tapered diamond section: broad blade, raised central ridge, distinct cutting edges.
-  const levels=[[.18,.043,.009],[.24,.046,.010],[.93,.030,.007],[1.12,0,0]];
+  const levels=[[.18,.047,.010],[.25,.050,.011],[.86,.036,.009],[1.04,.020,.006],[1.15,0,0]];
   const vertices=[],indices=[];
   for(const [y,w,d]of levels)vertices.push(-w,y,0, 0,y,d, w,y,0, 0,y,-d);
   for(let i=0;i<levels.length-1;i++)for(let j=0;j<4;j++){
@@ -35,6 +36,12 @@ export function sword(){
   part(root,new THREE.CylinderGeometry(.029,.029,.018,16),brass,[0,-.024,0]);
   const pommel=part(root,new THREE.SphereGeometry(.038,16,12),brass,[0,-.065,0]);pommel.scale.set(1,1.15,.65);
   part(root,new THREE.SphereGeometry(.012,12,8),dark,[0,-.065,.025]);
+  // Polished edge strips and an engraved central motif, kept within the blade silhouette.
+  for(const sign of [-1,1]){
+    const line=new THREE.CatmullRomCurve3([new THREE.Vector3(sign*.047,.27,.001),new THREE.Vector3(sign*.033,.85,.001),new THREE.Vector3(0,1.10,.001)]);
+    part(root,new THREE.TubeGeometry(line,16,.0015,3,false),edge);
+  }
+  const seal=part(root,new THREE.TorusGeometry(.014,.002,4,12),brass,[0,.31,.012]);seal.scale.y=1.5;
   return {obj:root};
 }
 
@@ -130,7 +137,7 @@ function stores(id){
 export const NOTES=['note_stores','note_trade','note_old','note_arms','note_cosa','note_torres','note_logs','note_letters'];
 const STORE_ITEMS=['crossbow','shield','garlic','stone_ball','book','note',...NOTES];
 const TAINO_ITEMS=['spear','fish','conch','cassava','cassava_grated','cassava_pulp','casabe','cotton','hammock_gift','firewood','torch','parrot','gift_cotton','bell','beads','red_cap'];
-export const HELD_MODELS={sword,espingarda,macana,war_spear:warSpear,bow,hutia:carcass('hutia'),iguana:carcass('iguana'),crab:carcass('crab'),goat_meat:carcass('goat'),chicken:carcass('chicken'),purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit'),
+export const HELD_MODELS={sword,shovel,medallion,espingarda,macana,war_spear:warSpear,bow,hutia:carcass('hutia'),iguana:carcass('iguana'),crab:carcass('crab'),goat_meat:carcass('goat'),chicken:carcass('chicken'),purse:()=>provisions('purse'),cheese:()=>provisions('cheese'),meat:()=>provisions('meat'),biscuit:()=>provisions('biscuit'),
   ...Object.fromEntries(TAINO_ITEMS.map(id=>[id,()=>taino(id)])),...Object.fromEntries(STORE_ITEMS.map(id=>[id,()=>stores(id)]))};
 
 export function releaseModel(obj){

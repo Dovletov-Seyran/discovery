@@ -1,3 +1,4 @@
+import canary from '../../../content/canary_layout.json';
 import items from '../../../content/items.json';
 import npcs from '../../../content/npcs.json';
 import quests from '../../../content/quests.json';
@@ -16,3 +17,5 @@ export const LINES = lines;
 export const EPILOGUE = epilogue;
 export const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 export const itemId = item => typeof item === 'string' ? item : item.id;
+
+export const GOMERA_NOTES=canary.interact.filter(x=>x.id.startsWith('gomera_'));
