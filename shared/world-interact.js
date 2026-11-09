@@ -25,7 +25,7 @@ export function doorBox(d,open=false){
 }
 // Chest body stays in the static BVH; only its hinged lid changes with state.
 export function chestSpec(model){
- if(model==='nav_chest')return {w:.95,h:.45,d:.55,arched:true};
+ if(model==='nav_chest'||model==='treasure_chest')return {w:.95,h:.45,d:.55,arched:true};
  if(model==='arms_chest')return {w:1.3,h:.5,d:.5,arched:false};
  if(model==='sea_chest')return {w:.8,h:.45,d:.5,arched:false};
  return null;
@@ -48,6 +48,11 @@ export function interactionBoxes(def,open=false){
  if(def.toggleType==='door')return [doorBox(def,open)];
  const spec=chestSpec(def.m??def.model);if(def.toggleType!=='lid'||!spec)return [];
  const scale=def.s??1,{w,h,d,arched}=spec,r=def.r??0,rx=open?-1.65:0,boxes=[];
+ if(def.kind==='treasure_chest'){
+  const parts=[{size:[w,.06,d],p:[0,.03,0]}];
+  for(const side of [-1,1])parts.push({size:[.072,h,d],p:[side*(w/2-.036),h/2,0]},{size:[w,h,.072],p:[0,h/2,side*(d/2-.036)]});
+  for(const part of parts){const v=toWorld(part.p,{r});boxes.push({p:def.p.map((n,i)=>n+v[i]*scale),r,half:part.size.map(v=>v*scale/2)});}
+ }
  const count=arched?8:1;
  for(let i=0;i<count;i++){
   const z=-d/2+(i+.5)*d/count;

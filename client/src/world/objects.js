@@ -83,7 +83,7 @@ export class WorldObjects {
     const records=[...this.records.values()].filter(r=>r.data.toggleType==='door'||r.data.toggleType==='lid');
     for(const obj of [...(this.world.island?.interactables??[]),...this.world.shipInteractables]){
       const def=obj.userData.doorDef??obj.userData.lidDef;
-      if(def&&!this.records.has(obj.userData.id))records.push({data:{...def,toggleType:def.toggleType??'door'},state:obj.userData.state??{}});
+      if(def&&!this.records.has(obj.userData.id))records.push({data:{...def,zone:this.world.zone,toggleType:def.toggleType??'door'},state:obj.userData.state??{}});
     }
     return records.filter(r=>r.data.zone===this.world.zone&&r.state.visible!==false&&(!point||Math.hypot(point[0]-r.data.p[0],point[2]-r.data.p[2])<4+radius&&Math.abs(point[1]-r.data.p[1])<4+radius+height)).flatMap(r=>interactionBoxes(r.data,r.state.open));
   }

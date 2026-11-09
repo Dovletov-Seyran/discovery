@@ -1,3 +1,5 @@
+import {sword as forgedSword} from '../game/held-models.js';
+import {shovel,medallion,digSite} from './treasure-models.js';
 import * as THREE from 'three';
 import { V3, mesh, cylGeo, lenUV, boxGeo, lathe, bake, between } from './geom.js';
 import { person, pose, guitarist, NPC_LOOK } from './people.js';
@@ -157,10 +159,18 @@ function seaChart(ctx, S) {
 function chest(M,w,h,d,arched){
   const g=new THREE.Group(),wall=M.get('wall'),iron=M.get('iron');
   // Actual hollow body, so opening the lid reveals an interior.
-  g.add(mesh(boxGeo(w,.06,d,0,.03,0),wall));
+  g.add(mesh(boxGeo(w,.045,d,0,.0225,0),wall));
   for(const side of [-1,1]){
     g.add(mesh(boxGeo(.06,h,d,side*(w/2-.03),h/2,0),wall));
     g.add(mesh(boxGeo(w,h,.06,0,h/2,side*(d/2-.03)),wall));
+  }
+  // Planked bottom, inset lining and a dark seam stay entirely inside the hollow volume.
+  const innerW=w-.125,innerD=d-.125;
+  for(let i=0;i<5;i++)g.add(mesh(boxGeo(innerW/5-.008,.012,innerD,-innerW/2+(i+.5)*innerW/5,.054,0),M.get('wood')));
+  for(const side of [-1,1]){
+    g.add(mesh(boxGeo(.012,h-.1,innerD,side*(w/2-.066),h/2,0),M.get('trim')));
+    g.add(mesh(boxGeo(innerW,h-.1,.012,0,h/2,side*(d/2-.066)),M.get('trim')));
+    for(const x of [-w*.33,w*.33])g.add(mesh(boxGeo(.035,h,.014,x,h/2,side*(d/2+.008)),iron));
   }
   const pivot=new THREE.Group();pivot.position.set(0,h,-d/2);pivot.userData.noBake=true;g.add(pivot);
   if(arched){
@@ -180,13 +190,30 @@ function chest(M,w,h,d,arched){
     for(const x of [-w*.33,w*.33])pivot.add(mesh(boxGeo(.045,.073,d+.05,x,.035,d/2),iron));
   }
   g.add(mesh(boxGeo(.1,.12,.03,0,h-.08,d/2+.02),M.get('brass')));
+  for(const x of [-w*.33,w*.33]){
+    const hinge=cylGeo(.018,.018,.085,10);hinge.rotateZ(Math.PI/2);hinge.translate(x,h-.02,-d/2-.02);g.add(mesh(hinge,iron));
+  }
+  const handle=new THREE.TorusGeometry(.035,.009,6,14);handle.translate(0,h-.13,d/2+.045);g.add(mesh(handle,iron));
   g.userData.setOpen=value=>{pivot.rotation.x=-value*1.65;};
   const col=[boxGeo(w,.06,d,0,.03,0)];
-  for(const side of [-1,1])col.push(boxGeo(.06,h,d,side*(w/2-.03),h/2,0),boxGeo(w,h,.06,0,h/2,side*(d/2-.03)));
+  for(const side of [-1,1])col.push(boxGeo(.072,h,d,side*(w/2-.036),h/2,0),boxGeo(w,h,.072,0,h/2,side*(d/2-.036)));
   return {obj:g,col};
 }
 
 export const MODELS = {
+  shovel,medallion,dig_site:digSite,
+  treasure_chest:M=>{
+    const built=chest(M,.95,.45,.55,true),contents=new THREE.Group();contents.userData.noBake=true;
+    const coin=medallion(M).obj;coin.rotation.x=-Math.PI/2;coin.position.set(.16,.07,.06);contents.add(coin);
+    const paper=new THREE.PlaneGeometry(.28,.17);paper.rotateX(-Math.PI/2);paper.translate(-.12,.061,.03);
+    contents.add(mesh(paper,M.canvas('treasure-letter',256,(ctx,n)=>{ctx.fillStyle='#dcc89e';ctx.fillRect(0,0,n,n);ctx.fillStyle='#59412a';for(let i=0;i<8;i++)ctx.fillRect(n*.1,n*(.12+i*.09),n*(i%2?.68:.79),2);})));built.obj.add(contents);
+    built.obj.userData.setLooted=v=>contents.visible=!v;return built;
+  },
+  treasure_map:M=>MODELS.map({get:n=>M.get(n),canvas:(key,size,draw,options)=>M.canvas('treasure-map',512,(ctx,n)=>{
+    ctx.fillStyle='#d5bc83';ctx.fillRect(0,0,n,n);ctx.strokeStyle='#503723';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(n*.2,n*.9);ctx.lineTo(n*.2,n*.2);ctx.lineTo(n*.7,n*.2);ctx.stroke();
+    ctx.font=`${n*.055}px serif`;ctx.fillStyle='#382a1b';ctx.fillText('N ↑',n*.75,n*.13);ctx.fillText('Колодец',n*.58,n*.25);ctx.fillText('Дома',n*.36,n*.43);ctx.fillText('Пальма',n*.12,n*.65);
+    ctx.strokeStyle='#8e3024';ctx.beginPath();ctx.moveTo(n*.19,n*.68);ctx.lineTo(n*.29,n*.78);ctx.moveTo(n*.29,n*.68);ctx.lineTo(n*.19,n*.78);ctx.stroke();ctx.fillText('На запад от колодца',n*.18,n*.9);
+  },options)}),
   cup: M=>{
     const obj=new THREE.Group();
     obj.add(mesh(lathe([[.06,0],[.075,.02],[.085,.18],[.073,.18],[.064,.03],[0,.03]],16),M.get('wood')));
@@ -518,13 +545,10 @@ export const MODELS = {
     g.add(a);
     return { obj: g };
   },
-  sword: (M) => {
-    const g = new THREE.Group();
-    g.add(mesh(boxGeo(0.82, 0.006, 0.04, 0.3, 0.012, 0), M.get('steel')));
-    g.add(mesh(boxGeo(0.025, 0.02, 0.2, -0.12, 0.015, 0), M.get('iron')));
-    g.add(mesh(cylGeo(0.016, 0.018, 0.14, 8).rotateZ(Math.PI / 2).translate(-0.2, 0.018, 0), M.get('leather')));
-    g.add(mesh(new THREE.SphereGeometry(0.025, 10, 8).translate(-0.29, 0.02, 0), M.get('brass')));
-    return { obj: g };
+  sword:()=>{
+    const model=forgedSword().obj;model.rotation.set(Math.PI/2,0,-Math.PI/2);
+    const box=new THREE.Box3().setFromObject(model);model.position.y-=box.min.y;
+    const obj=new THREE.Group();obj.add(model);return {obj};
   },
   wine: (M) => {
     const g = new THREE.Group(), bag = new THREE.SphereGeometry(0.15, 16, 12);
@@ -575,6 +599,7 @@ export function applyState(obj, state = {}) {
     obj.userData.turnSpan=(state.duration??((state.startedAt!==undefined)?state.emptyAt-state.startedAt:obj.userData.period*1000))||60000;
     obj.userData.flipAt=state.turnedBy?state.startedAt:null;
   }
+  if('looted' in state)obj.userData.setLooted?.(state.looted);
   if('open' in state){obj.userData.openTarget=state.open?1:0;obj.userData.changedAt=state.changedAt??0;}
 }
 
@@ -616,9 +641,9 @@ export function buildInteract(M, item, models = MODELS) {
   obj.traverse((o) => { if (o.userData.lamp) lamps.push(o); });
   bake(obj);
   obj.userData = { ...obj.userData, id: item.id, kind: item.kind, item: item.item, label: item.label, period: item.period, noBake: true };
-  if(chestSpec(item.m))obj.userData.lidDef={...item,toggleType:'lid',zone:'ship'};
+  if(chestSpec(item.m)||item.m==='treasure_chest')obj.userData.lidDef={...item,toggleType:'lid',zone:'ship'};
   if (item.state) applyState(obj, item.state);
-  return { obj, col: item.kind==='item'?[]:col ? colliderFor(col, item) : [], lamps };
+  return { obj, col: item.kind==='item'||item.kind==='treasure_chest'?[]:col ? colliderFor(col, item) : [], lamps };
 }
 
 export function buildNpc(M, n, animated = false) {

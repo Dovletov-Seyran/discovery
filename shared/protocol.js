@@ -32,6 +32,7 @@ export const C2S = {
   SPEAR_THROW: 'spear_throw', // { to, r } — метнуть копьё не в зверя и не в соперника: летит остриём вперёд и ложится в to
   HUNT: 'hunt',             // { id, kind, p, r, mode? } — охота: удар / выстрел / бросок копья по животному (server/game/hunt.js)
   ATTACK: 'attack',         // { target, r? } — удар по таино или воину на Гуанахани (docs/tz-combat.md); r — куда смотрел
+  DUEL_GUARD: 'duel_guard', // { } — короткий блок в поединке (Q): 350 мс отбивает удар соперника
 };
 
 // Сервер → Клиент
@@ -56,6 +57,8 @@ export const S2C = {
   WORLD_PATCH: 'world_patch',
   WORLD_EVENT: 'world_event', // {type:'talk'|'eat'|'drink'|'run'|'swing'|'scare'|'dance'|'throw',who,p,zone,serverNow}
   ENTITY: 'entity',             // { id, state }
+  HARBOR_TONE: 'harbor_tone', // {tone:'low'|'middle'|'high'}
+  ISLAND_ACTIVITY: 'island_activity', // {status:'started'|'done'|'cancelled',kind?,label,duration?,startedAt?,serverNow?}
   VITALS: 'vitals',            // {stamina, drunkUntil, drunkStrength, serverNow}
   ITEM_USED: 'item_used',       // {item,effect,cooldownUntil,serverNow,vitals,uses?,money}
   INVENTORY: 'inventory',       // { items: [...] }

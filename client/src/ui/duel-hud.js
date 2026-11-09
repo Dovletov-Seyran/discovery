@@ -6,7 +6,7 @@ const TIPS = {
   circle: 'Жди его замаха — спереди он отобьёт',
   windup: 'Замах! Отступи — или успей ударить первым',
   strike: 'Удар!',
-  recover: 'Он открыт — бей!',
+  recover: 'Он открыт — бей! Q — блок ответного удара',
   block: 'Отбил. Бей на замахе, после его удара или сбоку',
   dodge: 'Увернулся — вторую стрелу подряд не успеет! Стреляй ещё',
   stagger: 'Попал!',
@@ -43,7 +43,7 @@ export function duelView(message, me, serverNow = Date.now()) {
   const weapon = d.playerWeapon ?? 'macana', where = 'не выходи за круг на земле';
   if (d.state === 'ready') {
     const left = Math.max(1, Math.ceil((d.startsAt - serverNow) / 1000));
-    return { tone: 'ready', html: `<p class="duel-title">Поединок · ${esc(d.name)}</p>${score}<p class="duel-count">${d.startsAt > serverNow ? left : 'Бой!'}</p><p class="duel-tip">${START[weapon] ?? START.macana} · до трёх очков · ${where}</p>${d.weapon === 'espingarda' ? '<p class="duel-tip">Он стреляет: целится — шагни вбок, перезаряжает — беги к нему</p>' : ''}` };
+    return { tone: 'ready', html: `<p class="duel-title">Поединок · ${esc(d.name)}</p>${score}<p class="duel-count">${d.startsAt > serverNow ? left : 'Бой!'}</p><p class="duel-tip">${START[weapon] ?? START.macana} · Q — блок · до трёх очков · ${where}</p>${d.weapon === 'espingarda' ? '<p class="duel-tip">Он стреляет: целится — шагни вбок, перезаряжает — беги к нему</p>' : ''}` };
   }
   const tip = WEAPON_TIPS[weapon]?.[d.state] ?? TIPS[d.state];
   const unarmed = weapon === 'fist' ? '<p class="duel-tip duel-warn">Копьё на земле — подбери его (E)</p>' : '';

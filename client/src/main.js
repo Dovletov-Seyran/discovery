@@ -1,3 +1,4 @@
+import {islandWorkSound,harborTone} from './audio/island-work.js';
 import {sceneShortcut} from './game/scene-shortcuts.js';
 import {STAMINA} from '../../shared/stamina.js';
 import './ui/style.css';
@@ -17,7 +18,7 @@ import {duelView} from './ui/duel-hud.js';
 import {FPS_PLAY,FPS_CALM} from './game/frame-limit.js';
 import {GameplayRuntime} from './game/runtime.js';
 import {WorldConnection} from './game/world-connection.js';
-import {ROLES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,EPILOGUE,escape,itemId} from './ui/content.js';
+import {ROLES,GOMERA_NOTES,ITEMS,NPCS,NPC_NAMES,QUESTS,LINES,EPILOGUE,escape,itemId} from './ui/content.js';
 import {shellView,loginView,lobbyView} from './ui/views.js';
 import {VoiceLibrary} from './ui/voice.js';
 import {narrativeContent,INTRO_TITLES} from './ui/narrative.js';
@@ -76,7 +77,7 @@ export function attachWorld(nextWorld, targetCanvas=canvas, options={}) {
     ...options,
     send:(type,data)=>net?.send(type,data)??false,
     onTarget:target=>{
-      currentTarget=target;
+      currentTarget=target&&(target.distance<=CONFIG.INTERACT_DIST+.5||equipped==='espingarda'&&(target.kind==='npc'||target.kind==='warrior'))?target:null;target=currentTarget;
       currentHome=equipped&&runtime?.mode==='play'&&world?homeSlot(world,equipped,you?.id):null;
       const text=target?(target.speaker&&target.speaker.id!==you.id?`${target.label} · разговаривает с ${target.speaker.name}`:`E  ${target.label||'Взаимодействовать'}`):'';
       const back=currentHome?(currentHome.closed?'Открой сундук, чтобы вернуть на место':'G  Вернуть на место'):'';
@@ -152,22 +153,25 @@ function connectionStatus(status){
   if(!connected&&modal==='dialogue')closeModal();
   syncInput();
 }
-function login(){
-  screen='login';$('#hud').hidden=true;$('#screen').innerHTML=loginView(preview);syncInput();
-  $('#login-form').onsubmit=event=>{event.preventDefault();authenticate(false);};
-  if($('#register'))$('#register').onclick=()=>authenticate(true);
+function login(register=false,name=''){
+  screen='login';$('#hud').hidden=true;$('#screen').innerHTML=loginView(preview,register);syncInput();
+  $('#login-name').value=name;
+  $('#login-form').onsubmit=event=>{event.preventDefault();authenticate(register);};
+  if($('#register'))$('#register').onclick=()=>login(!register,$('#login-name').value.trim());
 }
 async function authenticate(register){
   gameEvents.emit('audio_unlock',{});
   const name=$('#login-name').value.trim(), password=$('#login-password')?.value;
   if(name.length<3){$('#login-error').textContent='Имя — от 3 символов.';return;}
   if(!password||password.length<4){$('#login-error').textContent='Пароль — от 4 символов.';return;}
+  if(register&&password!==$('#register-confirm')?.value){$('#login-error').textContent='Пароли не совпадают.';return;}
   if(preview){connect(name);return;}
   const submit=$('#login-submit'),create=$('#register');submit.disabled=true;create.disabled=true;$('#login-error').textContent='';
   try{
     const response=await fetch(`/api/${register?'register':'login'}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({login:name,password})});
     const data=await response.json();
-    if(!response.ok||!data.token)throw new Error(response.status===401?'Неверное имя или пароль.':response.status===409?'Имя уже занято.':'Не удалось войти.');
+    if(!response.ok||!data.token)throw new Error(data.message||(response.status===401?'Неверное имя или пароль.':response.status===409?'Имя уже занято.':'Не удалось выполнить запрос.'));
+    if(register){login(false,name);$('#login-status').textContent='Аккаунт создан. Введите пароль и войдите.';$('#login-password').focus();return;}
     localStorage.setItem('discovery.token',data.token);connect(data.token);
   }catch(error){if($('#login-error'))$('#login-error').textContent=error instanceof TypeError?'Сервер недоступен.':error.message;}
   finally{submit.disabled=false;create.disabled=false;}
@@ -235,6 +239,14 @@ function bindNetwork(client){
   client.on('npc_thinking',message=>{if(matchesReply(message)){waitingForReply=true;$('#npc-text').textContent='Думает…';setDialogueBusy(true);}});
   client.on('npc_say',receiveDialogue);
   client.on('trade_state',message=>{tradeState=message;if(modal==='dialogue'&&activeNpc===message.npc)renderTrade();});
+  client.on('harbor_tone',message=>harborTone(message.tone));
+  client.on('island_activity',message=>{
+    islandWorkSound(message);
+    let panel=document.getElementById('island-work');
+    if(!panel){panel=document.createElement('div');panel.id='island-work';panel.className='island-work';document.body.append(panel);}
+    if(message.status!=='started'){panel.hidden=true;notify(message.label);return;}
+    panel.hidden=false;panel.innerHTML=`<strong>${escape(message.label)}</strong><div class="island-work-track"><i style="animation-duration:${Math.max(0,message.duration-(message.serverNow-message.startedAt))}ms"></i></div><small>Оставайся рядом · отход прервёт работу</small>`;
+  });
   client.on('snapshot',message=>gameEvents.emit('snapshot',message));
   client.on('player_join',message=>gameEvents.emit('player_join',message));
   client.on('player_leave',message=>gameEvents.emit('player_leave',message));
@@ -249,7 +261,8 @@ function renderLobby(){
   $('#logout').onclick=logout;
 }
 function applyScene(message){
-  narrative.stop();
+  narrative.stop();islandWorkSound({status:'cancelled'});
+  if(document.getElementById('island-work'))document.getElementById('island-work').hidden=true;
   scene=message;
   sceneProgress=message.progress||null;
   if(Number.isFinite(sceneProgress?.serverNow))serverOffset=sceneProgress.serverNow-Date.now();
@@ -333,6 +346,7 @@ function closeModal(){feastUI?.closing(modal);endDialogue();clearTimeout(dialogu
 function closeButton(){return '<button class="close-button" data-close aria-label="Закрыть">×</button>';}
 function openKnowledge(id,overline='ПРЕДМЕТ ПОЛУЧЕН'){
   const data=ITEMS[id]||{name:id,text:''};
+  if(id==='treasure_map')overline='КАРТА ТАЙНИКА';else if(id==='medallion')overline='НАХОДКА';
   showModal('knowledge',`<section class="menu-panel knowledge">${closeButton()}<span class="overline">${overline}</span><h2>${escape(data.name)}</h2>${data.text?`<p>${escape(data.text)}</p>`:''}<button class="primary" data-close>Продолжить</button></section>`);
 }
 function picture(id){return pictures[id]||itemIcon(id);}
@@ -364,7 +378,10 @@ function openInventory(){
 }
 function openJournal(){
   const list=questList();
-  showModal('journal',`<section class="menu-panel journal-panel">${closeButton()}<h2>Судовой журнал</h2>${list.length?list.map(q=>{
+  const explored=quests.q_gomera_history,notes=GOMERA_NOTES.filter((_,i)=>explored?.status==='done'||explored?.sub?.includes(i));
+  const treasureEntry=quests.q_treasure?.status==='done'?`<article class="journal-quest"><h3>Письмо из тайника</h3><p>${escape(ITEMS.medallion.text)}</p></article>`:'';
+  const discoveries=notes.length?`<article class="journal-quest"><h3>Записки Гомеры</h3>${notes.map(n=>`<h4>${escape(n.label)}</h4><p>${escape(n.say)}</p>`).join('')}</article>`:'';
+  showModal('journal',`<section class="menu-panel journal-panel">${closeButton()}<h2>Судовой журнал</h2>${treasureEntry}${discoveries}${list.length?list.map(q=>{
     const def=QUESTS[q.id],progress=q.status==='done'?q.total:q.progress;
     return `<article class="journal-quest"><h3>${escape(q.title)} <small>${q.status==='done'?'Выполнено':q.shared?'Общее':q.optional?'Необязательно':''}</small></h3><ol>${(def?.steps||[{text:q.text}]).map((step,i)=>`<li class="${i<progress?'done':i===progress?'current':''}">${escape(step.text||'Задание')}${i===progress&&q.need?` <small>${q.count||0}/${q.need}</small>`:''}</li>`).join('')}</ol></article>`;
   }).join(''):'<p>В этой сцене заданий нет.</p>'}<small>J — закрыть</small></section>`);
@@ -393,6 +410,8 @@ function receiveItemUse(message){
   if(message.effect==='shot'){equipment?.fire();notify('Выстрел · перезарядка 2,5 с');} // грохот — из звуков боя (player_action)
   if(message.effect==='map')openMap();
   if(message.effect==='read')openKnowledge(message.item,'ЧИТАЕШЬ');
+  if(message.item==='medallion')openKnowledge('medallion');
+  if(message.effect==='treasure_map')openKnowledge('treasure_map');
   if(message.effect==='astrolabe')openAstrolabe();
   if(message.effect==='compass')notify('Север — 0°. Курс указан на приборе.');
   if(message.effect==='wallet')showModal('wallet',`<section class="menu-panel">${closeButton()}<h2>Кошель</h2><p>${message.money} мараведи</p><small>Припасы можно купить у торговца на Канарах.</small></section>`);
@@ -415,6 +434,7 @@ function attackTarget(){
   const t=currentTarget;
   if(!t)return null;
   if(t.kind==='duelist'||t.kind==='spaniard')return t.fighting?t.id:null; // воин касика или испанец: только свой соперник в поединке
+  if(t.kind==='npc'&&['sword','espingarda'].includes(equipped))return t.id;
   if(t.kind!=='warrior'&&!TAINO_TARGETS.has(t.id))return null;
   return document.pointerLockElement===canvas||equipped?t.id:null;
 }
@@ -443,10 +463,15 @@ function huntPrey(prey){
   swingLocally();if(equipped==='espingarda'){equipment?.fire();}
 }
 // Попадание по мне — красная вспышка; оглушили — затемнение, пока сервер переносит на берег
+let hitMarkerTimer;
 function onHit(message){
   if(message.kind==='duel'&&message.by===you.id){ // свой удар: что вышло — у прицела
     hitMark(message.missed?'Мимо':message.dodged?'Увернулся':message.blocked?'Отбил':'Попал!',message.missed||message.blocked?'miss':'hit');
     return;
+  }
+  if(message.by===you.id){
+    $('#crosshair').classList.add('confirmed');clearTimeout(hitMarkerTimer);hitMarkerTimer=setTimeout(()=>$('#crosshair').classList.remove('confirmed'),180);
+    if(message.down)notify('Цель повержена.');
   }
   if(message.target!==you.id)return;
   if(message.kind==='duel'){ // очко сопернику: вспышка и толчок камеры, здоровье не тратится
@@ -546,7 +571,7 @@ function beginDialogueWait(){
 }
 function renderTrade(){
   if(!$('#trade')||!tradeState)return;
-  $('#trade').innerHTML=`<div class="trade-money">Кошель: ${tradeState.money} мараведи</div>${tradeState.goods.map(good=>`<form class="trade-row" data-trade="${escape(good.item)}"><label>${escape(ITEMS[good.item]?.name||good.item)} <small>${good.sold?'Куплено':`${good.price} м.`}</small></label>${good.sold?'':`<input aria-label="Цена: ${escape(ITEMS[good.item]?.name||good.item)}" type="number" min="1" max="10000" value="${good.price}"><button class="quiet-button">Предложить</button>`}</form>`).join('')}`;
+  $('#trade').innerHTML=`<div class="trade-money">Кошель: ${tradeState.money} мараведи · Куплено: ${tradeState.goods.filter(g=>g.sold).length}/${tradeState.goods.length}</div>${tradeState.goods.every(g=>g.sold)?'<p>Припасы собраны. Можно возвращаться к шлюпке.</p>':''}${tradeState.goods.map(good=>`<form class="trade-row" data-trade="${escape(good.item)}"><label><img src="${escape(picture(good.item))}" width="36" height="36" alt="" style="vertical-align:middle;margin-right:8px">${escape(ITEMS[good.item]?.name||good.item)} <small>${good.sold?'Куплено':`${good.price} м.`}</small></label>${good.sold?'':`<input aria-label="Цена: ${escape(ITEMS[good.item]?.name||good.item)}" type="number" min="1" max="10000" value="${good.price}"><button class="quiet-button">Предложить</button>`}</form>`).join('')}`;
   $('#trade').querySelectorAll('form').forEach(form=>form.onsubmit=event=>{event.preventDefault();if(sendNpc('trade',{npc:activeNpc,item:form.dataset.trade,offer:Number(form.querySelector('input').value)}))beginDialogueWait();});
   setDialogueBusy(waitingForReply);
 }
@@ -589,6 +614,7 @@ function closeChat(){chatOpen=false;$('#chat-form').hidden=true;syncInput();}
 function logout(){vitals=freshVitals();itemUses={};money=0;itemCooldowns.clear();sceneProgress=null;renderSceneProgress();closeModal();equipItem(null,{sync:false});narrative.stop();gameEvents.emit('logout',{});knownCards.clear();net?.disconnect();connected=false;scene={id:'lobby'};savedPosition=null;localStorage.removeItem('discovery.token');closeModal();closeChat();$('#chat-log').innerHTML='';$('#party').textContent='';login();}
 function interact(){
   if(!currentTarget||modal||!connected)return;
+  if(currentTarget.distance>CONFIG.INTERACT_DIST+.5){notify('Подойди ближе для взаимодействия.');return;}
   if(sceneProgress?.phase==='departing'){notify('Готовимся к переходу.');return;}
   const {id,kind}=currentTarget;
   if(kind==='npc'){openDialogue(id);net.send('interact',{id});return;}
@@ -642,6 +668,7 @@ window.addEventListener('keydown',event=>{
   const typing=/INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
   if(event.code==='Escape'){event.preventDefault();if(modal&&modal!=='ended')closeModal();else if(chatOpen)closeChat();else if(!modal)openMenu();return;}
   if(typing)return;
+  if(event.code==='KeyQ'&&!event.repeat&&!modal&&!chatOpen&&equipped&&lastDuel?.duelists?.some(d=>d.player===you?.id)){event.preventDefault();net.send('duel_guard',{});equipment?.guard?.();return;}
   if(event.code==='F3'){event.preventDefault();$('#debug').hidden=!$('#debug').hidden;if(!runtime)$('#debug').textContent='Мир не подключён';return;}
   if(event.code==='Tab'){event.preventDefault();if(modal==='inventory')closeModal();else if(!modal)openInventory();return;}
   if(event.code==='KeyJ'&&!event.repeat){event.preventDefault();if(modal==='journal')closeModal();else if(!modal)openJournal();return;}

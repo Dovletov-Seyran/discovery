@@ -15,7 +15,7 @@ let ship=null;
 const cache=new Map(),templates=new Map();
 const clean=obj=>obj?.traverse(o=>o.geometry?.dispose());
 function geometryFor(o){
-  if(o.kind==='item')return []; // picked/rolling items must not leave a fixed invisible obstacle
+  if(o.kind==='item'||o.kind==='treasure_chest')return []; // picked/rolling items must not leave a fixed invisible obstacle
   if(!templates.has(o.m)){
     const make=ISLAND_MODELS[o.m]??MODELS[o.m]??VEGETATION[o.m];
     if(typeof make!=='function'){templates.set(o.m,[]);return [];}

@@ -29,6 +29,7 @@ const makeObject=(make,M)=>{
 const ACTION_S={sword:.58,macana:.58,war_spear:.6,bow:.8,espingarda:.35};
 // Sizes in metres, measured on the long edge. Each tool gets a readable pose.
 export const HOLD_POSES={
+ treasure_map:{size:.7,rotation:[1.05,0,-.1],depth:.88},shovel:{size:1.1,rotation:[-.3,.4,-.1],depth:1},medallion:{size:.2,rotation:[.2,0,0],depth:.65},
  sword:{size:1.2,rotation:[-.24,1.05,-.18],depth:.95},
  macana:{size:1.0,rotation:[-.30,1.0,-.20],depth:.9}, // дубинка таино на поединке: держат и бьют как меч
  war_spear:{size:2.3,rotation:[-1.42,.10,.05],depth:.75}, // копьё — остриём вперёд, выпад
@@ -86,6 +87,7 @@ export class Equipment {
   }else this.flash=null;
   this.root.add(this.object);
  }
+ guard(){this.guardUntil=Date.now()+350;}
  use(){if(this.action>0)return false;this.action=ACTION_S[this.item]??0.9;return true;}
  drink(until,strength=.35,serverNow=Date.now()){this.drunkUntil=Date.now()+Math.max(0,until-serverNow);this.drunkStrength=strength;}
  fire(){this.flashUntil=Date.now()+120;}
@@ -118,6 +120,7 @@ export class Equipment {
   else if(['cheese','meat','biscuit','barrel_full'].includes(this.item)){this.root.position.x-=wave*.18;this.root.position.y+=wave*.22;}
   else if(this.item==='espingarda'){this.root.position.z+=wave*.12;this.root.rotation.x-=wave*.12;}
   else this.root.position.y+=wave*.05;
+  if(Date.now()<(this.guardUntil??0)){this.root.rotation.z=1.2;this.root.position.y+=.2;}
   if(this.item==='compass'&&this.heldModel)this.heldModel.rotation.y=-this.world.camera.rotation.y;
   const left=Math.max(0,(this.drunkUntil-Date.now())/1000),sway=this.drunkStrength*Math.min(1,left/4);
   this.world.camera.rotation.z=Math.sin(time*1.7)*.055*sway;

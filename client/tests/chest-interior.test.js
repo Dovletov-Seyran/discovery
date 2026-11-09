@@ -30,3 +30,11 @@ test('an astrolabe falls to the actual bottom of each opened chest without levit
   assert.ok(body.sleeping);assert.ok(Math.abs(body.p[1]-supportHeight('astrolabe')-.066)<.002,`${model}: ${body.p}`);dispose();
  }
 });
+
+test('a buried treasure chest is hidden and has no invisible static collider; its revealed hollow body is dynamic',()=>{
+ const built=buildLayout(M,{objects:[],npcs:[],interact:[{id:'treasure_chest',m:'treasure_chest',kind:'treasure_chest',toggleType:'lid',p:[0,0,0],state:{visible:false}}]});
+ assert.equal(built.col.length,0);assert.equal(built.interactables[0].visible,false);
+ const world={scene:new Scene(),M,layout:{},zone:'canary',shipInteractables:[],island:{interactables:built.interactables,chunks:new Map()},chunks:{setStaticData(){}}};world.objects=new WorldObjects(world);
+ world.objects.applyPatch({ops:[{op:'spawn',id:'treasure_chest',model:'treasure_chest',kind:'treasure_chest',toggleType:'lid',zone:'canary',p:[0,0,0],state:{visible:false}}]});
+ assert.equal(world.objects.collisionBoxes().length,0);world.objects.applyEntity('treasure_chest',{visible:true,open:true});assert.ok(world.objects.collisionBoxes().length>=6);world.objects.clear();
+});

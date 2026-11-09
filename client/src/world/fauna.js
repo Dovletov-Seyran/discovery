@@ -1,3 +1,4 @@
+import {canaryNavigator,outsideBuildings} from '../../../shared/canary-navigation.js';
 // Живой мир: жители и животные Канар, птицы и игуаны Гуанахани, кот и крысы на корабле.
 //
 // Одинаково у всех без нагрузки на сеть: маршрут каждого считается от общего серверного времени
@@ -117,6 +118,11 @@ function canaryPopulation(rand, canaryLayout) {
   for (let i = 0; i < 10; i++) {
     const r = 10 + rand() * 22, pts = Array.from({ length: 8 }, (_, k) => { const a = (k / 8) * Math.PI * 2; return [256 + Math.cos(a) * r, 326 + Math.sin(a) * r * 0.7]; });
     out.push({ kind: 'gull', look: { coat: C(0xf1f0ea), wing: C(0xb9bec4), head: C(0xf7f7f2) }, fly: 8 + rand() * 8, route: makeRoute(rand() < 0.5 ? pts : pts.reverse(), WALK.gull, [0]), phase: rand() * 300 });
+  }
+  const nav=canaryNavigator(canaryLayout);
+  for(const a of out)if(!FLYING.has(a.kind)){
+    const points=[];for(const leg of a.route.legs)points.push(...nav.path(leg.from,leg.to).slice(0,-1));
+    a.route=makeRoute(points.length?points:[[256,310],[256,310]],a.route.speed,a.route.legs.map(l=>l.wait));a.buildings=nav.boxes;
   }
   return out;
 }
@@ -296,6 +302,7 @@ export class Fauna {
     else if (d > 0.02) { a.p[0] += (dx / d) * stepLen; a.p[1] += (dz / d) * stepLen; moving = d > 0.15 || moving; face ??= [gx, gz]; }
     if (a.mode === 'beg' && d < 0.4) { face = a.target; moving = false; }
     if (a.mode === 'dance' && d < 0.4) { face = a.target; moving = false; }
+    if(a.buildings)a.p=outsideBuildings(a.p,a.buildings);
     const heading = face ? Math.atan2(face[0] - a.p[0], face[1] - a.p[1]) : r.heading;
     const diff = Math.atan2(Math.sin(heading - a.heading), Math.cos(heading - a.heading));
     a.heading += diff * Math.min(1, dt * 6);
