@@ -74,5 +74,37 @@
   ],
   "actions": [],
   "knownCrew": [],
-  "foreign": true
+  "foreign": true,
+  "script": {
+    "cards": {
+      "gold": {
+        "ru": "¿Al sur? ¡Al sur hay oro! (кивает и тоже показывает на юг)",
+        "en": "¿Al sur? ¡Al sur hay oro! (nods and points south too)"
+      },
+      "banner": {
+        "ru": "¡Por los Reyes de Castilla! Esta isla se llamará San Salvador. (поднимает знамя с зелёным крестом)",
+        "en": "¡Por los Reyes de Castilla! Esta isla se llamará San Salvador. (raises the banner with the green cross)"
+      },
+      "trade": {
+        "ru": "¡Algodón! Bueno, bueno. Toma, cuentas de vidrio. (протягивает горсть стеклянных бусин)",
+        "en": "¡Algodón! Bueno, bueno. Toma, cuentas de vidrio. (holds out a handful of glass beads)"
+      }
+    },
+    "about": {
+      "ru": "Soy el Almirante del Mar Océano. (бьёт себя в грудь и показывает на корабли)",
+      "en": "Soy el Almirante del Mar Océano. (taps his chest and points at the ships)"
+    },
+    "farewell": {
+      "ru": "Adiós, adiós. (машет рукой)",
+      "en": "Adiós, adiós. (waves his hand)"
+    },
+    "task": {
+      "ru": "¿Qué? No entiendo. (разводит руками и показывает на берег)",
+      "en": "¿Qué? No entiendo. (spreads his hands and points at the shore)"
+    },
+    "stranger": {
+      "ru": "No entiendo… (качает головой)",
+      "en": "No entiendo… (shakes his head)"
+    }
+  }
 }

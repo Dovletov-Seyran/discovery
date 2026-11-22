@@ -89,7 +89,7 @@ export function currentTask(context = {}, agentId = null) {
     const me = agentId && crew.find((p) => p.id === AGENT_PERSON[agentId]);
     const alias = me?.aliases.find((a) => /^[a-z]/i.test(a) && new RegExp(`\\b${a}\\b`, 'i').test(text));
     const step = alias ? text.replace(new RegExp(`(the )?\\b${alias}\\b`, 'i'), 'me').replace(/\bhim\b/g, 'me') : text;
-    return { title: q.title, step, aboutYou: !!alias };
+    return { title: q.title, step, ru: current?.text ?? '', aboutYou: !!alias };
   }
   return null;
 }

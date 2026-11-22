@@ -80,7 +80,7 @@ async function handleApi(req, res, path) {
   if (req.method === 'GET' && path === '/api/health') {
     const s = await ai.status();
     return sendJson(res, 200, {
-      ok: true, ollama: !!s.ollama, tts: !!s.tts, model: s.model ?? null,
+      ok: true, ollama: !!s.ollama, tts: !!s.tts, model: s.model ?? null, scripted: !!s.scripted,
       players: players.connectedCount(), chunksServed: chunkStats.total(),
       chunks: players.connected().map((p) => ({ name: p.name, served: chunkStats.of(p.id), loaded: p.chunks?.size ?? 0 })),
       demo: CONFIG.DEMO_MODE, dev: CONFIG.DEV,

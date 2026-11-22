@@ -81,7 +81,8 @@ export async function understand({ agent, text, turns = [], scene }) {
     const sense = foreignSense(agent, normalize(out, { cards, people, keywordCards, keywordPerson, text }), keywordCards);
     return { ...sense, action: agent.id==='musician'&&out.kind==='unknown'?null:pickAction(agent, { modelAction: out.action, text, scene }), agentId: agent.id, ms: res.ms, via: 'llm' };
   } catch {
-    return { ...fallback({ keywordCards, keywordPerson }), action: pickAction(agent, { text, scene }), agentId: agent.id, ms: 0, via: 'keywords' };
+    const sense = foreignSense(agent, fallback({ keywordCards, keywordPerson, text }), keywordCards);
+    return { ...sense, action: pickAction(agent, { text, scene }), agentId: agent.id, ms: 0, via: 'keywords' };
   }
 }
 
@@ -109,9 +110,20 @@ export function normalize(out, { cards, people, keywordCards, keywordPerson, tex
   return { kind, card: kind === 'topic' ? card : null, person: kind === 'person' ? who : null };
 }
 
-function fallback({ keywordCards, keywordPerson }) {
+// Без модели (выключена или не ответила) вид реплики определяют слова
+const HELP_WORDS = /(что|чем)\s+(же\s+)?(мне|нам)?\s*(теперь\s+|сейчас\s+|дальше\s+)?(делать|заняться|сделать)|помоги|помощь|задани|что дальше|куда идти|куда мне|what (should|do|can) (i|we) do|help me|my task/i;
+const ABOUT_WORDS = /кто ты|ты кто|о себе|как тебя зовут|сколько тебе лет|откуда ты|твоя семья|твоей семье|расскажи о тебе|who are you|about yourself|your name/i;
+const MODERN_WORDS = /телефон|айфон|смартфон|интернет|компьютер|ноутбук|машин[аеуы]|автомобил|самол[её]т|поезд|футбол|биткоин|крипт|фильм|кино|аниме|мультик|ютуб|youtube|тикток|инстаграм|телевиз|электрич|phone|internet|computer|car\b|plane|bitcoin|movie/i;
+const RUDE_WORDS = /дурак|идиот|туп(ой|ица)|урод|заткнись|stupid|idiot|shut up/i;
+
+export function fallback({ keywordCards, keywordPerson, text = '' }) {
+  if (FAREWELL_WORDS.test(text) && !keywordCards.length) return { kind: 'farewell', card: null, person: null };
   if (keywordPerson) return { kind: 'person', card: null, person: keywordPerson };
   if (keywordCards.length) return { kind: 'topic', card: keywordCards[0], person: null };
+  if (HELP_WORDS.test(text)) return { kind: 'task_help', card: null, person: null };
+  if (ABOUT_WORDS.test(text)) return { kind: 'about_you', card: null, person: null };
+  if (MODERN_WORDS.test(text)) return { kind: 'unknown', card: null, person: null };
+  if (RUDE_WORDS.test(text)) return { kind: 'rude', card: null, person: null };
   return { kind: 'small_talk', card: null, person: null };
 }
 

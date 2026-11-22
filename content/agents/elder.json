@@ -73,5 +73,37 @@
   "actions": [],
   "knownCrew": [
     "cacique"
-  ]
+  ],
+  "script": {
+    "cards": {
+      "sea_myth": {
+        "ru": "У Яйи умер сын. Его кости положили в тыкву и повесили под крышей. Когда тыкву сняли, из неё хлынула вода и выпрыгнули рыбы — так появилось море.",
+        "en": "Yaya's son died. His bones were put in a gourd under the roof. When the gourd was taken down, water and fish poured out of it, and that water became the sea."
+      },
+      "hurricane": {
+        "ru": "Хуракан — злой ветер сезона бурь. Сейчас он уходит от нас.",
+        "en": "Huracan is the angry wind of the season of storms. Now it is leaving us."
+      },
+      "moon": {
+        "ru": "Мы считаем луной и сезонами. Сегодня пятое утро после полной луны.",
+        "en": "We count by moons and seasons. This is the fifth morning after the full moon."
+      }
+    },
+    "about": {
+      "ru": "Я видел много хураканов. Руки мои теперь медленные, но память длинная.",
+      "en": "I have seen many hurricanes. My hands are slow now, but my memory is long."
+    },
+    "farewell": {
+      "ru": "Иди, дитя. Огонь подождёт тебя.",
+      "en": "Go, child. The fire will wait for you."
+    },
+    "task": {
+      "ru": "Сейчас тебе нужно: {task}.",
+      "en": "Now you must: {task}."
+    },
+    "stranger": {
+      "ru": "Это чужое слово. Я его не знаю.",
+      "en": "That is a strange word. I do not know it."
+    }
+  }
 }

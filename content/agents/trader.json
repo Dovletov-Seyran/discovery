@@ -241,5 +241,71 @@
       "reply": "Look, señor: Gomera cheese, salted meat, biscuit that keeps for months!",
       "replyRu": "Смотри, сеньор: сыр с Гомеры, солонина, сухари на много месяцев!"
     }
-  ]
+  ],
+  "script": {
+    "cards": {
+      "goods": {
+        "ru": "Козий сыр — сорок мараведи за голову, солонина — сорок за бочонок, сухари — тридцать за мешок. Сухари пекут дважды, чтобы месяцами не портились в море.",
+        "en": "Goat cheese, forty maravedis a wheel; salted meat, forty a barrel; biscuit, thirty a sack. Biscuit is baked twice so it keeps for months at sea."
+      },
+      "maravedi": {
+        "ru": "Мараведи — медная монета Кастилии. Матрос получает около тысячи в месяц, хороший конь стоит тысячи, а золотой эксселенте — сотни мараведи.",
+        "en": "The maravedi is the copper coin of Castile. A sailor earns about a thousand a month, a fine horse costs thousands, and a gold excelente is worth hundreds."
+      },
+      "la_gomera": {
+        "ru": "Островом правит донья Беатрис де Бобадилья — красивая и очень жёсткая сеньора. Её мужа убили островитяне во время мятежа, и она наказала их без пощады.",
+        "en": "The island is ruled by Dona Beatriz de Bobadilla, a beautiful and very hard lady. The islanders killed her husband in a revolt, and she punished them without mercy."
+      },
+      "guanches": {
+        "ru": "До Кастилии здесь жили местные люди — мы зовём их гуанчами. Гран-Канарию покорили всего девять лет назад, Тенерифе ещё воюет. Многих островитян продали в рабство.",
+        "en": "Before Castile, native peoples lived here. We call them Guanches. Gran Canaria fell only nine years ago, and Tenerife still fights. Many islanders were sold as slaves."
+      },
+      "silbo": {
+        "ru": "Пастухи Гомеры говорят свистом. Свистом переговариваются через ущелья, с горы на гору — дальше, чем долетит любой крик.",
+        "en": "The shepherds of La Gomera speak by whistling. They talk across deep ravines, from one mountain to another, farther than any shout carries."
+      },
+      "land_west": {
+        "ru": "Люди с Иерро клянутся, что в ясный день видят землю на западе. Сан-Борондон, говорят. По мне, это облако… но покупателю, что идёт на запад, я бы так не сказал.",
+        "en": "Men from El Hierro swear that on clear days they see land to the west. San Borondon, they say. I think it is a cloud… but I would never tell that to a customer sailing west."
+      },
+      "well_water": {
+        "ru": "Колодец у гавани даёт самую сладкую воду на острове. Каждый корабль, что идёт на запад, наполняет там бочки.",
+        "en": "The well by the harbour gives the sweetest water on the island. Every ship sailing west fills its barrels there."
+      }
+    },
+    "about": {
+      "ru": "Я кастилец из Хереса, десять лет как на Гомере. Жена у меня гомерка, двое детей и мул Палома. Покупаю сыр у пастухов и продаю каждому кораблю. Мечтаю о лавке в Севилье.",
+      "en": "I am a Castilian from Jerez, ten years on La Gomera. My wife is Gomeran; we have two children and a mule named Paloma. I buy cheese from the shepherds and sell it to every ship. I dream of a shop in Seville."
+    },
+    "farewell": {
+      "ru": "Приходи ещё, сеньор! Лучший сыр — только у Гонсало!",
+      "en": "Come again, senor! The best cheese is only at Gonzalo's!"
+    },
+    "task": {
+      "ru": "Вам ведь нужно вот что: {task}. Помогу, чем смогу — за честную цену!",
+      "en": "You need this, yes: {task}. I will help as I can, for an honest price!"
+    },
+    "stranger": {
+      "ru": "Не слыхал о таком. Я знаю только тех, кто у меня покупает.",
+      "en": "Never heard of him. I only know the ones who buy from me."
+    },
+    "trade": {
+      "sold": {
+        "ru": "Продано! Ты умеешь торговаться, сеньор.",
+        "en": "Sold! You drive a hard bargain, senor."
+      },
+      "counter": {
+        "ru": "Маловато. Может, чуть больше?",
+        "en": "That is too little. Perhaps a bit more?"
+      },
+      "angry": {
+        "ru": "Ты меня оскорбляешь! Теперь цена выше.",
+        "en": "You insult me! Now the price goes up."
+      },
+      "no_money": {
+        "ru": "Для этого твой кошель слишком лёгок, друг.",
+        "en": "Your purse is too light for that, friend."
+      }
+    }
+  }
 }

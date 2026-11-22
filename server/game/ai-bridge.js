@@ -8,9 +8,9 @@ import * as performance from './npc-performance.js';
 const AI_MODULE = new URL('../ai/index.js', import.meta.url);
 
 let impl = null;
-if (process.env.AI === '0') {
-  console.log('[ai] AI=0 — работают заглушки (без Ollama и голоса)');
-} else if (!existsSync(AI_MODULE)) {
+// Модуль ИИ грузится всегда: без AI=1 он отвечает заготовленными фразами (content/agents/*.json → script)
+// и не обращается к Ollama и голосу; с AI=1 — модель. Заглушки ниже — если модуля нет совсем
+if (!existsSync(AI_MODULE)) {
   console.log('[ai] server/ai/index.js не найден — работают заглушки');
 } else {
   try {

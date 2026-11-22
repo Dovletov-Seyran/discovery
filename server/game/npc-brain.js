@@ -77,7 +77,7 @@ export async function tickNpcBrain(now=Date.now(), choose=chooseNpcJobs) {
   const current=director.scene(),scene={id:current.id,startAt:director.startAt()};
   const party=players.connected();
   if(current.zone!=='ship'||current.type!=='play'||!party.length||director.isTransitioning())return;
-  const modelFree=process.env.AI!=='0'&&now>=nextModel&&!queueStats().busy&&!queueStats().waiting
+  const modelFree=process.env.AI==='1'&&now>=nextModel&&!queueStats().busy&&!queueStats().waiting
     &&!party.some(p=>p.npcRequest||p.dialogue?.until>now);
   const generation=entities.generation(),candidates=[];
   for(const [id,profile]of Object.entries(routines)){

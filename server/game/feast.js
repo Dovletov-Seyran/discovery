@@ -46,7 +46,7 @@ function broadcast(){for(const [id]of viewers){const p=players.get(id);if(p?.con
 function changed(){table.revision++;persist();broadcast();}
 function comment(fallback,event){
  if(!table)return;table.commentary=fallback;table.commentId=(table.commentId??0)+1;
- const now=Date.now();if(commentPending||now-(table.lastAiAt??0)<12000||process.env.AI==='0')return;
+ const now=Date.now();if(commentPending||now-(table.lastAiAt??0)<12000||process.env.AI!=='1')return;
  table.lastAiAt=now;commentPending=true;
  const id=table.id,round=table.round,serial=table.commentId;
  const previous=table.players.map(s=>({name:s.name,...s.previous}));

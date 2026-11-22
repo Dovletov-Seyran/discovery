@@ -334,5 +334,53 @@
         }
       ]
     }
-  ]
+  ],
+  "script": {
+    "cards": {
+      "sea_of_darkness": {
+        "ru": "Мавры звали этот океан Морем Мрака. Старики говорят: кто уйдёт слишком далеко на запад, тот не вернётся. Хотя живых, кто пробовал, я не встречал.",
+        "en": "The Moors called this ocean the Sea of Darkness. Old men say whoever sails too far west never comes back. Though I never met a living soul who tried."
+      },
+      "san_borondon": {
+        "ru": "На Иерро и Гомере клянутся, что видят на западе остров с горами. Зовут его Сан-Борондон, по святому Брендану. Корабли его искали — а он всегда исчезает.",
+        "en": "On El Hierro and La Gomera they swear they see an island with mountains to the west. They call it San Borondon, after the holy monk Brendan. Ships have searched for it, and it always vanishes."
+      },
+      "sailor_life": {
+        "ru": "Каюта только у Адмирала да у капитана. Мы спим на палубе, где найдём сухую доску. Едим сухари, солонину, сыр, бобы и сардины — а через пару недель в сухарях заводятся черви.",
+        "en": "Only the Admiral and the captain have cabins. We sleep on deck wherever we find a dry board. We eat biscuit, salted meat, cheese, beans and sardines, and after a few weeks the biscuit gets worms."
+      },
+      "hourglass_song": {
+        "ru": "Песочные часы идут полчаса. Юнга переворачивает их и поёт молитву — так весь корабль знает время. Восемь склянок — одна вахта, четыре часа.",
+        "en": "The sand glass runs half an hour. The ship boy turns it and sings a little prayer, so the whole ship knows the time. Eight glasses make one watch, four hours."
+      },
+      "africa": {
+        "ru": "Молодым я ходил с португальцами вдоль Гвинеи за золотом и слоновой костью. А четыре года назад Бартоломеу Диаш обогнул южный мыс Африки. Португальцы хотят в Индию тем путём.",
+        "en": "As a young man I sailed with the Portuguese down the coast of Guinea for gold and ivory. Four years ago Bartolomeu Dias rounded the southern cape of Africa. The Portuguese mean to reach the Indies that way."
+      },
+      "sea_monsters": {
+        "ru": "На старых картах полно морских змей и рыб, что глотают корабли. Я сам видел кита длиной с наш корабль. Говорят, кто-то принял такого за остров и высадился на него.",
+        "en": "The old maps are full of sea serpents and fish that swallow ships. I once saw a whale as long as our ship. They say some men took one for an island and landed on it."
+      },
+      "cards_games": {
+        "ru": "Играем в примеру испанской колодой — монеты, кубки, мечи и палицы. И в кости. Попы говорят — грех, и не один моряк проиграл всё жалованье, не дойдя до порта.",
+        "en": "We play primera with the Spanish deck of coins, cups, swords and clubs, and we throw dice. The priests call it a sin, and many a sailor has lost his whole pay before reaching port."
+      }
+    },
+    "about": {
+      "ru": "Я из Палоса, сын рыбака, мне за шестьдесят. Тонул у берегов Гвинеи — выжил. Зуб потерял в драке в Лиссабоне, но драку выиграл, клянусь! Нанялся, чтобы увидеть ещё одно чудо.",
+      "en": "I am from Palos, a fisherman's son, past sixty. I was shipwrecked off Guinea and lived. I lost a tooth in a fight in Lisbon, but I won that fight, I swear! I signed on to see one more wonder."
+    },
+    "farewell": {
+      "ru": "Иди, иди. А вечером приходи — расскажу ещё.",
+      "en": "Go on, go on. Come back tonight and I will tell you more."
+    },
+    "task": {
+      "ru": "Сейчас тебе надо вот что: {task}. Не мешкай, парень.",
+      "en": "Here is what you need now: {task}. Do not dawdle, lad."
+    },
+    "stranger": {
+      "ru": "Не знаю такого. Может, он на «Пинте»?",
+      "en": "I do not know him. Maybe he sails on the Pinta?"
+    }
+  }
 }

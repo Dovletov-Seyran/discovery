@@ -20,7 +20,8 @@ export const AI = {
 
   TTS_MODEL: 'onnx-community/Kokoro-82M-v1.0-ONNX',
   TTS_DTYPE: 'q8',
-  TTS_ENABLED: process.env.TTS !== '0',
+  // Голос на лету (Kokoro) — только вместе с моделью; заготовленные фразы озвучены заранее (npm run voices)
+  TTS_ENABLED: process.env.AI === '1' && process.env.TTS !== '0',
   AUDIO_TTL_MS: 10 * 60_000,
 
   AGENTS_DIR: root('content/agents'),
