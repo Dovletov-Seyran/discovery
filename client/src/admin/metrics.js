@@ -15,7 +15,9 @@ function serverCards(s) {
     card('Сообщения', `${fmt(last.msgIn, 0)} / ${fmt(last.msgOut, 0)}`, `в секунду: входящие / исходящие · ${fmt(last.kbIn, 1)} / ${fmt(last.kbOut, 1)} КБ/с`, spark(col('msgOut'))),
     card('Чанки', fmt(last.chunks, 1, '/с'), `отдано всего ${s.chunksServed}`, spark(col('chunks'))),
     card('Игра', escape(s.scene.id), `игроков ${s.players.connected} из ${s.players.max} · работает ${ago(s.uptime * 1000)}`, ''),
-    card('ИИ', s.ai.ollama ? 'на связи' : 'нет связи', `модель ${escape(s.ai.model ?? '—')} · голос ${s.ai.tts ? 'есть' : 'нет'}`, '', s.ai.ollama ? 'ok' : 'bad'),
+    s.ai.scripted
+      ? card('NPC', 'заготовки', 'модель выключена: NPC отвечают заготовленными фразами (AI=1 — включить)', '', 'ok')
+      : card('ИИ', s.ai.ollama ? 'на связи' : 'нет связи', `модель ${escape(s.ai.model ?? '—')} · голос ${s.ai.tts ? 'есть' : 'нет'}`, '', s.ai.ollama ? 'ok' : 'bad'),
   ].join('');
 }
 

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { AI } from './config.js';
 import { getAgent, loadAgents, currentTask, crewNames, knownPeople } from './agents.js';
 import { understand } from './understand.js';
-import { chat, warmup, ollamaUp, queueStats } from './llm.js';
+import { chat, warmup, ollamaUp, queueStats, llmEnabled } from './llm.js';
 import { loadMemory, saveMemory, setStore, turnsToCompress, resetMemory } from './memory.js';
 import { decide, perform, setWorld, storyPlan, resetCooldowns, cancelAction } from './actions.js';
 import { buildMessages, cleanAnswer, isEnglish, ensureRepeatOpening, latin, TEMPERATURE, GENERIC_HELP } from './prompt.js';
@@ -53,7 +53,7 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
 
   // Самое первое знакомство без текста — готовое приветствие (быстро), но тоже в память
   if (!text && !hintId && !tradeResult && firstEver && agent.greeting) {
-    const { url } = await speak(agent.greeting.en, agent.voice, { name: npc });
+    const { url } = llmEnabled() ? await speak(agent.greeting.en, agent.voice, { name: npc }) : { url: voiceOf(npc, 'greeting') };
     remember(mem, { now, context, user: OPENER, en: agent.greeting.en, newVisit: true });
     saveMemory(userId, npc, mem);
     return { ...agent.greeting, audio: url, hints: hintsFor(agent, mem, { task: currentTask(context, npc), key: `${userId}:${npc}` }), topicsTold: [], timings: { total: ms(t0), kind: 'greeting' } };
@@ -82,6 +82,9 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
   if (intent.action) {
     intent = { ...intent, kind: 'action', verdict: decide(agent, intent.action, { scene: context.scene, now }) };
   }
+
+  // Без модели: ответ — заготовка из content/agents/<id>.json (script), озвученная заранее
+  if (!llmEnabled()) return scriptedTalk({ userId, npc, agent, mem, intent, context, tradeResult, userText, returning, now, t0, isCurrent });
 
   // Шаг 2: что именно сказать — решает код
   const repeat = intent.kind === 'topic' && mem.told.includes(intent.card.id);
@@ -165,6 +168,73 @@ export async function talk({ userId, npc, text = '', hintId, context = {}, trade
     topicsTold,
     topicsDiscussed, // credit a delivered repeat if the original answer was missed/closed
     timings,
+  };
+}
+
+// --- Заготовленные ответы (без модели) ---
+
+// Озвучка заготовки: npm run voices кладёт её в client/public/audio/vo под ключом agent.<npc>.<key>
+function voiceOf(npc, key) {
+  if (!key) return null;
+  if (!voManifest) { try { voManifest = JSON.parse(readFileSync(AI.VO_MANIFEST, 'utf8')); } catch { voManifest = {}; } }
+  const vo = voManifest[`agent.${npc}.${key}`];
+  return vo ? `/audio/vo/${vo.file}` : null;
+}
+
+// Что сказать без модели: тема → её заготовка, «о себе», прощание, задание, человек экипажа, торг, приказ;
+// остальное (болтовня, непонятное) — одна из запасных фраз агента. → { en, ru, key? }
+export function scriptedLine(agent, intent, { task, tradeResult, turn = 0 } = {}) {
+  const s = agent.script ?? {};
+  const fallback = () => { const i = turn % Math.max(1, agent.fallbacks.length); return { ...agent.fallbacks[i], key: `fallback_${i}` }; };
+  if (tradeResult) return s.trade?.[tradeResult.outcome] ? { ...s.trade[tradeResult.outcome], key: `trade_${tradeResult.outcome}` } : fallback();
+  switch (intent.kind) {
+    case 'topic': return s.cards?.[intent.card.id] ? { ...s.cards[intent.card.id], key: `card_${intent.card.id}` } : fallback();
+    case 'action':
+      return intent.verdict?.ok && intent.action.reply ? { en: intent.action.reply, ru: intent.action.replyRu ?? intent.action.reply, key: `action_${intent.action.id}` } : fallback();
+    case 'farewell': return s.farewell ? { ...s.farewell, key: 'farewell' } : fallback();
+    case 'about_you': return s.about ? { ...s.about, key: 'about' } : fallback();
+    case 'stranger': return s.stranger ? { ...s.stranger, key: 'stranger' } : fallback();
+    case 'task_help': {
+      if (!task || !s.task) return fallback();
+      const ru = (task.ru || task.step || '').replace(/[.!]+$/, ''), en = (task.step || '').replace(/[.!]+$/, '');
+      const low = (t) => t.charAt(0).toLowerCase() + t.slice(1);
+      return { ru: s.task.ru.replace('{task}', low(ru)), en: s.task.en.replace('{task}', low(en)) }; // меняется от задания — без озвучки
+    }
+    case 'person': {
+      const p = intent.person;
+      if (!p?.aboutRu) return fallback();
+      const name = p.ru ? p.ru.charAt(0).toUpperCase() + p.ru.slice(1) : p.name;
+      return { ru: `${name} — ${p.aboutRu}`, en: `${p.name}: ${p.about}` };
+    }
+    default: return fallback();
+  }
+}
+
+// «Расскажи что-нибудь», «а что у вас тут?» без знакомых слов — NPC сам рассказывает следующую нерассказанную тему
+const ASKS_STORY = /расскаж|поведай|что (ещё|еще) (знаешь|скажешь)|что у вас|что тут|интересн|tell me|what else/i;
+
+function scriptedTalk({ userId, npc, agent, mem, intent, context, tradeResult, userText, returning, now, t0, isCurrent }) {
+  const next = agent.cards.find((c) => !mem.told.includes(c.id));
+  if (!tradeResult && intent.kind === 'small_talk' && next && ASKS_STORY.test(userText)) intent = { ...intent, kind: 'topic', card: next };
+  const task = currentTask(context, npc);
+  const line = scriptedLine(agent, intent, { task, tradeResult, turn: mem.turns.length });
+  const topicsTold = intent.kind === 'topic' && !mem.told.includes(intent.card.id) ? [intent.card.id] : [];
+  const topicsDiscussed = intent.kind === 'topic' ? [intent.card.id] : [];
+  mem.told.push(...topicsTold);
+  remember(mem, { now, context, user: userText || OPENER, en: line.en, newVisit: !!returning });
+  saveMemory(userId, npc, mem);
+  let action = null;
+  if (intent.kind === 'action') {
+    if (!isCurrent() && intent.verdict.ok) { cancelAction(agent, intent.action); intent.verdict = { ok: false, reason: 'cancelled' }; }
+    const done = intent.verdict.ok ? perform(agent, intent.action) : null;
+    action = { id: intent.action.id, ok: !!intent.verdict.ok && done?.ok !== false, reason: intent.verdict.reason ?? null };
+  }
+  const timings = { understand: intent.ms ?? 0, llm: 0, translate: 0, tts: 0, total: ms(t0), kind: intent.kind, via: 'script', cards: intent.card ? [intent.card.id] : [], action: action?.id };
+  record(timings);
+  return {
+    en: line.en, ru: line.ru, audio: voiceOf(npc, line.key), action,
+    hints: hintsFor(agent, mem, { intent, task, key: `${userId}:${npc}` }),
+    topicsTold, topicsDiscussed, timings,
   };
 }
 
@@ -285,9 +355,11 @@ const ms = (t0) => Math.round(performance.now() - t0);
 
 export async function init() {
   loadAgents();
+  if (!llmEnabled()) { console.log('[ai] модель выключена — NPC отвечают заготовленными фразами (AI=1 — включить модель)'); return; }
   await Promise.all([warmup().catch((e) => console.warn(`[ai] warmup: ${e.message}`)), loadTTS().catch((e) => console.warn(`[tts] ${e.message}`))]);
 }
 
 export async function status() {
+  if (!llmEnabled()) return { ollama: false, tts: false, model: null, scripted: true };
   return { ollama: await ollamaUp(), tts: ttsReady(), model: AI.MODEL };
 }

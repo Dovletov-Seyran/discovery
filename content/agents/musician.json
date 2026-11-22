@@ -146,5 +146,37 @@
   ],
   "personalFacts": {
     "The boatswain gives": "The boatswain gives the orders on deck. Old Juan is our oldest sailor. I am Gil, and I play the guitar."
+  },
+  "script": {
+    "cards": {
+      "guitar": {
+        "ru": "Это маленькая гитара на четыре хора струн. Под неё и поём, и пляшем.",
+        "en": "This is a small four-course guitar. We sing and dance to it."
+      },
+      "song": {
+        "ru": "Поём, чтобы держать ритм в работе и вспоминать дом. Играю, когда вахта позволяет.",
+        "en": "We sing to keep time at work and to remember home. I play when the watch allows."
+      },
+      "dance": {
+        "ru": "Когда работа сделана, музыка и пляска поднимают усталый дух. Вечером увидишь.",
+        "en": "When the work is done, music and a dance lift tired spirits. You will see tonight."
+      }
+    },
+    "about": {
+      "ru": "Я Хиль, матрос и гитарист. Моё дело — струны, песни и пляски, чтобы команда не вешала нос.",
+      "en": "I am Gil, sailor and guitar player. My work is strings, songs and dances, so the crew keeps its spirits up."
+    },
+    "farewell": {
+      "ru": "Ступай с музыкой в сердце!",
+      "en": "Go with music in your heart!"
+    },
+    "task": {
+      "ru": "Тебе сейчас: {task}. А я пока настрою струны.",
+      "en": "Your task now: {task}. Meanwhile I will tune my strings."
+    },
+    "stranger": {
+      "ru": "Не знаю такого. Спроси у боцмана.",
+      "en": "I do not know him. Ask the boatswain."
+    }
   }
 }

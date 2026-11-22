@@ -377,5 +377,53 @@
       "reply": "Cook, the ration! One biscuit for each man, and not a crumb more.",
       "replyRu": "Кок, паёк! По сухарю на брата, и ни крошки больше."
     }
-  ]
+  ],
+  "script": {
+    "cards": {
+      "why_west": {
+        "ru": "На запад, только на запад — к Индиям, Катаю и Сипанго. Привезём золото и пряности, а Великому хану — письма от короля и королевы.",
+        "en": "West, always west — to the Indies, Cathay and Cipangu. We will bring back gold and spices, and letters from the King and Queen to the Great Khan."
+      },
+      "reward": {
+        "ru": "По договору в Санта-Фе я стану Адмиралом Моря-Океана, вице-королём всех земель, что открою, и получу десятую часть их богатств.",
+        "en": "By the agreement of Santa Fe I shall be Admiral of the Ocean Sea, Viceroy of every land I find, and receive a tenth of its riches."
+      },
+      "distance": {
+        "ru": "По моим расчётам до Сипанго около семисот пятидесяти лиг от Канар — несколько недель при добром ветре. Учёные Саламанки говорят, что Земля больше. Они ошибаются.",
+        "en": "By my reckoning Cipangu lies some seven hundred and fifty leagues beyond the Canaries, a few weeks of good wind. The scholars of Salamanca say the Earth is larger. They are wrong."
+      },
+      "years_waiting": {
+        "ru": "Португальский король мне отказал. Семь лет я просил корабли у Их Величеств — и только когда пала Гранада, они согласились.",
+        "en": "The King of Portugal refused me. Seven years I begged Their Majesties for ships, and only when Granada fell did they agree."
+      },
+      "marco_polo": {
+        "ru": "Читал, и не раз. Марко Поло пишет, что в Сипанго дворцы крыты золотом. Я увижу их своими глазами.",
+        "en": "I have, more than once. Marco Polo writes that in Cipangu the palaces are roofed with gold. I will see them with my own eyes."
+      },
+      "ships": {
+        "ru": "«Санта-Мария» — тяжёлая нао, мой флагман. «Пинта» Мартина Алонсо Пинсона и «Нинья» — быстрые каравеллы. С нами около девяноста человек, многие из Палоса.",
+        "en": "The Santa Maria is a heavy nao, my flagship. The Pinta under Martin Alonso Pinzon and the Nina are swift caravels. Some ninety men sail with us, many from Palos."
+      },
+      "compass_secret": {
+        "ru": "Боятся, я знаю. Поэтому я веду два журнала: верный — для себя, а для команды пишу пройденный путь короче. Пусть не падают духом.",
+        "en": "They fear it, I know. So I keep two logs: the true one for myself, and one with shorter distances for the men, so they do not lose heart."
+      }
+    },
+    "about": {
+      "ru": "Я родился в Генуе, сын ткача. Ходил с португальцами в Гвинею, чертил карты с братом Бартоломео. Теперь веду три корабля туда, где никто не бывал.",
+      "en": "I was born in Genoa, a weaver's son. I sailed with the Portuguese to Guinea and drew charts with my brother Bartholomew. Now I lead three ships where no one has sailed."
+    },
+    "farewell": {
+      "ru": "Ступай. И держи ухо востро — море не прощает ротозеев.",
+      "en": "Go. And keep your eyes open — the sea forgives no idlers."
+    },
+    "task": {
+      "ru": "Твоё дело сейчас: {task}. Исполняй.",
+      "en": "Your duty now: {task}. See to it."
+    },
+    "stranger": {
+      "ru": "Такого на моих кораблях нет. Не морочь мне голову.",
+      "en": "There is no such man on my ships. Do not waste my time."
+    }
+  }
 }

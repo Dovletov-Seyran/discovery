@@ -113,7 +113,7 @@ route('GET', '/api/admin/server', async () => {
   return {
     serverNow: Date.now(), ...serverStats(),
     players: { connected: players.connectedCount(), party: players.party().length, max: CONFIG.MAX_PLAYERS },
-    scene: { id: s.id, type: s.type }, ai: { ollama: !!status.ollama, tts: !!status.tts, model: status.model ?? null },
+    scene: { id: s.id, type: s.type }, ai: { ollama: !!status.ollama, tts: !!status.tts, model: status.model ?? null, scripted: !!status.scripted },
     flags: { demo: CONFIG.DEMO_MODE, dev: CONFIG.DEV, https: CONFIG.HTTPS },
   };
 });

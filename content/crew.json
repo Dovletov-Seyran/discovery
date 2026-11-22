@@ -17,7 +17,8 @@
         "storyteller": "A stubborn Genoese with a head full of maps. Either a genius or a madman, you have not decided which. He pays on time, that you respect.",
         "trader": "The foreign admiral who came for supplies. Proud, pays fairly, and the governor's lady seems to like him."
       },
-      "ru": "Колумб"
+      "ru": "Колумб",
+      "aboutRu": "генуэзец, командует флотом с борта «Санта-Марии». Верит, что дойдёт до Индий, плывя на запад."
     },
     {
       "id": "martin_pinzon",
@@ -36,7 +37,8 @@
         "columbus": "An able seaman, but proud and too fond of giving his own orders. You need him, and you watch him.",
         "storyteller": "The real master of Palos. Men sailed because Pinzon sailed; if he says turn back, they will listen to him, not to the Genoese."
       },
-      "ru": "Мартин Алонсо Пинсон"
+      "ru": "Мартин Алонсо Пинсон",
+      "aboutRu": "капитан «Пинты», самый богатый и уважаемый моряк Палоса. Без него половина команды не нанялась бы."
     },
     {
       "id": "vicente_pinzon",
@@ -53,7 +55,8 @@
         "columbus": "Quieter than his brother and a good captain. The Nina sails well under him.",
         "storyteller": "A good lad, calmer than his brother. Sails that Nina like a gull."
       },
-      "ru": "Висенте Яньес Пинсон"
+      "ru": "Висенте Яньес Пинсон",
+      "aboutRu": "младший брат Мартина Алонсо, капитан маленькой каравеллы «Нинья»."
     },
     {
       "id": "juan_de_la_cosa",
@@ -71,7 +74,8 @@
         "columbus": "The owner of this ship and her master. He knows her every plank, though she is slow and heavy.",
         "storyteller": "The man who owns the very boards under your feet. Careful with his ship, careful with his money."
       },
-      "ru": "Хуан де ла Коса"
+      "ru": "Хуан де ла Коса",
+      "aboutRu": "моряк из Кантабрии, хозяин и шкипер самой «Санта-Марии»."
     },
     {
       "id": "pero_nino",
@@ -92,7 +96,8 @@
         "columbus": "A sound pilot who keeps an honest course. You check his reckoning yourself, as every admiral should.",
         "storyteller": "Knows the stars better than most priests know their prayers."
       },
-      "ru": "Перо Алонсо Ниньо"
+      "ru": "Перо Алонсо Ниньо",
+      "aboutRu": "главный лоцман «Санта-Марии» из Могера, ходил в Гвинею."
     },
     {
       "id": "luis_de_torres",
@@ -108,7 +113,8 @@
         "columbus": "A learned man. When we reach the Khan's court, his tongue will be worth more than ten soldiers.",
         "storyteller": "A man of books among sailors. Polite. Gets seasick."
       },
-      "ru": "Луис де Торрес"
+      "ru": "Луис де Торрес",
+      "aboutRu": "переводчик флота: знает иврит, арабский и немного халдейский — чтобы говорить с Великим ханом."
     },
     {
       "id": "diego_de_arana",
@@ -124,7 +130,8 @@
         "columbus": "A man of Cordoba you trust, family through Beatriz. He keeps order among the men.",
         "storyteller": "The marshal. Kin to the Admiral's woman in Cordoba, so mind your tongue near him."
       },
-      "ru": "Диего де Арана"
+      "ru": "Диего де Арана",
+      "aboutRu": "старший альгвасил флота, следит за порядком среди людей."
     },
     {
       "id": "rodrigo_de_triana",
@@ -140,7 +147,8 @@
         "columbus": "One of Pinzon's men on the Pinta. You hardly know him.",
         "storyteller": "Lad with the eyes of a hawk. If anybody sees land first, it will be him."
       },
-      "ru": "Родриго де Триана"
+      "ru": "Родриго де Триана",
+      "aboutRu": "молодой андалузский матрос с «Пинты», у него самые зоркие глаза."
     },
     {
       "id": "boatswain",
@@ -154,7 +162,8 @@
         "columbus": "Loud and rough, but the men work when he shouts.",
         "storyteller": "Barks like a dog, but he pulled me out of the sea once. Good man."
       },
-      "ru": "боцман"
+      "ru": "боцман",
+      "aboutRu": "громогласный боцман «Санта-Марии», гоняет команду на работе."
     },
     {
       "id": "cook",
@@ -169,7 +178,8 @@
         "columbus": "His cooking is poor, but his fire is safe, and on a wooden ship that matters more.",
         "storyteller": "Burns the beans every day and swears they were meant that way."
       },
-      "ru": "кок"
+      "ru": "кок",
+      "aboutRu": "кок «Санта-Марии»: держит на палубе очаг и варит бобы, сухари и солёные сардины."
     },
     {
       "id": "sailor_diego",
@@ -183,7 +193,8 @@
         "columbus": "A married man from Palos. Steady, if afraid.",
         "storyteller": "Talks about his wife every evening. Misses her already."
       },
-      "ru": "Диего"
+      "ru": "Диего",
+      "aboutRu": "женатый матрос из Палоса, хочет привезти семье золото."
     },
     {
       "id": "sailor_pedro",
@@ -197,7 +208,8 @@
         "columbus": "Cheerful and quick on the ropes.",
         "storyteller": "Young and loud. Laughs at my stories, which is the main thing."
       },
-      "ru": "Педро"
+      "ru": "Педро",
+      "aboutRu": "весёлый молодой матрос: хвалит быструю «Нинью» и ругает медленную «Санта-Марию»."
     },
     {
       "id": "sailor_sancho",
@@ -211,7 +223,8 @@
         "columbus": "He gambles. You have told the boatswain to watch him.",
         "storyteller": "Cheats at cards, badly. I win from him every night."
       },
-      "ru": "Санчо"
+      "ru": "Санчо",
+      "aboutRu": "матрос-игрок, всех предупреждает: берегите кошельки."
     },
     {
       "id": "old_juan",
@@ -228,7 +241,8 @@
         "columbus": "The oldest sailor aboard. Superstitious, but he has seen more sea than most.",
         "trader": "An old sailor from your ships came to buy wine. Told me three lies before he paid."
       },
-      "ru": "Старый Хуан"
+      "ru": "Старый Хуан",
+      "aboutRu": "седобородый старый моряк «Санта-Марии», ходил с португальцами и рассказывает байки по ночам."
     },
     {
       "id": "beatriz",
@@ -246,7 +260,8 @@
         "storyteller": "The lady of La Gomera. Beautiful and dangerous, they say. The islanders fear her.",
         "trader": "Our lady and governor. Her husband was killed by islanders in a revolt and she punished them without mercy. Speak well of her here."
       },
-      "ru": "донья Беатрис де Бобадилья"
+      "ru": "донья Беатрис де Бобадилья",
+      "aboutRu": "правительница острова Гомера, вдова, известная красотой и тяжёлой рукой."
     },
     {
       "id": "gonzalo",
@@ -264,7 +279,8 @@
         "columbus": "The merchant on La Gomera. He swears every price ruins him.",
         "storyteller": "Sells goat cheese at the price of silver. A thief, but a friendly thief."
       },
-      "ru": "Гонсало"
+      "ru": "Гонсало",
+      "aboutRu": "хитрый торговец на рынке Сан-Себастьяна на Гомере."
     },
     {
       "id": "carpenter",
@@ -278,7 +294,8 @@
         "columbus": "The Gomeran carpenter who mends the Pinta's rudder. Good hands.",
         "trader": "Best shipwright on the island. Drinks too much, works too slowly, but his work holds."
       },
-      "ru": "плотник"
+      "ru": "плотник",
+      "aboutRu": "плотник с верфи на Гомере, чинит руль «Пинты»."
     }
   ]
 }

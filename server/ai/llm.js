@@ -7,12 +7,17 @@ let busy = false;
 let activeJob = null;
 // Транспорт к модели; тесты подменяют его заглушкой (без Ollama)
 let transport = (messages, opts) => request(messages, opts);
+let customTransport = false;
+// Модель включается только явно (AI=1): по умолчанию игра идёт на заготовленных фразах (content/agents/*.json → script)
+// и ничего не ждёт от Ollama. Тесты с подменённым транспортом работают как с моделью
+export const llmEnabled = () => process.env.AI === '1' || customTransport;
 // Для админки: сколько запросов ждёт модель и занята ли она сейчас
 export const queueStats = () => ({ waiting: queue.length, busy });
-export const setTransport = (fn) => { transport = fn ?? ((messages, opts) => request(messages, opts)); };
+export const setTransport = (fn) => { customTransport = !!fn; transport = fn ?? ((messages, opts) => request(messages, opts)); };
 
 // format — JSON-схема: Ollama ограничивает ответ этой схемой (structured outputs), модель не может выйти за список вариантов
 export function chat(messages, { priority = 0, preemptible = false, temperature = 0.7, maxTokens = 140, timeoutMs = AI.TIMEOUT_MS, model = AI.MODEL, format } = {}) {
+  if (!llmEnabled()) return Promise.reject(new Error('модель выключена (AI=1 — включить)'));
   return new Promise((resolve, reject) => {
     const controller = preemptible ? new AbortController() : null;
     queue.push({ messages, opts: { temperature, maxTokens, timeoutMs, model, format, ...(controller ? { signal: controller.signal } : {}) }, controller, priority, resolve, reject });

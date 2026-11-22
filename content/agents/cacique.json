@@ -85,5 +85,41 @@
   "actions": [],
   "knownCrew": [
     "elder"
-  ]
+  ],
+  "script": {
+    "cards": {
+      "duho": {
+        "ru": "Касик хранит мир, делит улов и касабе и говорит за деревню. Он сидит на резном дуо.",
+        "en": "The cacique keeps the peace, shares the catch and the cassava, and speaks for the village. He sits on a carved duho."
+      },
+      "gifts": {
+        "ru": "Рыба из лагуны, лепёшка касабе и новый хлопковый гамак. Сегодня вечером на ареито мы дарим и делимся.",
+        "en": "Fish from the lagoon, casabe bread and a new cotton hammock. Tonight at the areito we give and share."
+      },
+      "areito": {
+        "ru": "Ареито — песня и танец на батее. В словах песни живёт память предков.",
+        "en": "The areito is song and dance on the batey. The words keep the memory of our ancestors."
+      },
+      "zemi": {
+        "ru": "Земи — это духи. Мы храним их резные трёхрогие камни и чтим их.",
+        "en": "Zemis are spirits. We keep their carved three-pointed stones and honour them."
+      }
+    },
+    "about": {
+      "ru": "Я касик этой деревни. Гуанин мне дала линия моей матери. Я говорю за наши семьи перед другими деревнями.",
+      "en": "I am the cacique of this village. My mother's line gave me the guanin. I speak for our families before the other villages."
+    },
+    "farewell": {
+      "ru": "Иди. Деревня ждёт твоих рук.",
+      "en": "Go now. The village needs your hands."
+    },
+    "task": {
+      "ru": "Твоё дело сейчас: {task}.",
+      "en": "Your work now: {task}."
+    },
+    "stranger": {
+      "ru": "Я не знаю этого имени.",
+      "en": "I do not know this name."
+    }
+  }
 }
