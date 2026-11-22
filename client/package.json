@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "build:solo": "vite build --config vite.solo.config.js",
+    "dev:solo": "vite --config vite.solo.config.js"
   },
   "dependencies": {
     "three": "0.187.0",

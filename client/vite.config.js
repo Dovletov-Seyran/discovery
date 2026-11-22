@@ -19,7 +19,8 @@ const adminRoute = () => ({
 });
 
 export default defineConfig({
-  plugins: [islandLod(), adminRoute()], // far view of La Gomera (src/world/islandLod.js); /admin
+  plugins: [islandLod(), adminRoute()],
+  define: { 'import.meta.env.VITE_SOLO': JSON.stringify('0') }, // одиночная сборка — vite.solo.config.js // far view of La Gomera (src/world/islandLod.js); /admin
   server: {
     host: true, // доступно по LAN
     port: 5173,

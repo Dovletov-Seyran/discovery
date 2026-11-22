@@ -21,7 +21,8 @@
     "start:dev": "npm run build && cross-env DEV=1 DEMO=1 node server/index.js",
     "start:https": "cross-env HTTPS=1 node server/index.js",
     "dev:https": "cross-env HTTPS=1 npm run dev",
-    "cert": "node server/scripts/cert.js"
+    "cert": "node server/scripts/cert.js",
+    "release": "node scripts/package-release.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

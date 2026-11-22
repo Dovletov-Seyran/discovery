@@ -48,7 +48,7 @@ const DUCK = 0.45;       // фон под голосом
 const PROVISIONS = new Set(['cheese', 'meat', 'biscuit']);
 
 export class WorldAudio {
-  constructor(events, { manifestUrl = '/audio/sounds-manifest.json', volume = 0.8 } = {}) {
+  constructor(events, { manifestUrl = 'audio/sounds-manifest.json', volume = 0.8 } = {}) {
     this.manifestUrl = manifestUrl;
     this.volume = volume;
     this.buffers = new Map();   // id → Promise<AudioBuffer>
@@ -191,7 +191,7 @@ export class WorldAudio {
     if (!this.buffers.has(id)) {
       this.buffers.set(id, this.manifest().then(async (m) => {
         if (!m[id]) return null;
-        const data = await (await fetch(`/audio/${m[id].file}`)).arrayBuffer();
+        const data = await (await fetch(`audio/${m[id].file}`)).arrayBuffer();
         return this.context().decodeAudioData(data);
       }).catch(() => null));
     }

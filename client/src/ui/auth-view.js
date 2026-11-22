@@ -1,4 +1,6 @@
-export function loginView(preview,register=false) {
+// solo — одиночная сборка (itch.io): только имя, сохранения в браузере; {saved} — есть ли что продолжать
+export function loginView(preview,register=false,solo=null) {
+  if(solo)return soloView(solo);
   return `<main class="login-screen">
     <div class="title-block"><span class="quill-title">За горизонтом</span><h1><span class="title-word">Открытие</span>1492</h1><div class="title-rule"><i></i></div><span class="title-seal">Часть первая</span></div>
     <form id="login-form" class="login-form">
@@ -15,3 +17,18 @@ export function loginView(preview,register=false) {
   </main>`;
 }
 
+
+function soloView({saved}) {
+  return `<main class="login-screen">
+    <div class="title-block"><span class="quill-title">За горизонтом</span><h1><span class="title-word">Открытие</span>1492</h1><div class="title-rule"><i></i></div><span class="title-seal">Одиночная игра</span></div>
+    <form id="login-form" class="login-form">
+      <h2>${saved?'С возвращением':'Новый путь'}</h2>
+      <label for="login-name">Имя</label><input id="login-name" name="name" autocomplete="nickname" minlength="3" maxlength="20" required>
+      <p id="login-status" role="status">Прогресс сохраняется в этом браузере.</p>
+      <p id="login-error" class="error" role="alert"></p>
+      <button class="primary" id="login-submit">${saved?'Продолжить':'Играть'}</button>
+      ${saved?'<button type="button" id="new-game" class="quiet-button">Новая игра</button>':''}
+    </form>
+    <footer class="login-footer">Вместе по сети — версия с сервером, ссылка на странице игры</footer>
+  </main>`;
+}

@@ -1,8 +1,10 @@
 node_modules/
 data/
 client/dist/
+client/dist-solo/
 *.log
 .DS_Store
 .vscode/
 .idea/
 .claude/
+/release/

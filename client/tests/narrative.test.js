@@ -23,8 +23,8 @@ test('subtitle chunks preserve the full text without a wall of text',()=>{
 });
 test('voice loads only local manifest and preserves the line filename',async()=>{
   let playedUrl,paused=false;
-  const voices=new VoiceLibrary({fetchImpl:async url=>{assert.equal(url,'/audio/vo/manifest.json');return{ok:true,json:async()=>manifest};},createAudio:url=>{playedUrl=url;return{readyState:1,play:async()=>{},pause:()=>paused=true};}});
-  assert.equal(await voices.playLine('b',{offset:2}),true);assert.equal(playedUrl,'/audio/vo/b.mp3');assert.equal(voices.audio.currentTime,2);
+  const voices=new VoiceLibrary({fetchImpl:async url=>{assert.equal(url,'audio/vo/manifest.json');return{ok:true,json:async()=>manifest};},createAudio:url=>{playedUrl=url;return{readyState:1,play:async()=>{},pause:()=>paused=true};}});
+  assert.equal(await voices.playLine('b',{offset:2}),true);assert.equal(playedUrl,'audio/vo/b.mp3');assert.equal(voices.audio.currentTime,2);
   voices.stop();assert.equal(paused,true);
 });
 test('voice rejects filenames outside the local MP3 library',async()=>{
