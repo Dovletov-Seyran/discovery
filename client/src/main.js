@@ -31,6 +31,9 @@ const root = $('#ui');
 const canvas = $('#game');
 let feastUI;
 const preview = new URLSearchParams(location.search).get('offline') === '1';
+// Одиночная сборка (itch.io, vite.solo.config.js): сервер работает в этой же странице, вход — только по имени
+const SOLO = import.meta.env.VITE_SOLO === '1';
+const solo = SOLO ? await import('./solo/host.js') : null;
 const PLAY_SCENES = new Set(['ship_day','canary','ship_evening']);
 // часть 2 (Гуанахани): игровые сцены узнаём по типу, а не по списку
 const isPlay = s => PLAY_SCENES.has(s?.id) || s?.type==='play';
@@ -154,8 +157,9 @@ function connectionStatus(status){
   syncInput();
 }
 function login(register=false,name=''){
-  screen='login';$('#hud').hidden=true;$('#screen').innerHTML=loginView(preview,register);syncInput();
-  $('#login-name').value=name;
+  screen='login';$('#hud').hidden=true;$('#screen').innerHTML=loginView(preview,register,solo&&{saved:solo.hasAnyProgress()});syncInput();
+  $('#login-name').value=name||(solo?localStorage.getItem('discovery.solo.name')||'':'');
+  if(solo&&$('#new-game'))$('#new-game').onclick=()=>{if(!confirm('Начать заново? Прогресс в этом браузере сотрётся.'))return;solo.newGame();authenticate(false);};
   $('#login-form').onsubmit=event=>{event.preventDefault();authenticate(register);};
   if($('#register'))$('#register').onclick=()=>login(!register,$('#login-name').value.trim());
 }
@@ -163,6 +167,7 @@ async function authenticate(register){
   gameEvents.emit('audio_unlock',{});
   const name=$('#login-name').value.trim(), password=$('#login-password')?.value;
   if(name.length<3){$('#login-error').textContent='Имя — от 3 символов.';return;}
+  if(solo){localStorage.setItem('discovery.solo.name',name);const token=solo.soloLogin(name);localStorage.setItem('discovery.token',token);connect(token);return;}
   if(!password||password.length<4){$('#login-error').textContent='Пароль — от 4 символов.';return;}
   if(register&&password!==$('#register-confirm')?.value){$('#login-error').textContent='Пароли не совпадают.';return;}
   if(preview){connect(name);return;}
@@ -178,7 +183,7 @@ async function authenticate(register){
 }
 function connect(credential){
   closeModal();equipItem(null,{sync:false});net?.disconnect();connected=false;players=[];inventory=[];quests={};
-  net=preview?new MockClient():new SocketClient();
+  net=preview?new MockClient():new SocketClient(solo?{WebSocketImpl:solo.LocalSocket}:{});
   bindNetwork(net);telemetry.attach(net);net.connect(credential);
 }
 function bindNetwork(client){
@@ -591,7 +596,7 @@ function receiveDialogue(message){
   $('#hints').querySelectorAll('button').forEach(button=>button.onclick=()=>{if(sendNpc('npc_hint',{npc:activeNpc,hint:button.dataset.hint})){$('#npc-you').textContent=`Вы: ${button.textContent}`;$('#npc-you').hidden=false;beginDialogueWait();}});
   stopNpcAudio();
   if(typeof message.audio==='string'&&message.audio){
-    let url;try{url=new URL(message.audio,location.href);}catch{return;}
+    let url;try{url=new URL(solo?message.audio.replace(/^\//,''):message.audio,location.href);}catch{return;}
     if(url.origin!==location.origin)return;
     npcAudio=new Audio(url.href);npcAudio.volume=settings.voices;
     gameEvents.emit('voice',{playing:true});

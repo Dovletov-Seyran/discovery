@@ -11,7 +11,7 @@ export class VoiceLibrary {
   }
   async load() {
     if(this.manifest)return this.manifest;
-    this.loading??=this.fetch('/audio/vo/manifest.json').then(response=>{
+    this.loading??=this.fetch('audio/vo/manifest.json').then(response=>{
       if(!response.ok)throw new Error('Манифест озвучки недоступен');
       return response.json();
     }).then(manifest=>{
@@ -27,7 +27,7 @@ export class VoiceLibrary {
     if(generation!==this.generation)return false;
     const line=manifest[id];
     if(!line||typeof line.file!=='string'||!line.file.match(/^[a-zA-Z0-9_-]+\.mp3$/))return false;
-    const audio=this.audio=this.createAudio(`/audio/vo/${line.file}`);
+    const audio=this.audio=this.createAudio(`audio/vo/${line.file}`);
     audio.volume=this.volume;
     audio.playbackRate=Math.min(2,Math.max(0.5,rate));
     const seek=()=>{if(generation===this.generation)audio.currentTime=Math.max(0,Math.min(offset,Math.max(0,(line.duration||0)-0.05)));};

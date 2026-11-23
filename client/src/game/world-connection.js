@@ -115,7 +115,7 @@ export class WorldConnection {
     if(!world||this.scene!==scene)return;
     let durations=null;
     try{
-      const manifest=await (await fetch('/audio/vo/manifest.json')).json();
+      const manifest=await (await fetch('audio/vo/manifest.json')).json();
       durations=buildTimeline(narrativeContent.intro,manifest,scene.duration).map(segment=>segment.end-segment.start);
     }catch{}  // без манифеста — равные доли duration
     if(this.scene!==scene)return;

@@ -438,5 +438,845 @@
   "ru": "Часть вторая. Те, кто стоял на берегу.",
   "en": "Part two. Those who stood on the shore.",
   "hash": "82a25155"
+ },
+ "cacique_1": {
+  "file": "cacique_1.mp3",
+  "npc": "cacique",
+  "duration": 5.85,
+  "ru": "Сегодня вся деревня несёт то, что сделала. Касик раздаёт столько же, сколько получает.",
+  "en": "Today the whole village brings what it has made. A cacique gives as much as he receives.",
+  "hash": "24443a30"
+ },
+ "cacique_2": {
+  "file": "cacique_2.mp3",
+  "npc": "cacique",
+  "duration": 6.83,
+  "ru": "Рыба из лагуны, хлеб с поля, гамак для гостей. Иди и возвращайся, пока солнце высоко.",
+  "en": "Fish from the lagoon, bread from the field, a hammock for the guests. Go, and come back before the sun is low.",
+  "hash": "c0fe9837"
+ },
+ "cacique_done": {
+  "file": "cacique_done.mp3",
+  "npc": "cacique",
+  "duration": 3.23,
+  "ru": "Хорошо. Вечером у костра всё разделим на всех.",
+  "en": "Good. It will be shared at the evening fire.",
+  "hash": "2e364f4d"
+ },
+ "cacique_evening_task": {
+  "file": "cacique_evening_task.mp3",
+  "npc": "cacique",
+  "duration": 5.35,
+  "ru": "День закончен. Вечером на батее будет ареито — несите хворост для костра.",
+  "en": "The day is done. Tonight there will be an areíto on the batey: bring wood for the fire.",
+  "hash": "280f69b8"
+ },
+ "elder_1": {
+  "file": "elder_1.mp3",
+  "npc": "elder",
+  "duration": 5.78,
+  "ru": "Слушайте. Давным-давно моря не было. Жил человек по имени Яйа, и был у него сын Яйаэль.",
+  "en": "Listen. Long ago there was no sea. There was a man called Yaya, and his son Yayael.",
+  "hash": "8955489a"
+ },
+ "elder_2": {
+  "file": "elder_2.mp3",
+  "npc": "elder",
+  "duration": 6.53,
+  "ru": "Сын умер. Яйа сложил его кости в большую тыкву и подвесил её под крышей своего дома.",
+  "en": "The son died. Yaya put his bones into a great gourd and hung it under the roof of his house.",
+  "hash": "eb975fff"
+ },
+ "elder_3": {
+  "file": "elder_3.mp3",
+  "npc": "elder",
+  "duration": 4.95,
+  "ru": "Однажды он заглянул в тыкву — а кости стали рыбами.",
+  "en": "One day he looked into the gourd, and the bones had turned into fish.",
+  "hash": "991f61de"
+ },
+ "elder_4": {
+  "file": "elder_4.mp3",
+  "npc": "elder",
+  "duration": 8.07,
+  "ru": "Пришли четыре брата, рождённые в один день, сняли тыкву, чтобы поесть рыбы. Услышали шаги Яйи — и уронили её.",
+  "en": "Four brothers, born on one day, came and took the gourd down to eat the fish. They heard Yaya coming, and they dropped it.",
+  "hash": "db7f5129"
+ },
+ "elder_5": {
+  "file": "elder_5.mp3",
+  "npc": "elder",
+  "duration": 8.78,
+  "ru": "Тыква раскололась. Вышло столько воды, что она залила всю землю, и рыбы уплыли вместе с ней. Так появилось море.",
+  "en": "The gourd broke. So much water poured out that it covered the whole land, and the fish swam out with it. That is how the sea was made.",
+  "hash": "29d7620c"
+ },
+ "elder_6": {
+  "file": "elder_6.mp3",
+  "npc": "elder",
+  "duration": 4.9,
+  "ru": "У всего, что приходит к нам с моря, есть своя история. Помните это.",
+  "en": "Everything that comes to us from the sea has a story. Remember that.",
+  "hash": "60fe4cb7"
+ },
+ "villager_1_1": {
+  "file": "villager_1_1.mp3",
+  "npc": "villager_1",
+  "duration": 6,
+  "ru": "Тёрка, жгут, бурен — по порядку. И никогда не пей то, что капает из жгута.",
+  "en": "The grater, the cibucán, the burén — in that order. And never drink what drips from the tube.",
+  "hash": "212ae39a"
+ },
+ "villager_2_1": {
+  "file": "villager_2_1.mp3",
+  "npc": "villager_2",
+  "duration": 4.93,
+  "ru": "Маниок созрел. Бери коа — палку для копания у края поля.",
+  "en": "The cassava is ready to dig. Take the coa — the digging stick at the edge of the field.",
+  "hash": "5f77580f"
+ },
+ "villager_3_1": {
+  "file": "villager_3_1.mp3",
+  "npc": "villager_3",
+  "duration": 5.1,
+  "ru": "Утром рыба стоит на отмели у рифа. Возьми острогу и заходи в воду медленно.",
+  "en": "The fish stand in the shallows by the reef in the morning. Take the spear, walk in slowly.",
+  "hash": "3160b64a"
+ },
+ "villager_3_2": {
+  "file": "villager_3_2.mp3",
+  "npc": "villager_3",
+  "duration": 3.78,
+  "ru": "Ночью выходим с факелами: рыба идёт на свет.",
+  "en": "At night we go out with torches: the fish come to the light.",
+  "hash": "98644a92"
+ },
+ "admiral_1": {
+  "file": "admiral_1.mp3",
+  "npc": "admiral",
+  "duration": 10.15,
+  "ru": "«…por el Rey y la Reina… San Salvador…» Он говорит долго и торжественно. Ни одного знакомого слова.",
+  "en": "Sed testigos de que yo, por el Rey y la Reina, mis señores, tomo posesión de esta isla y la nombro San Salvador.",
+  "hash": "86a5d510"
+ },
+ "admiral_2": {
+  "file": "admiral_2.mp3",
+  "npc": "admiral",
+  "duration": 5.38,
+  "ru": "Он трогает золотую пластинку у тебя в носу: «Оро? Оро?» Ты показываешь рукой на юг — золото привозят оттуда.",
+  "en": "¿Oro? ¿De dónde viene este oro? ¿Hay un rey que tiene mucho oro?",
+  "hash": "e9af1a40"
+ },
+ "notary_1": {
+  "file": "notary_1.mp3",
+  "npc": "notary",
+  "duration": 5.78,
+  "ru": "Он пишет что-то на белых листах и читает вслух. Колумб велел нотариусу Родриго де Эскобедо записать, что остров взят во владение.",
+  "en": "Yo, Rodrigo de Escobedo, escribano de toda la armada, doy fe…",
+  "hash": "b7552817"
+ },
+ "sailor_es_1": {
+  "file": "sailor_es_1.mp3",
+  "npc": "sailor_es",
+  "duration": 3.8,
+  "ru": "«Мира, мира!» Он трясёт колокольчиком и показывает на твои руки.",
+  "en": "¡Mira, mira! Cuentas, cascabeles… ¿Qué me das?",
+  "hash": "25e57827"
+ },
+ "p2_departure_1": {
+  "file": "p2_departure_1.mp3",
+  "npc": "narrator",
+  "duration": 8.73,
+  "ru": "14 октября Колумб поплыл дальше и увёз с собой семерых жителей острова — «чтобы они научились говорить» и стали переводчиками.",
+  "en": "On the fourteenth of October Columbus sailed on, taking seven people of the island with him, so that they would learn to speak and become interpreters.",
+  "hash": "74a9405e"
+ },
+ "agent.admiral.greeting": {
+  "file": "agent.admiral.greeting.mp3",
+  "npc": "admiral",
+  "duration": 5.58,
+  "ru": "¡Oro! ¿Dónde está el oro? (показывает на твоё кольцо в носу, потом на горизонт)",
+  "en": "¡Oro! ¿Dónde está el oro? (points at your nose ring, then at the horizon)",
+  "hash": "d81e222a"
+ },
+ "agent.admiral.card_gold": {
+  "file": "agent.admiral.card_gold.mp3",
+  "npc": "admiral",
+  "duration": 4.53,
+  "ru": "¿Al sur? ¡Al sur hay oro! (кивает и тоже показывает на юг)",
+  "en": "¿Al sur? ¡Al sur hay oro! (nods and points south too)",
+  "hash": "a7d4f2d7"
+ },
+ "agent.admiral.card_banner": {
+  "file": "agent.admiral.card_banner.mp3",
+  "npc": "admiral",
+  "duration": 8.25,
+  "ru": "¡Por los Reyes de Castilla! Esta isla se llamará San Salvador. (поднимает знамя с зелёным крестом)",
+  "en": "¡Por los Reyes de Castilla! Esta isla se llamará San Salvador. (raises the banner with the green cross)",
+  "hash": "f76a3a0e"
+ },
+ "agent.admiral.card_trade": {
+  "file": "agent.admiral.card_trade.mp3",
+  "npc": "admiral",
+  "duration": 7.35,
+  "ru": "¡Algodón! Bueno, bueno. Toma, cuentas de vidrio. (протягивает горсть стеклянных бусин)",
+  "en": "¡Algodón! Bueno, bueno. Toma, cuentas de vidrio. (holds out a handful of glass beads)",
+  "hash": "ab09459e"
+ },
+ "agent.admiral.about": {
+  "file": "agent.admiral.about.mp3",
+  "npc": "admiral",
+  "duration": 6.05,
+  "ru": "Soy el Almirante del Mar Océano. (бьёт себя в грудь и показывает на корабли)",
+  "en": "Soy el Almirante del Mar Océano. (taps his chest and points at the ships)",
+  "hash": "ecb7a894"
+ },
+ "agent.admiral.farewell": {
+  "file": "agent.admiral.farewell.mp3",
+  "npc": "admiral",
+  "duration": 2.85,
+  "ru": "Adiós, adiós. (машет рукой)",
+  "en": "Adiós, adiós. (waves his hand)",
+  "hash": "e52ffe64"
+ },
+ "agent.admiral.stranger": {
+  "file": "agent.admiral.stranger.mp3",
+  "npc": "admiral",
+  "duration": 2.88,
+  "ru": "No entiendo… (качает головой)",
+  "en": "No entiendo… (shakes his head)",
+  "hash": "da9d68c3"
+ },
+ "agent.admiral.fallback_0": {
+  "file": "agent.admiral.fallback_0.mp3",
+  "npc": "admiral",
+  "duration": 4.15,
+  "ru": "No entiendo… (качает головой и показывает на бусы)",
+  "en": "No entiendo… (shakes his head and points at the beads)",
+  "hash": "3c48fb9b"
+ },
+ "agent.cacique.greeting": {
+  "file": "agent.cacique.greeting.mp3",
+  "npc": "cacique",
+  "duration": 3.93,
+  "ru": "Ты пришёл к канею. Хорошо. Что сегодня несёт деревня?",
+  "en": "You come to the caney. Good. What does the village bring today?",
+  "hash": "f119dcf0"
+ },
+ "agent.cacique.card_duho": {
+  "file": "agent.cacique.card_duho.mp3",
+  "npc": "cacique",
+  "duration": 7.1,
+  "ru": "Касик хранит мир, делит улов и касабе и говорит за деревню. Он сидит на резном дуо.",
+  "en": "The cacique keeps the peace, shares the catch and the cassava, and speaks for the village. He sits on a carved duho.",
+  "hash": "e963ed29"
+ },
+ "agent.cacique.card_gifts": {
+  "file": "agent.cacique.card_gifts.mp3",
+  "npc": "cacique",
+  "duration": 6.4,
+  "ru": "Рыба из лагуны, лепёшка касабе и новый хлопковый гамак. Сегодня вечером на ареито мы дарим и делимся.",
+  "en": "Fish from the lagoon, casabe bread and a new cotton hammock. Tonight at the areito we give and share.",
+  "hash": "b84a2cdb"
+ },
+ "agent.cacique.card_areito": {
+  "file": "agent.cacique.card_areito.mp3",
+  "npc": "cacique",
+  "duration": 5.8,
+  "ru": "Ареито — песня и танец на батее. В словах песни живёт память предков.",
+  "en": "The areito is song and dance on the batey. The words keep the memory of our ancestors.",
+  "hash": "cbc1ecec"
+ },
+ "agent.cacique.card_zemi": {
+  "file": "agent.cacique.card_zemi.mp3",
+  "npc": "cacique",
+  "duration": 5.08,
+  "ru": "Земи — это духи. Мы храним их резные трёхрогие камни и чтим их.",
+  "en": "Zemis are spirits. We keep their carved three-pointed stones and honour them.",
+  "hash": "3e14846c"
+ },
+ "agent.cacique.about": {
+  "file": "agent.cacique.about.mp3",
+  "npc": "cacique",
+  "duration": 7.6,
+  "ru": "Я касик этой деревни. Гуанин мне дала линия моей матери. Я говорю за наши семьи перед другими деревнями.",
+  "en": "I am the cacique of this village. My mother's line gave me the guanin. I speak for our families before the other villages.",
+  "hash": "eb92bd1a"
+ },
+ "agent.cacique.farewell": {
+  "file": "agent.cacique.farewell.mp3",
+  "npc": "cacique",
+  "duration": 3.08,
+  "ru": "Иди. Деревня ждёт твоих рук.",
+  "en": "Go now. The village needs your hands.",
+  "hash": "d4de4bb5"
+ },
+ "agent.cacique.stranger": {
+  "file": "agent.cacique.stranger.mp3",
+  "npc": "cacique",
+  "duration": 2.48,
+  "ru": "Я не знаю этого имени.",
+  "en": "I do not know this name.",
+  "hash": "5e4e7d93"
+ },
+ "agent.cacique.fallback_0": {
+  "file": "agent.cacique.fallback_0.mp3",
+  "npc": "cacique",
+  "duration": 3.38,
+  "ru": "Иди, есть работа. Возвращайся с дарами.",
+  "en": "Go now, there is work. Come back with the gifts.",
+  "hash": "11cd2919"
+ },
+ "agent.columbus.greeting": {
+  "file": "agent.columbus.greeting.mp3",
+  "npc": "columbus",
+  "duration": 4.63,
+  "ru": "А, это ты. Говори, но быстро. Ветер никого не ждёт.",
+  "en": "Ah, you. Speak, but be quick. The wind waits for no man.",
+  "hash": "426a9b3b"
+ },
+ "agent.columbus.card_why_west": {
+  "file": "agent.columbus.card_why_west.mp3",
+  "npc": "columbus",
+  "duration": 10.8,
+  "ru": "На запад, только на запад — к Индиям, Катаю и Сипанго. Привезём золото и пряности, а Великому хану — письма от короля и королевы.",
+  "en": "West, always west — to the Indies, Cathay and Cipangu. We will bring back gold and spices, and letters from the King and Queen to the Great Khan.",
+  "hash": "086df044"
+ },
+ "agent.columbus.card_reward": {
+  "file": "agent.columbus.card_reward.mp3",
+  "npc": "columbus",
+  "duration": 10.3,
+  "ru": "По договору в Санта-Фе я стану Адмиралом Моря-Океана, вице-королём всех земель, что открою, и получу десятую часть их богатств.",
+  "en": "By the agreement of Santa Fe I shall be Admiral of the Ocean Sea, Viceroy of every land I find, and receive a tenth of its riches.",
+  "hash": "c771b0fc"
+ },
+ "agent.columbus.card_distance": {
+  "file": "agent.columbus.card_distance.mp3",
+  "npc": "columbus",
+  "duration": 12.9,
+  "ru": "По моим расчётам до Сипанго около семисот пятидесяти лиг от Канар — несколько недель при добром ветре. Учёные Саламанки говорят, что Земля больше. Они ошибаются.",
+  "en": "By my reckoning Cipangu lies some seven hundred and fifty leagues beyond the Canaries, a few weeks of good wind. The scholars of Salamanca say the Earth is larger. They are wrong.",
+  "hash": "45bb12e6"
+ },
+ "agent.columbus.card_years_waiting": {
+  "file": "agent.columbus.card_years_waiting.mp3",
+  "npc": "columbus",
+  "duration": 9.32,
+  "ru": "Португальский король мне отказал. Семь лет я просил корабли у Их Величеств — и только когда пала Гранада, они согласились.",
+  "en": "The King of Portugal refused me. Seven years I begged Their Majesties for ships, and only when Granada fell did they agree.",
+  "hash": "ade7bedf"
+ },
+ "agent.columbus.card_marco_polo": {
+  "file": "agent.columbus.card_marco_polo.mp3",
+  "npc": "columbus",
+  "duration": 9.38,
+  "ru": "Читал, и не раз. Марко Поло пишет, что в Сипанго дворцы крыты золотом. Я увижу их своими глазами.",
+  "en": "I have, more than once. Marco Polo writes that in Cipangu the palaces are roofed with gold. I will see them with my own eyes.",
+  "hash": "17ed9f6c"
+ },
+ "agent.columbus.card_ships": {
+  "file": "agent.columbus.card_ships.mp3",
+  "npc": "columbus",
+  "duration": 12.7,
+  "ru": "«Санта-Мария» — тяжёлая нао, мой флагман. «Пинта» Мартина Алонсо Пинсона и «Нинья» — быстрые каравеллы. С нами около девяноста человек, многие из Палоса.",
+  "en": "The Santa Maria is a heavy nao, my flagship. The Pinta under Martin Alonso Pinzon and the Nina are swift caravels. Some ninety men sail with us, many from Palos.",
+  "hash": "33e3e1e9"
+ },
+ "agent.columbus.card_compass_secret": {
+  "file": "agent.columbus.card_compass_secret.mp3",
+  "npc": "columbus",
+  "duration": 9.57,
+  "ru": "Боятся, я знаю. Поэтому я веду два журнала: верный — для себя, а для команды пишу пройденный путь короче. Пусть не падают духом.",
+  "en": "They fear it, I know. So I keep two logs: the true one for myself, and one with shorter distances for the men, so they do not lose heart.",
+  "hash": "287f7d50"
+ },
+ "agent.columbus.about": {
+  "file": "agent.columbus.about.mp3",
+  "npc": "columbus",
+  "duration": 12.35,
+  "ru": "Я родился в Генуе, сын ткача. Ходил с португальцами в Гвинею, чертил карты с братом Бартоломео. Теперь веду три корабля туда, где никто не бывал.",
+  "en": "I was born in Genoa, a weaver's son. I sailed with the Portuguese to Guinea and drew charts with my brother Bartholomew. Now I lead three ships where no one has sailed.",
+  "hash": "d6db07a5"
+ },
+ "agent.columbus.farewell": {
+  "file": "agent.columbus.farewell.mp3",
+  "npc": "columbus",
+  "duration": 4.83,
+  "ru": "Ступай. И держи ухо востро — море не прощает ротозеев.",
+  "en": "Go. And keep your eyes open — the sea forgives no idlers.",
+  "hash": "7dfd6ca9"
+ },
+ "agent.columbus.stranger": {
+  "file": "agent.columbus.stranger.mp3",
+  "npc": "columbus",
+  "duration": 4.65,
+  "ru": "Такого на моих кораблях нет. Не морочь мне голову.",
+  "en": "There is no such man on my ships. Do not waste my time.",
+  "hash": "050798f6"
+ },
+ "agent.columbus.fallback_0": {
+  "file": "agent.columbus.fallback_0.mp3",
+  "npc": "columbus",
+  "duration": 2.6,
+  "ru": "Не сейчас. Следи за парусами.",
+  "en": "Not now. Watch the sails.",
+  "hash": "f02d79bf"
+ },
+ "agent.columbus.fallback_1": {
+  "file": "agent.columbus.fallback_1.mp3",
+  "npc": "columbus",
+  "duration": 3,
+  "ru": "Спроси позже, когда море успокоится.",
+  "en": "Ask me later, when the sea is calmer.",
+  "hash": "ef7bc1cf"
+ },
+ "agent.columbus.fallback_2": {
+  "file": "agent.columbus.fallback_2.mp3",
+  "npc": "columbus",
+  "duration": 3.5,
+  "ru": "Ветер меняется. Поговорим позже.",
+  "en": "The wind is changing. We will talk later.",
+  "hash": "11accc29"
+ },
+ "agent.columbus.action_light_lanterns": {
+  "file": "agent.columbus.action_light_lanterns.mp3",
+  "npc": "columbus",
+  "duration": 4.25,
+  "ru": "Зажечь фонари! Пусть «Пинта» и «Нинья» нас видят.",
+  "en": "Light the lanterns! Let the Pinta and the Niña see us.",
+  "hash": "74adeba8"
+ },
+ "agent.columbus.action_raise_flag": {
+  "file": "agent.columbus.action_raise_flag.mp3",
+  "npc": "columbus",
+  "duration": 5.3,
+  "ru": "Поднять знамя Кастилии! Пусть океан знает, чьи это корабли.",
+  "en": "Raise the banner of Castile! Let the ocean know whose ships these are.",
+  "hash": "fdb7cb3f"
+ },
+ "agent.columbus.action_furl_sails": {
+  "file": "agent.columbus.action_furl_sails.mp3",
+  "npc": "columbus",
+  "duration": 4.15,
+  "ru": "Убрать паруса! Отдохнём немного, но только немного.",
+  "en": "Take in the sails! We rest a little, but only a little.",
+  "hash": "f7966e59"
+ },
+ "agent.columbus.action_give_rations": {
+  "file": "agent.columbus.action_give_rations.mp3",
+  "npc": "columbus",
+  "duration": 4.9,
+  "ru": "Кок, паёк! По сухарю на брата, и ни крошки больше.",
+  "en": "Cook, the ration! One biscuit for each man, and not a crumb more.",
+  "hash": "1a847ba6"
+ },
+ "agent.elder.greeting": {
+  "file": "agent.elder.greeting.mp3",
+  "npc": "elder",
+  "duration": 4.08,
+  "ru": "Садись у огня, дитя. Старые слова греют.",
+  "en": "Sit by the fire, child. The old words are warm.",
+  "hash": "39a346c7"
+ },
+ "agent.elder.card_sea_myth": {
+  "file": "agent.elder.card_sea_myth.mp3",
+  "npc": "elder",
+  "duration": 10.73,
+  "ru": "У Яйи умер сын. Его кости положили в тыкву и повесили под крышей. Когда тыкву сняли, из неё хлынула вода и выпрыгнули рыбы — так появилось море.",
+  "en": "Yaya's son died. His bones were put in a gourd under the roof. When the gourd was taken down, water and fish poured out of it, and that water became the sea.",
+  "hash": "46caf6ad"
+ },
+ "agent.elder.card_hurricane": {
+  "file": "agent.elder.card_hurricane.mp3",
+  "npc": "elder",
+  "duration": 6.15,
+  "ru": "Хуракан — злой ветер сезона бурь. Сейчас он уходит от нас.",
+  "en": "Huracan is the angry wind of the season of storms. Now it is leaving us.",
+  "hash": "3a9b41ce"
+ },
+ "agent.elder.card_moon": {
+  "file": "agent.elder.card_moon.mp3",
+  "npc": "elder",
+  "duration": 6.1,
+  "ru": "Мы считаем луной и сезонами. Сегодня пятое утро после полной луны.",
+  "en": "We count by moons and seasons. This is the fifth morning after the full moon.",
+  "hash": "d57ae90f"
+ },
+ "agent.elder.about": {
+  "file": "agent.elder.about.mp3",
+  "npc": "elder",
+  "duration": 5.8,
+  "ru": "Я видел много хураканов. Руки мои теперь медленные, но память длинная.",
+  "en": "I have seen many hurricanes. My hands are slow now, but my memory is long.",
+  "hash": "0622dc12"
+ },
+ "agent.elder.farewell": {
+  "file": "agent.elder.farewell.mp3",
+  "npc": "elder",
+  "duration": 3.4,
+  "ru": "Иди, дитя. Огонь подождёт тебя.",
+  "en": "Go, child. The fire will wait for you.",
+  "hash": "187bfbea"
+ },
+ "agent.elder.stranger": {
+  "file": "agent.elder.stranger.mp3",
+  "npc": "elder",
+  "duration": 3.45,
+  "ru": "Это чужое слово. Я его не знаю.",
+  "en": "That is a strange word. I do not know it.",
+  "hash": "3c4f39d2"
+ },
+ "agent.elder.fallback_0": {
+  "file": "agent.elder.fallback_0.mp3",
+  "npc": "elder",
+  "duration": 4.05,
+  "ru": "Память устала. Спроси меня снова у огня.",
+  "en": "My memory is tired. Ask me again by the fire.",
+  "hash": "9341c266"
+ },
+ "agent.musician.greeting": {
+  "file": "agent.musician.greeting.mp3",
+  "npc": "musician",
+  "duration": 4.9,
+  "ru": "Мелодию в дорогу? Я знаю весёлый наигрыш и тихую мелодию о доме.",
+  "en": "A tune for the voyage? I know a merry melody and a quiet one for home.",
+  "hash": "07532d4e"
+ },
+ "agent.musician.card_guitar": {
+  "file": "agent.musician.card_guitar.mp3",
+  "npc": "musician",
+  "duration": 4.35,
+  "ru": "Это маленькая гитара на четыре хора струн. Под неё и поём, и пляшем.",
+  "en": "This is a small four-course guitar. We sing and dance to it.",
+  "hash": "af38bd2e"
+ },
+ "agent.musician.card_song": {
+  "file": "agent.musician.card_song.mp3",
+  "npc": "musician",
+  "duration": 5.43,
+  "ru": "Поём, чтобы держать ритм в работе и вспоминать дом. Играю, когда вахта позволяет.",
+  "en": "We sing to keep time at work and to remember home. I play when the watch allows.",
+  "hash": "009a6799"
+ },
+ "agent.musician.card_dance": {
+  "file": "agent.musician.card_dance.mp3",
+  "npc": "musician",
+  "duration": 5.45,
+  "ru": "Когда работа сделана, музыка и пляска поднимают усталый дух. Вечером увидишь.",
+  "en": "When the work is done, music and a dance lift tired spirits. You will see tonight.",
+  "hash": "9c38f886"
+ },
+ "agent.musician.about": {
+  "file": "agent.musician.about.mp3",
+  "npc": "musician",
+  "duration": 7.2,
+  "ru": "Я Хиль, матрос и гитарист. Моё дело — струны, песни и пляски, чтобы команда не вешала нос.",
+  "en": "I am Gil, sailor and guitar player. My work is strings, songs and dances, so the crew keeps its spirits up.",
+  "hash": "63f53c21"
+ },
+ "agent.musician.farewell": {
+  "file": "agent.musician.farewell.mp3",
+  "npc": "musician",
+  "duration": 2.45,
+  "ru": "Ступай с музыкой в сердце!",
+  "en": "Go with music in your heart!",
+  "hash": "08138d88"
+ },
+ "agent.musician.stranger": {
+  "file": "agent.musician.stranger.mp3",
+  "npc": "musician",
+  "duration": 3.15,
+  "ru": "Не знаю такого. Спроси у боцмана.",
+  "en": "I do not know him. Ask the boatswain.",
+  "hash": "2d78929b"
+ },
+ "agent.musician.fallback_0": {
+  "file": "agent.musician.fallback_0.mp3",
+  "npc": "musician",
+  "duration": 4.7,
+  "ru": "Мне надо следить за работой. За другими поручениями обратись к боцману.",
+  "en": "I must mind my work. Ask the boatswain if you need other orders.",
+  "hash": "471cacbd"
+ },
+ "agent.musician.action_play_cheerful": {
+  "file": "agent.musician.action_play_cheerful.mp3",
+  "npc": "musician",
+  "duration": 3.9,
+  "ru": "Тогда весёлый наигрыш. Пусть струны поднимут нам настроение.",
+  "en": "A merry tune, then. Let the strings lift our spirits.",
+  "hash": "a6cab6dc"
+ },
+ "agent.musician.action_play_quiet": {
+  "file": "agent.musician.action_play_quiet.mp3",
+  "npc": "musician",
+  "duration": 3.65,
+  "ru": "Тихая мелодия о доме. Послушай струны.",
+  "en": "A quiet tune for home. Listen to the strings.",
+  "hash": "5b5e6548"
+ },
+ "agent.musician.action_stop_music": {
+  "file": "agent.musician.action_stop_music.mp3",
+  "npc": "musician",
+  "duration": 3.08,
+  "ru": "Хорошо. Пусть струны отдохнут.",
+  "en": "Very well. I shall let the strings rest.",
+  "hash": "5c9e1833"
+ },
+ "agent.storyteller.greeting": {
+  "file": "agent.storyteller.greeting.mp3",
+  "npc": "storyteller",
+  "duration": 5.25,
+  "ru": "Садись, парень, садись! Вина сегодня хватит на всех.",
+  "en": "Sit down, lad, sit down! There's wine enough for everyone tonight.",
+  "hash": "0674c452"
+ },
+ "agent.storyteller.card_sea_of_darkness": {
+  "file": "agent.storyteller.card_sea_of_darkness.mp3",
+  "npc": "storyteller",
+  "duration": 11.43,
+  "ru": "Мавры звали этот океан Морем Мрака. Старики говорят: кто уйдёт слишком далеко на запад, тот не вернётся. Хотя живых, кто пробовал, я не встречал.",
+  "en": "The Moors called this ocean the Sea of Darkness. Old men say whoever sails too far west never comes back. Though I never met a living soul who tried.",
+  "hash": "52bf7180"
+ },
+ "agent.storyteller.card_san_borondon": {
+  "file": "agent.storyteller.card_san_borondon.mp3",
+  "npc": "storyteller",
+  "duration": 14,
+  "ru": "На Иерро и Гомере клянутся, что видят на западе остров с горами. Зовут его Сан-Борондон, по святому Брендану. Корабли его искали — а он всегда исчезает.",
+  "en": "On El Hierro and La Gomera they swear they see an island with mountains to the west. They call it San Borondon, after the holy monk Brendan. Ships have searched for it, and it always vanishes.",
+  "hash": "95036dd0"
+ },
+ "agent.storyteller.card_sailor_life": {
+  "file": "agent.storyteller.card_sailor_life.mp3",
+  "npc": "storyteller",
+  "duration": 14.5,
+  "ru": "Каюта только у Адмирала да у капитана. Мы спим на палубе, где найдём сухую доску. Едим сухари, солонину, сыр, бобы и сардины — а через пару недель в сухарях заводятся черви.",
+  "en": "Only the Admiral and the captain have cabins. We sleep on deck wherever we find a dry board. We eat biscuit, salted meat, cheese, beans and sardines, and after a few weeks the biscuit gets worms.",
+  "hash": "13b6921e"
+ },
+ "agent.storyteller.card_hourglass_song": {
+  "file": "agent.storyteller.card_hourglass_song.mp3",
+  "npc": "storyteller",
+  "duration": 11.65,
+  "ru": "Песочные часы идут полчаса. Юнга переворачивает их и поёт молитву — так весь корабль знает время. Восемь склянок — одна вахта, четыре часа.",
+  "en": "The sand glass runs half an hour. The ship boy turns it and sings a little prayer, so the whole ship knows the time. Eight glasses make one watch, four hours.",
+  "hash": "7250fbe3"
+ },
+ "agent.storyteller.card_africa": {
+  "file": "agent.storyteller.card_africa.mp3",
+  "npc": "storyteller",
+  "duration": 15.35,
+  "ru": "Молодым я ходил с португальцами вдоль Гвинеи за золотом и слоновой костью. А четыре года назад Бартоломеу Диаш обогнул южный мыс Африки. Португальцы хотят в Индию тем путём.",
+  "en": "As a young man I sailed with the Portuguese down the coast of Guinea for gold and ivory. Four years ago Bartolomeu Dias rounded the southern cape of Africa. The Portuguese mean to reach the Indies that way.",
+  "hash": "7d6728d3"
+ },
+ "agent.storyteller.card_sea_monsters": {
+  "file": "agent.storyteller.card_sea_monsters.mp3",
+  "npc": "storyteller",
+  "duration": 12.18,
+  "ru": "На старых картах полно морских змей и рыб, что глотают корабли. Я сам видел кита длиной с наш корабль. Говорят, кто-то принял такого за остров и высадился на него.",
+  "en": "The old maps are full of sea serpents and fish that swallow ships. I once saw a whale as long as our ship. They say some men took one for an island and landed on it.",
+  "hash": "c33e44ac"
+ },
+ "agent.storyteller.card_cards_games": {
+  "file": "agent.storyteller.card_cards_games.mp3",
+  "npc": "storyteller",
+  "duration": 13.23,
+  "ru": "Играем в примеру испанской колодой — монеты, кубки, мечи и палицы. И в кости. Попы говорят — грех, и не один моряк проиграл всё жалованье, не дойдя до порта.",
+  "en": "We play primera with the Spanish deck of coins, cups, swords and clubs, and we throw dice. The priests call it a sin, and many a sailor has lost his whole pay before reaching port.",
+  "hash": "94d217a9"
+ },
+ "agent.storyteller.about": {
+  "file": "agent.storyteller.about.mp3",
+  "npc": "storyteller",
+  "duration": 13.93,
+  "ru": "Я из Палоса, сын рыбака, мне за шестьдесят. Тонул у берегов Гвинеи — выжил. Зуб потерял в драке в Лиссабоне, но драку выиграл, клянусь! Нанялся, чтобы увидеть ещё одно чудо.",
+  "en": "I am from Palos, a fisherman's son, past sixty. I was shipwrecked off Guinea and lived. I lost a tooth in a fight in Lisbon, but I won that fight, I swear! I signed on to see one more wonder.",
+  "hash": "45143065"
+ },
+ "agent.storyteller.farewell": {
+  "file": "agent.storyteller.farewell.mp3",
+  "npc": "storyteller",
+  "duration": 4.72,
+  "ru": "Иди, иди. А вечером приходи — расскажу ещё.",
+  "en": "Go on, go on. Come back tonight and I will tell you more.",
+  "hash": "cecc40e8"
+ },
+ "agent.storyteller.stranger": {
+  "file": "agent.storyteller.stranger.mp3",
+  "npc": "storyteller",
+  "duration": 4.25,
+  "ru": "Не знаю такого. Может, он на «Пинте»?",
+  "en": "I do not know him. Maybe he sails on the Pinta?",
+  "hash": "09861e18"
+ },
+ "agent.storyteller.fallback_0": {
+  "file": "agent.storyteller.fallback_0.mp3",
+  "npc": "storyteller",
+  "duration": 3.9,
+  "ru": "А? Громче, парень, вино сегодня шумит.",
+  "en": "Eh? Speak up, lad, the wine is loud tonight.",
+  "hash": "3d335952"
+ },
+ "agent.storyteller.fallback_1": {
+  "file": "agent.storyteller.fallback_1.mp3",
+  "npc": "storyteller",
+  "duration": 3.68,
+  "ru": "Потом, потом. Сначала выпей со мной.",
+  "en": "Later, later. First, drink with me.",
+  "hash": "e8d0faa8"
+ },
+ "agent.storyteller.fallback_2": {
+  "file": "agent.storyteller.fallback_2.mp3",
+  "npc": "storyteller",
+  "duration": 3.25,
+  "ru": "Эту байку я расскажу тебе в другую ночь.",
+  "en": "I'll tell you that tale another night.",
+  "hash": "310e770d"
+ },
+ "agent.trader.greeting": {
+  "file": "agent.trader.greeting.mp3",
+  "npc": "trader",
+  "duration": 5.75,
+  "ru": "Добро пожаловать, сеньор, добро пожаловать! Лучший сыр на всех Канарах — смотрите, нюхайте!",
+  "en": "Welcome, senor, welcome! The finest cheese in all the Canaries, look, smell!",
+  "hash": "24977b74"
+ },
+ "agent.trader.card_goods": {
+  "file": "agent.trader.card_goods.mp3",
+  "npc": "trader",
+  "duration": 10.65,
+  "ru": "Козий сыр — сорок мараведи за голову, солонина — сорок за бочонок, сухари — тридцать за мешок. Сухари пекут дважды, чтобы месяцами не портились в море.",
+  "en": "Goat cheese, forty maravedis a wheel; salted meat, forty a barrel; biscuit, thirty a sack. Biscuit is baked twice so it keeps for months at sea.",
+  "hash": "f611dd11"
+ },
+ "agent.trader.card_maravedi": {
+  "file": "agent.trader.card_maravedi.mp3",
+  "npc": "trader",
+  "duration": 11,
+  "ru": "Мараведи — медная монета Кастилии. Матрос получает около тысячи в месяц, хороший конь стоит тысячи, а золотой эксселенте — сотни мараведи.",
+  "en": "The maravedi is the copper coin of Castile. A sailor earns about a thousand a month, a fine horse costs thousands, and a gold excelente is worth hundreds.",
+  "hash": "93fd6f8c"
+ },
+ "agent.trader.card_la_gomera": {
+  "file": "agent.trader.card_la_gomera.mp3",
+  "npc": "trader",
+  "duration": 11.68,
+  "ru": "Островом правит донья Беатрис де Бобадилья — красивая и очень жёсткая сеньора. Её мужа убили островитяне во время мятежа, и она наказала их без пощады.",
+  "en": "The island is ruled by Dona Beatriz de Bobadilla, a beautiful and very hard lady. The islanders killed her husband in a revolt, and she punished them without mercy.",
+  "hash": "7b9b0fb0"
+ },
+ "agent.trader.card_guanches": {
+  "file": "agent.trader.card_guanches.mp3",
+  "npc": "trader",
+  "duration": 12.63,
+  "ru": "До Кастилии здесь жили местные люди — мы зовём их гуанчами. Гран-Канарию покорили всего девять лет назад, Тенерифе ещё воюет. Многих островитян продали в рабство.",
+  "en": "Before Castile, native peoples lived here. We call them Guanches. Gran Canaria fell only nine years ago, and Tenerife still fights. Many islanders were sold as slaves.",
+  "hash": "50889faf"
+ },
+ "agent.trader.card_silbo": {
+  "file": "agent.trader.card_silbo.mp3",
+  "npc": "trader",
+  "duration": 9.18,
+  "ru": "Пастухи Гомеры говорят свистом. Свистом переговариваются через ущелья, с горы на гору — дальше, чем долетит любой крик.",
+  "en": "The shepherds of La Gomera speak by whistling. They talk across deep ravines, from one mountain to another, farther than any shout carries.",
+  "hash": "81db4bee"
+ },
+ "agent.trader.card_land_west": {
+  "file": "agent.trader.card_land_west.mp3",
+  "npc": "trader",
+  "duration": 12.03,
+  "ru": "Люди с Иерро клянутся, что в ясный день видят землю на западе. Сан-Борондон, говорят. По мне, это облако… но покупателю, что идёт на запад, я бы так не сказал.",
+  "en": "Men from El Hierro swear that on clear days they see land to the west. San Borondon, they say. I think it is a cloud… but I would never tell that to a customer sailing west.",
+  "hash": "ac622d0a"
+ },
+ "agent.trader.card_well_water": {
+  "file": "agent.trader.card_well_water.mp3",
+  "npc": "trader",
+  "duration": 8,
+  "ru": "Колодец у гавани даёт самую сладкую воду на острове. Каждый корабль, что идёт на запад, наполняет там бочки.",
+  "en": "The well by the harbour gives the sweetest water on the island. Every ship sailing west fills its barrels there.",
+  "hash": "2e364830"
+ },
+ "agent.trader.about": {
+  "file": "agent.trader.about.mp3",
+  "npc": "trader",
+  "duration": 14.75,
+  "ru": "Я кастилец из Хереса, десять лет как на Гомере. Жена у меня гомерка, двое детей и мул Палома. Покупаю сыр у пастухов и продаю каждому кораблю. Мечтаю о лавке в Севилье.",
+  "en": "I am a Castilian from Jerez, ten years on La Gomera. My wife is Gomeran; we have two children and a mule named Paloma. I buy cheese from the shepherds and sell it to every ship. I dream of a shop in Seville.",
+  "hash": "11f5cc76"
+ },
+ "agent.trader.farewell": {
+  "file": "agent.trader.farewell.mp3",
+  "npc": "trader",
+  "duration": 4.43,
+  "ru": "Приходи ещё, сеньор! Лучший сыр — только у Гонсало!",
+  "en": "Come again, senor! The best cheese is only at Gonzalo's!",
+  "hash": "b717bcec"
+ },
+ "agent.trader.stranger": {
+  "file": "agent.trader.stranger.mp3",
+  "npc": "trader",
+  "duration": 4.2,
+  "ru": "Не слыхал о таком. Я знаю только тех, кто у меня покупает.",
+  "en": "Never heard of him. I only know the ones who buy from me.",
+  "hash": "60c4386b"
+ },
+ "agent.trader.fallback_0": {
+  "file": "agent.trader.fallback_0.mp3",
+  "npc": "trader",
+  "duration": 3.63,
+  "ru": "Э, сеньор, сначала купите что-нибудь, потом поговорим!",
+  "en": "Eh, senor, buy something first, then we talk!",
+  "hash": "44e59194"
+ },
+ "agent.trader.fallback_1": {
+  "file": "agent.trader.fallback_1.mp3",
+  "npc": "trader",
+  "duration": 3.5,
+  "ru": "Простите, меня ждёт другой покупатель.",
+  "en": "Forgive me, another customer is waiting.",
+  "hash": "773f0b7c"
+ },
+ "agent.trader.action_show_goods": {
+  "file": "agent.trader.action_show_goods.mp3",
+  "npc": "trader",
+  "duration": 5.8,
+  "ru": "Смотри, сеньор: сыр с Гомеры, солонина, сухари на много месяцев!",
+  "en": "Look, señor: Gomera cheese, salted meat, biscuit that keeps for months!",
+  "hash": "d10a0277"
+ },
+ "agent.trader.trade_sold": {
+  "file": "agent.trader.trade_sold.mp3",
+  "npc": "trader",
+  "duration": 3.25,
+  "ru": "Продано! Ты умеешь торговаться, сеньор.",
+  "en": "Sold! You drive a hard bargain, senor.",
+  "hash": "6a555e6a"
+ },
+ "agent.trader.trade_counter": {
+  "file": "agent.trader.trade_counter.mp3",
+  "npc": "trader",
+  "duration": 3.18,
+  "ru": "Маловато. Может, чуть больше?",
+  "en": "That is too little. Perhaps a bit more?",
+  "hash": "fbe2427b"
+ },
+ "agent.trader.trade_angry": {
+  "file": "agent.trader.trade_angry.mp3",
+  "npc": "trader",
+  "duration": 3.4,
+  "ru": "Ты меня оскорбляешь! Теперь цена выше.",
+  "en": "You insult me! Now the price goes up.",
+  "hash": "768c46e7"
+ },
+ "agent.trader.trade_no_money": {
+  "file": "agent.trader.trade_no_money.mp3",
+  "npc": "trader",
+  "duration": 3.08,
+  "ru": "Для этого твой кошель слишком лёгок, друг.",
+  "en": "Your purse is too light for that, friend.",
+  "hash": "c3d60b91"
  }
 }
