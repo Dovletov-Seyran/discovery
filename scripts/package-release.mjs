@@ -12,8 +12,9 @@ const OUT = join(ROOT, 'release');
 const run = (cmd, args, cwd = ROOT) => execFileSync(cmd, args, { cwd, stdio: 'inherit' });
 const count = (dir) => readdirSync(dir).reduce((n, f) => n + (statSync(join(dir, f)).isDirectory() ? count(join(dir, f)) : 1), 0);
 
-rmSync(OUT, { recursive: true, force: true });
+// Стираем только свои архивы: рядом может лежать release/itch-media (обложка, скриншоты)
 mkdirSync(OUT, { recursive: true });
+for (const f of ['discovery-1492-web.zip', 'discovery-1492-multiplayer.zip', 'discovery-1492-multiplayer']) rmSync(join(OUT, f), { recursive: true, force: true });
 
 // 1. Одиночная версия: index.html в корне архива, все пути относительные
 run('npm', ['run', 'build:solo', '-w', 'client']);
